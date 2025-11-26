@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}All Student Log Sheets - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border-radius: 12px;
+        padding: 20px;
+        color: white;
+        transition: transform 0.2s;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    .stats-gradient-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .stats-gradient-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .stats-gradient-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stats-gradient-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .stress-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .stress-critical { background: #fed7d7; color: #c53030; }
+    .stress-high { background: #feebc8; color: #c05621; }
+    .stress-moderate { background: #fefcbf; color: #744210; }
+    .stress-low { background: #c6f6d5; color: #276749; }
+    .sentiment-icon {
+        font-size: 24px;
+    }
+    .action-required-badge {
+        animation: blink 2s infinite;
+    }
+    @keyframes blink {
+        0%, 50%, 100% { opacity: 1; }
+        25%, 75% { opacity: 0.5; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-data'></i> System-Wide Log Sheets & Analytics</h2>
+            <p class="text-muted">ML-powered insights across all students</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="exportToCSV()">
+                <i class='bx bx-download'></i> Export Data
+            </button>
+            <button class="btn btn-info" onclick="generateReport()">
+                <i class='bx bx-file'></i> Generate Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card stats-gradient-1">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-uppercase">Total Feedback</h6>
+                        <h2 class="mb-0">{{ total_feedback_count }}</h2>
+                    </div>
+                    <i class='bx bx-note' style="font-size: 48px; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card stats-gradient-2">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-uppercase">Avg Rating</h6>
+                        <h2 class="mb-0">{{ avg_rating|floatformat:1 }}/5</h2>
+                    </div>
+                    <i class='bx bx-star' style="font-size: 48px; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card stats-gradient-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-uppercase">Avg Stress</h6>
+                        <h2 class="mb-0">{{ avg_stress|floatformat:0 }}%</h2>
+                    </div>
+                    <i class='bx bx-brain' style="font-size: 48px; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card stats-gradient-4">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-uppercase">High Stress</h6>
+                        <h2 class="mb-0">{{ high_stress_students|length }}</h2>
+                    </div>
+                    <i class='bx bx-error-circle' style="font-size: 48px; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#allFeedback">
+                All Feedback <span class="badge bg-primary">{{ all_feedback|length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#highStress">
+                High Stress Students <span class="badge bg-danger">{{ high_stress_students|length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#actionRequired">
+                Action Required <span class="badge bg-warning">{{ action_required_feedback|length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#analytics">
+                Advanced Analytics
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- All Feedback Tab -->
+        <div class="tab-pane fade show active" id="allFeedback">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Feedback Entries</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Student</th>
+                                    <th>Supervisor</th>
+                                    <th>Context</th>
+                                    <th>Rating</th>
+                                    <th>Sentiment</th>
+                                    <th>Flags</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for feedback in all_feedback %}
+                                <tr>
+                                    <td>{{ feedback.date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'analytics:supervisor_view_student' feedback.student.id %}">
+                                            {{ feedback.student.display_name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ feedback.supervisor.display_name }}</td>
+                                    <td>{{ feedback.context|truncatewords:5 }}</td>
+                                    <td>
+                                        {% if feedback.rating %}
+                                        <span class="badge bg-primary">
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= feedback.rating %}⭐{% endif %}
+                                            {% endfor %}
+                                        </span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if feedback.sentiment_score %}
+                                        <span class="sentiment-icon">
+                                            {% if feedback.sentiment_score > 0.3 %}
+                                            😊
+                                            {% elif feedback.sentiment_score < -0.3 %}
+                                            😞
+                                            {% else %}
+                                            😐
+                                            {% endif %}
+                                        </span>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if feedback.action_required %}
+                                        <span class="badge bg-danger action-required-badge">Action</span>
+                                        {% endif %}
+                                        {% if feedback.follow_up_required %}
+                                        <span class="badge bg-warning">Follow-up</span>
+                                        {% endif %}
+                                        {% if not feedback.is_visible_to_student %}
+                                        <span class="badge bg-secondary">Hidden</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="viewDetails({{ feedback.id }})">
+                                            <i class='bx bx-show'></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- High Stress Students Tab -->
+        <div class="tab-pane fade" id="highStress">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">Students with High Stress Levels (≥70%)</h5>
+                </div>
+                <div class="card-body">
+                    {% if high_stress_students %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Stress Level</th>
+                                    <th>Category</th>
+                                    <th>Chat Sentiment</th>
+                                    <th>Deadline Pressure</th>
+                                    <th>Workload</th>
+                                    <th>Last Updated</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stress in high_stress_students %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'analytics:supervisor_view_student' stress.student.id %}">
+                                            {{ stress.student.display_name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-danger" style="width: {{ stress.level }}%">
+                                                {{ stress.level|floatformat:0 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="stress-badge stress-{% if stress.level >= 80 %}critical{% else %}high{% endif %}">
+                                            {{ stress.stress_category }}
+                                        </span>
+                                    </td>
+                                    <td>{{ stress.chat_sentiment_score|floatformat:2 }}</td>
+                                    <td>{{ stress.deadline_pressure|floatformat:0 }}%</td>
+                                    <td>{{ stress.workload_score|floatformat:0 }}%</td>
+                                    <td>{{ stress.timestamp|date:"M d, H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'analytics:student_stress_detail' stress.student.id %}" class="btn btn-sm btn-warning">
+                                            Intervene
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No students with high stress levels. Great!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Required Tab -->
+        <div class="tab-pane fade" id="actionRequired">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">Feedback Requiring Action</h5>
+                </div>
+                <div class="card-body">
+                    {% if action_required_feedback %}
+                    <div class="list-group">
+                        {% for feedback in action_required_feedback %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">
+                                        {{ feedback.student.display_name }} - {{ feedback.context }}
+                                    </h6>
+                                    <p class="mb-1">{{ feedback.remarks|truncatewords:30 }}</p>
+                                    <small class="text-muted">
+                                        Supervisor: {{ feedback.supervisor.display_name }} | 
+                                        Date: {{ feedback.date|date:"M d, Y" }}
+                                    </small>
+                                </div>
+                                <a href="{% url 'analytics:supervisor_view_student' feedback.student.id %}" class="btn btn-sm btn-danger">
+                                    Review
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No feedback entries requiring action.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Analytics Tab -->
+        <div class="tab-pane fade" id="analytics">
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Stress Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="stressDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Rating Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="ratingDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Sentiment Trends Over Time</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="sentimentTrendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Function placeholders
+function viewDetails(feedbackId) {
+    alert('View details for feedback ID: ' + feedbackId);
+}
+
+function exportToCSV() {
+    alert('Exporting data to CSV...');
+}
+
+function generateReport() {
+    alert('Generating comprehensive report...');
+}
+
+// Charts initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Stress Distribution Chart (placeholder data)
+    const stressCtx = document.getElementById('stressDistributionChart').getContext('2d');
+    new Chart(stressCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Low (0-30)', 'Moderate (30-60)', 'High (60-80)', 'Critical (80-100)'],
+            datasets: [{
+                data: [30, 45, 20, 5],
+                backgroundColor: ['#48bb78', '#ecc94b', '#ed8936', '#f56565']
+            }]
+        }
+    });
+
+    // Rating Distribution Chart
+    const ratingCtx = document.getElementById('ratingDistributionChart').getContext('2d');
+    new Chart(ratingCtx, {
+        type: 'bar',
+        data: {
+            labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+            datasets: [{
+                label: 'Number of Ratings',
+                data: [5, 12, 28, 45, 30],
+                backgroundColor: '#667eea'
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Sentiment Trend Chart
+    const sentimentCtx = document.getElementById('sentimentTrendChart').getContext('2d');
+    new Chart(sentimentCtx, {
+        type: 'line',
+        data: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+            datasets: [
+                {
+                    label: 'Positive Sentiment',
+                    data: [65, 70, 68, 72, 75, 78],
+                    borderColor: '#48bb78',
+                    backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Negative Sentiment',
+                    data: [15, 12, 18, 10, 8, 6],
+                    borderColor: '#f56565',
+                    backgroundColor: 'rgba(245, 101, 101, 0.1)',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,98 @@
+<!-- File: Desktop/Prime/templates/projects/project_list.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Projects - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class='bx bx-folder'></i> Projects</h2>
+    {% if request.user.is_student %}
+        <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
+            <i class='bx bx-plus'></i> Create Project
+        </a>
+    {% endif %}
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <input type="text" name="q" class="form-control" 
+                       placeholder="Search projects..." value="{{ search_query }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-control">
+                    <option value="">All Status</option>
+                    {% for value, label in statuses %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="batch" class="form-control">
+                    <option value="">All Batches</option>
+                    {% for batch in batches %}
+                        <option value="{{ batch }}" {% if batch_filter|stringformat:"s" == batch|stringformat:"s" %}selected{% endif %}>
+                            Batch {{ batch }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class='bx bx-search'></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Projects List -->
+<div class="row">
+    {% for project in projects %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title">{{ project.title|truncatechars:50 }}</h5>
+                    <span class="badge bg-{% if project.status == 'approved' %}success{% elif project.status == 'pending' %}warning{% elif project.status == 'rejected' %}danger{% elif project.status == 'completed' %}info{% else %}secondary{% endif %}">
+                        {{ project.get_status_display }}
+                    </span>
+                </div>
+                
+                <p class="card-text text-muted">{{ project.description|truncatechars:150 }}</p>
+                
+                <div class="mb-3">
+                    {% for lang in project.languages_list|slice:":3" %}
+                        <span class="badge bg-light text-dark me-1">{{ lang }}</span>
+                    {% endfor %}
+                    {% if project.languages_list|length > 3 %}
+                        <span class="badge bg-light text-dark">+{{ project.languages_list|length|add:"-3" }} more</span>
+                    {% endif %}
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class='bx bx-user'></i> {{ project.student.get_full_name }}
+                        | Batch {{ project.batch_year }}
+                    </small>
+                    <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">
+                        View Details <i class='bx bx-right-arrow-alt'></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class='bx bx-info-circle'></i> No projects found matching your criteria.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

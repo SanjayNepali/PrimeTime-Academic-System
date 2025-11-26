@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ group.name }} - Groups{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class='bx bx-group'></i> {{ group.name }}
+                        {% if group.is_full %}
+                        <span class="badge bg-danger">FULL</span>
+                        {% elif not group.is_active %}
+                        <span class="badge bg-secondary">INACTIVE</span>
+                        {% elif group.student_count >= group.min_students %}
+                        <span class="badge bg-success">ACTIVE</span>
+                        {% else %}
+                        <span class="badge bg-warning">NEEDS STUDENTS</span>
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted">Batch {{ group.batch_year }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'groups:group_list' %}" class="btn btn-outline-secondary">
+                        <i class='bx bx-arrow-back'></i> Back to Groups
+                    </a>
+                    {% if can_edit %}
+                    <a href="{% url 'groups:group_update' group.pk %}" class="btn btn-primary">
+                        <i class='bx bx-edit'></i> Edit Group
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Group Info -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class='bx bx-info-circle'></i> Group Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted d-block">SUPERVISOR</small>
+                        <h6 class="mb-0">
+                            <i class='bx bx-user-pin'></i> {{ group.supervisor.get_full_name }}
+                        </h6>
+                        <small class="text-muted">{{ group.supervisor.email }}</small>
+                    </div>
+
+                    <hr>
+
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h3 class="mb-0 text-primary">{{ group.student_count }}</h3>
+                            <small class="text-muted">Current Students</small>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h3 class="mb-0 text-success">{{ group.max_students }}</h3>
+                            <small class="text-muted">Max Capacity</small>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="mb-0 text-warning">{{ group.min_students }}</h3>
+                            <small class="text-muted">Min Required</small>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="mb-0 {% if group.available_slots > 0 %}text-info{% else %}text-danger{% endif %}">
+                                {{ group.available_slots }}
+                            </h3>
+                            <small class="text-muted">Available Slots</small>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-2">
+                        <small class="text-muted d-block">CREATED</small>
+                        <p class="mb-0">{{ group.created_at|date:"M d, Y" }}</p>
+                    </div>
+
+                    {% if group.created_by %}
+                    <div class="mb-2">
+                        <small class="text-muted d-block">CREATED BY</small>
+                        <p class="mb-0">{{ group.created_by.get_full_name }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if project %}
+            <div class="card mt-3">
+                <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class='bx bx-folder'></i> Active Project</h6>
+                </div>
+                <div class="card-body">
+                    <h6>{{ project.title }}</h6>
+                    <p class="text-muted small mb-2">{{ project.description|truncatewords:20 }}</p>
+                    <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-outline-success w-100">
+                        <i class='bx bx-show'></i> View Project
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Members List -->
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class='bx bx-user-plus'></i> Group Members ({{ members|length }})
+                    </h5>
+                    {% if can_add_students and not group.is_full %}
+                    <div>
+                        <a href="{% url 'groups:add_student' group.pk %}" class="btn btn-sm btn-light">
+                            <i class='bx bx-user-plus'></i> Add Student
+                        </a>
+                        <a href="{% url 'groups:bulk_add_students' group.pk %}" class="btn btn-sm btn-light">
+                            <i class='bx bx-group'></i> Bulk Add
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if members %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Email</th>
+                                    <th>Department</th>
+                                    <th>Joined</th>
+                                    {% if can_edit %}
+                                    <th>Actions</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for membership in members %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ membership.student.get_full_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ membership.student.username }}</small>
+                                    </td>
+                                    <td>{{ membership.student.email }}</td>
+                                    <td>{{ membership.student.department|default:"—" }}</td>
+                                    <td>{{ membership.joined_at|date:"M d, Y" }}</td>
+                                    {% if can_edit %}
+                                    <td>
+                                        <a href="{% url 'groups:remove_student' group.pk membership.student.pk %}"
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Remove {{ membership.student.get_full_name }} from this group?')">
+                                            <i class='bx bx-trash'></i>
+                                        </a>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class='bx bx-user-x' style="font-size: 3rem; color: #ccc;"></i>
+                        <h5 class="mt-3 text-muted">No Students Yet</h5>
+                        {% if can_add_students %}
+                        <p class="text-muted">Start by adding students to this group.</p>
+                        <a href="{% url 'groups:add_student' group.pk %}" class="btn btn-primary mt-2">
+                            <i class='bx bx-user-plus'></i> Add First Student
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Activities -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class='bx bx-history'></i> Recent Activities</h6>
+                    <a href="{% url 'groups:group_activities' group.pk %}" class="btn btn-sm btn-light">
+                        View All
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if activities %}
+                    <ul class="list-group list-group-flush">
+                        {% for activity in activities %}
+                        <li class="list-group-item px-0">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ activity.get_action_display }}</strong>
+                                    <p class="mb-0 text-muted small">{{ activity.details }}</p>
+                                </div>
+                                <small class="text-muted">{{ activity.timestamp|timesince }} ago</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No activities yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

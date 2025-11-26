@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Bulk Add Students - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-group'></i> Bulk Add Students to {{ group.name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Group Info -->
+                    <div class="alert alert-info">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Current Students:</strong> {{ group.student_count }}/{{ group.max_students }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Available Slots:</strong> {{ group.available_slots }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Select Students to Add</label>
+                            <p class="text-muted small">
+                                Select up to {{ group.available_slots }} students.
+                                Only students not currently in any group are shown.
+                            </p>
+                            {{ form.students }}
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'groups:group_detail' group.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-group'></i> Add Selected Students
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.form-check {
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    transition: background-color 0.2s;
+}
+.form-check:hover {
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}

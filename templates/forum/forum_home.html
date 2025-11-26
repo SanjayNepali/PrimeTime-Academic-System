@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Forum - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-comments"></i> Community Forum</h2>
+        <a href="{% url 'forum:post_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Post
+        </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ stats.total_posts }}</h4>
+                    <small class="text-muted">Total Posts</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ stats.total_replies }}</h4>
+                    <small class="text-muted">Replies</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ stats.solved_posts }}</h4>
+                    <small class="text-muted">Solved</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4>{{ stats.active_users }}</h4>
+                    <small class="text-muted">Active Users</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Posts -->
+    {% for post in posts %}
+    <div class="card mb-3 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h5><a href="{% url 'forum:post_detail' post.pk %}">{{ post.title }}</a></h5>
+                    <p class="text-muted mb-2">{{ post.content|truncatewords:30 }}</p>
+                    <div>
+                        <span class="badge badge-primary">{{ post.get_post_type_display }}</span>
+                        {% if post.is_solved %}<span class="badge badge-success">Solved</span>{% endif %}
+                        {% if post.is_pinned %}<span class="badge badge-warning">Pinned</span>{% endif %}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div><i class="fas fa-arrow-up"></i> {{ post.upvote_count }}</div>
+                    <div><i class="fas fa-comments"></i> {{ post.reply_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Update Profile - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h4><i class='bx bx-edit'></i> Update Profile</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Profile Picture -->
+                        {% if user.profile.profile_picture %}
+                        <div class="text-center mb-4">
+                            <img src="{{ user.profile.profile_picture.url }}" alt="Current Profile Picture" 
+                                 class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
+                        </div>
+                        {% endif %}
+                        
+                        <div class="form-group mb-3">
+                            <label class="form-label">Profile Picture</label>
+                            {{ form.profile_picture }}
+                            {% if form.profile_picture.errors %}
+                                <div class="text-danger small">{{ form.profile_picture.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Email</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small">{{ form.email.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Full Name</label>
+                            {{ form.full_name }}
+                            {% if form.full_name.errors %}
+                                <div class="text-danger small">{{ form.full_name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Phone</label>
+                            {{ form.phone }}
+                            {% if form.phone.errors %}
+                                <div class="text-danger small">{{ form.phone.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Department</label>
+                            {{ form.department }}
+                            {% if form.department.errors %}
+                                <div class="text-danger small">{{ form.department.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label class="form-label">Bio</label>
+                            {{ form.bio }}
+                            {% if form.bio.errors %}
+                                <div class="text-danger small">{{ form.bio.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Student-specific fields -->
+                        {% if user.is_student %}
+                            {% if form.student_id %}
+                            <div class="form-group mb-3">
+                                <label class="form-label">Student ID</label>
+                                {{ form.student_id }}
+                                {% if form.student_id.errors %}
+                                    <div class="text-danger small">{{ form.student_id.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if form.enrollment_year %}
+                            <div class="form-group mb-3">
+                                <label class="form-label">Enrollment Year</label>
+                                {{ form.enrollment_year }}
+                                {% if form.enrollment_year.errors %}
+                                    <div class="text-danger small">{{ form.enrollment_year.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        {% endif %}
+
+                        <!-- Supervisor-specific fields -->
+                        {% if user.is_supervisor %}
+                            {% if form.specialization %}
+                            <div class="form-group mb-3">
+                                <label class="form-label">Specialization</label>
+                                {{ form.specialization }}
+                                {% if form.specialization.errors %}
+                                    <div class="text-danger small">{{ form.specialization.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if form.max_groups %}
+                            <div class="form-group mb-3">
+                                <label class="form-label">Maximum Groups</label>
+                                {{ form.max_groups }}
+                                {% if form.max_groups.errors %}
+                                    <div class="text-danger small">{{ form.max_groups.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors.0 }}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> Save Changes
+                            </button>
+                            <a href="{% url 'accounts:profile' %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

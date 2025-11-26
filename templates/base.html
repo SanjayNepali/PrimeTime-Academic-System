@@ -1,0 +1,239 @@
+<!-- File: Desktop/Prime/templates/base.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PrimeTime - Academic Qualification System{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Boxicons -->
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+
+    {% load static %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{% static 'css/modern.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <!-- Modern Navigation -->
+    <nav class="modern-nav">
+        <div class="nav-container">
+            <div class="nav-left">
+                <a href="{% url 'dashboard:home' %}" class="brand">
+                    <i class='bx bxs-graduation'></i>
+                    <span>PrimeTime</span>
+                </a>
+                
+                <div class="nav-links">
+                    <a href="{% url 'dashboard:home' %}" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+                        <i class='bx bx-home-alt'></i> Dashboard
+                    </a>
+                    
+                    {% if user.is_student %}
+                    <a href="{% url 'projects:my_project' %}" class="nav-link {% if 'my-project' in request.path %}active{% endif %}">
+                        <i class='bx bx-folder'></i> My Project
+                    </a>
+                    {% endif %}
+                    
+                    {% if user.is_supervisor %}
+                    <a href="{% url 'projects:supervisor_projects' %}" class="nav-link {% if 'supervisor-projects' in request.path %}active{% endif %}">
+                        <i class='bx bx-group'></i> My Groups
+                    </a>
+                    {% endif %}
+                    
+                    {% if user.is_superadmin or user.is_admin %}
+                    <div class="nav-dropdown">
+                        <a href="#" class="nav-link {% if 'all-projects' in request.path or 'users' in request.path %}active{% endif %}">
+                            <i class='bx bx-cog'></i> Admin <i class='bx bx-chevron-down'></i>
+                        </a>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'projects:all_projects' %}" class="dropdown-link {% if 'all-projects' in request.path %}active{% endif %}">
+                                <i class='bx bx-folder-open'></i> All Projects
+                            </a>
+                            <a href="{% url 'accounts:user_list' %}" class="dropdown-link {% if 'users' in request.path %}active{% endif %}">
+                                <i class='bx bx-user'></i> User Management
+                            </a>
+                            <a href="#" class="dropdown-link">
+                                <i class='bx bx-data'></i> System Reports
+                            </a>
+                        </div>
+                    </div>
+                    {% elif user.is_supervisor %}
+                    <a href="{% url 'projects:all_projects' %}" class="nav-link {% if 'all-projects' in request.path %}active{% endif %}">
+                        <i class='bx bx-folder-open'></i> All Projects
+                    </a>
+                    {% endif %}
+                    
+                    <a href="#" class="nav-link {% if 'resources' in request.path %}active{% endif %}">
+                        <i class='bx bx-book-content'></i> Resources
+                    </a>
+                </div>
+            </div>
+            
+            <div class="nav-right">
+                <!-- Role Switcher for admin users -->
+                {% if user.is_superadmin or user.role == 'admin' %}
+                <div class="role-switcher">
+                    <form method="post" action="{% url 'dashboard:switch_role' %}" class="role-form">
+                        {% csrf_token %}
+                        <select name="role" class="role-select" onchange="this.form.submit()">
+                            <option value="superadmin" {% if request.session.active_role == 'superadmin' %}selected{% endif %}>
+                                Super Admin
+                            </option>
+                            <option value="admin" {% if request.session.active_role == 'admin' %}selected{% endif %}>
+                                Admin
+                            </option>
+                            {% if user.is_supervisor %}
+                            <option value="supervisor" {% if request.session.active_role == 'supervisor' %}selected{% endif %}>
+                                Supervisor
+                            </option>
+                            {% endif %}
+                        </select>
+                    </form>
+                </div>
+                {% endif %}
+                
+                <button class="notification-btn">
+                    <i class='bx bx-bell'></i>
+                    <span class="notification-badge">3</span>
+                </button>
+                
+                <div class="user-menu">
+                    <button class="user-menu-btn">
+                        <div class="user-avatar">
+                            {% if user.profile.profile_picture %}
+                                <img src="{{ user.profile.profile_picture.url }}" alt="Avatar">
+                            {% else %}
+                                <i class='bx bx-user-circle'></i>
+                            {% endif %}
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name">{{ user.display_name }}</span>
+                            <span class="user-role">
+                                {% if user.is_superadmin %}
+                                    Super Admin
+                                {% elif user.is_admin %}
+                                    Admin
+                                {% else %}
+                                    {{ user.get_role_display|default:"User" }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <i class='bx bx-chevron-down'></i>
+                    </button>
+                    
+                    <div class="user-dropdown">
+                        <a href="{% url 'dashboard:user_profile' %}">
+                            <i class='bx bx-user'></i> My Profile
+                        </a>
+                        <a href="{% url 'accounts:change_password' %}">
+                            <i class='bx bx-lock'></i> Change Password
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="{% url 'accounts:logout' %}">
+                            <i class='bx bx-log-out'></i> Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Messages -->
+        {% if messages %}
+            <div class="alerts-container">
+                {% for message in messages %}
+                <div class="modern-alert alert-{{ message.tags }}">
+                    <div class="alert-content">
+                        {% if message.tags == 'success' %}
+                            <i class='bx bx-check-circle'></i>
+                        {% elif message.tags == 'error' or message.tags == 'danger' %}
+                            <i class='bx bx-x-circle'></i>
+                        {% elif message.tags == 'warning' %}
+                            <i class='bx bx-error'></i>
+                        {% else %}
+                            <i class='bx bx-info-circle'></i>
+                        {% endif %}
+                        <span>{{ message }}</span>
+                    </div>
+                    <button class="alert-close" onclick="this.parentElement.remove()">
+                        <i class='bx bx-x'></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // User dropdown toggle
+        document.querySelector('.user-menu-btn')?.addEventListener('click', function() {
+            document.querySelector('.user-dropdown').classList.toggle('show');
+        });
+        
+        // Nav dropdown toggle
+        document.querySelectorAll('.nav-dropdown > .nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                this.parentElement.classList.toggle('show');
+            });
+        });
+        
+        // Close dropdowns on outside click
+        document.addEventListener('click', function(e) {
+            // Close user dropdown
+            if (!e.target.closest('.user-menu')) {
+                document.querySelector('.user-dropdown')?.classList.remove('show');
+            }
+            
+            // Close nav dropdowns
+            if (!e.target.closest('.nav-dropdown')) {
+                document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                });
+            }
+        });
+        
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            document.querySelectorAll('.modern-alert').forEach(alert => {
+                alert.style.animation = 'slideOut 0.3s ease forwards';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 5000);
+        
+        // Add loading state to role switcher
+        document.querySelectorAll('.role-select').forEach(select => {
+            select.addEventListener('change', function() {
+                const form = this.closest('form');
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Switching...';
+                    submitBtn.disabled = true;
+                }
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

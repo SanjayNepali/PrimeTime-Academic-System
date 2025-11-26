@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chat - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-list {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    .room-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 4px solid #007bff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .room-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    .room-card.frozen {
+        border-left-color: #dc3545;
+        opacity: 0.7;
+    }
+    .room-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .room-name {
+        font-size: 18px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    .room-type {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+    .room-type.group { background: #e3f2fd; color: #1976d2; }
+    .room-type.direct { background: #f3e5f5; color: #7b1fa2; }
+    .room-type.supervisor { background: #fff3e0; color: #f57c00; }
+    .room-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        color: #7f8c8d;
+        font-size: 14px;
+    }
+    .last-message {
+        color: #555;
+        margin-top: 8px;
+        font-size: 14px;
+    }
+    .unread-badge {
+        background: #dc3545;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+    }
+    .online-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #28a745;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    .frozen-label {
+        color: #dc3545;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .create-room-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #007bff;
+        color: white;
+        border: none;
+        font-size: 24px;
+        box-shadow: 0 4px 12px rgba(0,123,255,0.4);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .create-room-btn:hover {
+        background: #0056b3;
+        transform: scale(1.1);
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #7f8c8d;
+    }
+    .empty-state i {
+        font-size: 64px;
+        color: #bdc3c7;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-comments"></i> Chat Rooms</h2>
+        {% if user.role == 'supervisor' or user.role == 'admin' %}
+        <a href="{% url 'chat:create_room' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Room
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="chat-list">
+        {% if room_data %}
+            {% for item in room_data %}
+            <a href="{% if item.is_accessible %}{% url 'chat:chat_room' item.room.id %}{% else %}#{% endif %}"
+               class="room-card {% if not item.is_accessible %}frozen{% endif %}"
+               style="text-decoration: none;">
+                <div class="room-header">
+                    <div>
+                        <span class="room-name">
+                            {{ item.room.name }}
+                            {% if item.unread > 0 %}
+                                <span class="unread-badge">{{ item.unread }}</span>
+                            {% endif %}
+                        </span>
+                        <span class="room-type {{ item.room.room_type }}">
+                            {{ item.room.get_room_type_display }}
+                        </span>
+                    </div>
+                    {% if not item.is_accessible %}
+                        <span class="frozen-label">
+                            <i class="fas fa-lock"></i> Frozen
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="room-info">
+                    {% if item.online_count > 0 %}
+                        <span>
+                            <span class="online-indicator"></span>
+                            {{ item.online_count }} online
+                        </span>
+                    {% endif %}
+                    <span>
+                        <i class="far fa-clock"></i>
+                        {{ item.room.last_message_at|timesince|default:"No messages" }} ago
+                    </span>
+                </div>
+
+                {% if item.last_message %}
+                <div class="last-message">
+                    <strong>{{ item.last_message.sender.display_name }}:</strong>
+                    {{ item.last_message.display_content|truncatewords:15 }}
+                </div>
+                {% endif %}
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="far fa-comments"></i>
+                <h4>No Chat Rooms</h4>
+                <p>You haven't joined any chat rooms yet.</p>
+                {% if user_groups %}
+                    <p class="mt-3">Your groups:</p>
+                    <div class="list-group" style="max-width: 400px; margin: 0 auto;">
+                        {% for membership in user_groups %}
+                        <a href="{% url 'groups:group_detail' membership.group.id %}"
+                           class="list-group-item list-group-item-action">
+                            {{ membership.group.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Poll for unread count updates
+function updateUnreadCounts() {
+    fetch('{% url "chat:api_room_messages" 0 %}'.replace('/0/', '/unread/'))
+        .then(response => response.json())
+        .then(data => {
+            if (data.unread_count > 0) {
+                document.title = `(${data.unread_count}) Chat - PrimeTime`;
+            }
+        })
+        .catch(err => console.error('Error fetching unread count:', err));
+}
+
+// Update every 30 seconds
+setInterval(updateUnreadCounts, 30000);
+</script>
+{% endblock %}

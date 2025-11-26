@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Create Chat Room - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-plus-circle"></i> Create Chat Room</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Room Types:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><strong>Group:</strong> Chat room for student groups</li>
+                                <li><strong>Direct:</strong> One-on-one conversation</li>
+                                <li><strong>Supervisor:</strong> Supervisor-monitored room with scheduling</li>
+                            </ul>
+                        </div>
+
+                        <div class="alert alert-warning mt-3" id="frozenAlert" style="display: none;">
+                            <i class="fas fa-lock"></i>
+                            <strong>Frozen Room:</strong> When a room is frozen, it can only be accessed during specified hours. Configure the schedule below.
+                        </div>
+
+                        <div class="form-group mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-check"></i> Create Room
+                            </button>
+                            <a href="{% url 'chat:chat_home' %}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const frozenCheckbox = document.querySelector('input[name="is_frozen"]');
+    const scheduleFields = document.querySelectorAll('input[name="schedule_start_time"], input[name="schedule_end_time"], input[name="schedule_days"]');
+    const frozenAlert = document.getElementById('frozenAlert');
+
+    function toggleScheduleFields() {
+        const isFrozen = frozenCheckbox.checked;
+        frozenAlert.style.display = isFrozen ? 'block' : 'none';
+
+        scheduleFields.forEach(field => {
+            field.closest('.form-group').style.display = isFrozen ? 'block' : 'none';
+        });
+    }
+
+    if (frozenCheckbox) {
+        frozenCheckbox.addEventListener('change', toggleScheduleFields);
+        toggleScheduleFields(); // Initial state
+    }
+});
+</script>
+{% endblock %}

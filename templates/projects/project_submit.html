@@ -1,0 +1,64 @@
+<!-- File: Desktop/Prime/templates/projects/project_submit.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Submit Project for Review - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h4 class="mb-0">
+                    <i class='bx bx-send'></i> Submit Project for Review
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class='bx bx-info-circle'></i> 
+                    <strong>Before submitting:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Ensure your project title is clear and descriptive</li>
+                        <li>Verify all technologies are correctly listed</li>
+                        <li>Check that your description is complete</li>
+                        <li>Once submitted, you cannot edit until reviewed</li>
+                    </ul>
+                </div>
+                
+                <div class="card bg-light mb-4">
+                    <div class="card-body">
+                        <h5>{{ project.title }}</h5>
+                        <p class="mb-2">{{ project.description|truncatechars:200 }}</p>
+                        <p class="mb-0">
+                            <strong>Technologies:</strong> {{ project.programming_languages }}
+                        </p>
+                    </div>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="form-check mb-4">
+                        {{ form.confirm }}
+                        <label class="form-check-label" for="{{ form.confirm.id_for_label }}">
+                            {{ form.confirm.label }}
+                        </label>
+                        {% if form.confirm.errors %}
+                            <div class="text-danger small mt-1">{{ form.confirm.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary">
+                            <i class='bx bx-arrow-back'></i> Back
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class='bx bx-send'></i> Submit for Review
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

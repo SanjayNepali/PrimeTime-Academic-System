@@ -1,0 +1,378 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ student.display_name }} - Student Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px 12px 0 0;
+    }
+    .stress-meter {
+        height: 30px;
+        background: #e2e8f0;
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+    }
+    .stress-fill {
+        height: 100%;
+        transition: width 0.5s ease;
+    }
+    .stress-low { background: linear-gradient(90deg, #48bb78, #38a169); }
+    .stress-medium { background: linear-gradient(90deg, #ecc94b, #ed8936); }
+    .stress-high { background: linear-gradient(90deg, #f56565, #c53030); }
+    .feedback-card {
+        border-left: 4px solid #667eea;
+        transition: transform 0.2s;
+    }
+    .feedback-card:hover {
+        transform: translateX(5px);
+    }
+    .sentiment-positive { color: #48bb78; }
+    .sentiment-neutral { color: #ecc94b; }
+    .sentiment-negative { color: #f56565; }
+    .progress-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin: 0 auto;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Profile Header -->
+    <div class="card shadow-lg mb-4">
+        <div class="profile-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h2 class="mb-1">{{ student.display_name }}</h2>
+                    <p class="mb-0">{{ student.email }} | {{ student.department }}</p>
+                    {% if project %}
+                    <p class="mt-2 mb-0">
+                        <i class='bx bx-briefcase'></i> {{ project.title }}
+                    </p>
+                    {% endif %}
+                </div>
+                <a href="{% url 'analytics:supervisor_add_feedback' student.id %}" class="btn btn-light">
+                    <i class='bx bx-plus'></i> Add Feedback
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: Stress & Progress -->
+        <div class="col-md-8">
+            <!-- Stress Analysis -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class='bx bx-brain'></i> Stress Level Analysis</h5>
+                </div>
+                <div class="card-body">
+                    {% if latest_stress %}
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Current Stress Level</span>
+                            <span class="fw-bold">{{ latest_stress.level|floatformat:1 }}% ({{ latest_stress.stress_category }})</span>
+                        </div>
+                        <div class="stress-meter">
+                            <div class="stress-fill {% if latest_stress.level >= 70 %}stress-high{% elif latest_stress.level >= 50 %}stress-medium{% else %}stress-low{% endif %}" 
+                                 style="width: {{ latest_stress.level }}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Stress Breakdown -->
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="text-muted small">Chat Sentiment</div>
+                                <div class="h4 mb-0">{{ latest_stress.chat_sentiment_score|floatformat:1 }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="text-muted small">Deadline Pressure</div>
+                                <div class="h4 mb-0">{{ latest_stress.deadline_pressure|floatformat:0 }}%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="text-muted small">Workload</div>
+                                <div class="h4 mb-0">{{ latest_stress.workload_score|floatformat:0 }}%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="text-muted small">Social Isolation</div>
+                                <div class="h4 mb-0">{{ latest_stress.social_isolation_score|floatformat:0 }}%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stress Trend Chart -->
+                    <div class="mt-4">
+                        <h6>Stress Trend (Last 30 Days)</h6>
+                        <div class="chart-container">
+                            <canvas id="stressChart"></canvas>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No stress data available. Run analysis to generate stress metrics.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Progress Tracking -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class='bx bx-trending-up'></i> Project Progress</h5>
+                </div>
+                <div class="card-body">
+                    {% if latest_progress %}
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div class="progress-circle" style="background: conic-gradient(#48bb78 {{ latest_progress.percentage }}%, #e2e8f0 0%);">
+                                {{ latest_progress.percentage }}%
+                            </div>
+                            <div class="mt-2 text-muted">Overall Progress</div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span>Deliverables</span>
+                                    <span>{{ latest_progress.deliverables_completed }}/{{ latest_progress.total_deliverables }}</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar bg-info" style="width: {{ latest_progress.completion_rate }}%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span>Meetings Attended</span>
+                                    <span>{{ latest_progress.meetings_attended }}</span>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span>Code Commits</span>
+                                    <span>{{ latest_progress.code_commits }}</span>
+                                </div>
+                            </div>
+                            {% if latest_progress.supervisor_satisfaction %}
+                            <div class="mb-0">
+                                <div class="d-flex justify-content-between">
+                                    <span>Supervisor Satisfaction</span>
+                                    <span>
+                                        {% for i in "12345" %}
+                                            {% if forloop.counter <= latest_progress.supervisor_satisfaction %}⭐{% else %}☆{% endif %}
+                                        {% endfor %}
+                                    </span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No progress data available yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Feedback Log Sheet -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class='bx bx-note'></i> Feedback Log Sheet</h5>
+                </div>
+                <div class="card-body">
+                    {% if feedback_list %}
+                    <div class="timeline">
+                        {% for feedback in feedback_list %}
+                        <div class="feedback-card card mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <h6 class="mb-0">{{ feedback.context }}</h6>
+                                    <small class="text-muted">{{ feedback.date|date:"M d, Y" }}</small>
+                                </div>
+                                
+                                <p class="mb-2">{{ feedback.remarks }}</p>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        {% if feedback.rating %}
+                                        <span class="badge bg-primary">
+                                            Rating: 
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= feedback.rating %}⭐{% endif %}
+                                            {% endfor %}
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if feedback.sentiment_score %}
+                                        <span class="badge {% if feedback.sentiment_score > 0.3 %}bg-success{% elif feedback.sentiment_score < -0.3 %}bg-danger{% else %}bg-secondary{% endif %}">
+                                            Sentiment: {{ feedback.sentiment_category }}
+                                        </span>
+                                        {% endif %}
+                                        
+                                        {% if feedback.action_required %}
+                                        <span class="badge bg-danger">Action Required</span>
+                                        {% endif %}
+                                        
+                                        {% if feedback.follow_up_required %}
+                                        <span class="badge bg-warning text-dark">
+                                            Follow-up: {{ feedback.follow_up_date|date:"M d" }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if not feedback.is_visible_to_student %}
+                                    <small class="text-muted"><i class='bx bx-hide'></i> Hidden from student</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No feedback entries yet. Add your first feedback entry to track student progress.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Summary & Meetings -->
+        <div class="col-md-4">
+            <!-- Performance Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class='bx bx-bar-chart'></i> Performance Summary</h6>
+                </div>
+                <div class="card-body">
+                    {% if avg_rating %}
+                    <div class="text-center mb-3">
+                        <h2 class="mb-0">{{ avg_rating|floatformat:1 }}</h2>
+                        <small class="text-muted">Average Rating</small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-2">
+                        <small class="text-muted">Total Feedback Entries</small>
+                        <div class="h5 mb-0">{{ feedback_list|length }}</div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <small class="text-muted">Recent Meetings</small>
+                        <div class="h5 mb-0">{{ recent_meetings|length }}</div>
+                    </div>
+                    
+                    {% if latest_stress %}
+                    <div class="mb-0">
+                        <small class="text-muted">Stress Status</small>
+                        <div class="h5 mb-0 {% if latest_stress.level >= 70 %}text-danger{% elif latest_stress.level >= 50 %}text-warning{% else %}text-success{% endif %}">
+                            {{ latest_stress.stress_category }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Meetings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class='bx bx-group'></i> Recent Meetings</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_meetings %}
+                    <div class="list-group list-group-flush">
+                        {% for meeting in recent_meetings %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between">
+                                <small class="fw-bold">{{ meeting.get_meeting_type_display }}</small>
+                                <small class="text-muted">{{ meeting.meeting_date|date:"M d" }}</small>
+                            </div>
+                            <small class="text-muted">{{ meeting.duration_minutes }} min</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-0">No recent meetings logged.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class='bx bx-lightning'></i> Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'analytics:supervisor_add_feedback' student.id %}" class="btn btn-primary btn-sm w-100 mb-2">
+                        <i class='bx bx-plus'></i> Add Feedback Entry
+                    </a>
+                    <a href="{% url 'analytics:run_stress_analysis' %}?student={{ student.id }}" class="btn btn-info btn-sm w-100 mb-2">
+                        <i class='bx bx-refresh'></i> Run Stress Analysis
+                    </a>
+                    <a href="{% url 'events:my_events' %}" class="btn btn-secondary btn-sm w-100">
+                        <i class='bx bx-calendar'></i> View Student's Events
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Stress Trend Chart
+{% if stress_history %}
+const stressCtx = document.getElementById('stressChart').getContext('2d');
+const stressData = {
+    labels: [{% for stress in stress_history %}'{{ stress.timestamp|date:"M d" }}',{% endfor %}],
+    datasets: [{
+        label: 'Stress Level',
+        data: [{% for stress in stress_history %}{{ stress.level }},{% endfor %}],
+        borderColor: 'rgb(102, 126, 234)',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        tension: 0.4,
+        fill: true
+    }]
+};
+
+new Chart(stressCtx, {
+    type: 'line',
+    data: stressData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

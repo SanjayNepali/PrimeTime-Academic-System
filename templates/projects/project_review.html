@@ -1,0 +1,137 @@
+<!-- File: Desktop/Prime/templates/projects/project_review.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Review Project - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h4 class="mb-0">
+                    <i class='bx bx-check-circle'></i> Review Project
+                </h4>
+            </div>
+            <div class="card-body">
+                <h5>{{ project.title }}</h5>
+                
+                <div class="mb-3">
+                    <strong>Student:</strong> {{ project.student.get_full_name }} ({{ project.student.email }})
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Description:</strong>
+                    <p>{{ project.description|linebreaks }}</p>
+                </div>
+                
+                <div class="mb-4">
+                    <strong>Technologies:</strong>
+                    <div>
+                        {% for lang in project.languages_list %}
+                            <span class="badge bg-primary me-1">{{ lang }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Decision</label>
+                        {% for radio in form.action %}
+                            <div class="form-check">
+                                {{ radio.tag }}
+                                <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                    {{ radio.choice_label }}
+                                </label>
+                            </div>
+                        {% endfor %}
+                        {% if form.action.errors %}
+                            <div class="text-danger small mt-1">{{ form.action.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4" id="rejection-reason-section">
+                        <label for="{{ form.rejection_reason.id_for_label }}" class="form-label">
+                            Rejection Reason
+                        </label>
+                        {{ form.rejection_reason }}
+                        {% if form.rejection_reason.errors %}
+                            <div class="text-danger small mt-1">{{ form.rejection_reason.errors.0 }}</div>
+                        {% endif %}
+                        <small class="text-muted">Provide clear feedback to help the student improve</small>
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors.0 }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-outline-secondary">
+                            <i class='bx bx-arrow-back'></i> Back to Dashboard
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class='bx bx-check'></i> Submit Review
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class='bx bx-info-circle'></i> Review Guidelines</h5>
+            </div>
+            <div class="card-body">
+                <h6>Approval Criteria:</h6>
+                <ul class="small">
+                    <li>Clear and achievable project scope</li>
+                    <li>Appropriate technology choices</li>
+                    <li>Sufficient complexity for academic level</li>
+                    <li>Original work (not copied)</li>
+                </ul>
+                
+                <h6 class="mt-3">Common Rejection Reasons:</h6>
+                <ul class="small">
+                    <li>Project scope too broad/narrow</li>
+                    <li>Insufficient technical challenge</li>
+                    <li>Missing key requirements</li>
+                    <li>Unclear project description</li>
+                    <li>Inappropriate technology stack</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Show/hide rejection reason based on selection
+    document.addEventListener('DOMContentLoaded', function() {
+        const actionRadios = document.querySelectorAll('input[name="action"]');
+        const rejectionSection = document.getElementById('rejection-reason-section');
+        
+        function toggleRejectionReason() {
+            const selectedValue = document.querySelector('input[name="action"]:checked')?.value;
+            if (selectedValue === 'reject') {
+                rejectionSection.style.display = 'block';
+                rejectionSection.querySelector('textarea').required = true;
+            } else {
+                rejectionSection.style.display = 'none';
+                rejectionSection.querySelector('textarea').required = false;
+            }
+        }
+        
+        actionRadios.forEach(radio => {
+            radio.addEventListener('change', toggleRejectionReason);
+        });
+        
+        // Initial state
+        toggleRejectionReason();
+    });
+</script>
+{% endblock %}

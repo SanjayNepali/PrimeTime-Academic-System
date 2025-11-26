@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }} - Groups{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx {% if group %}bx-edit{% else %}bx-plus{% endif %}'></i>
+                        {{ title }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% if group %}{% url 'groups:group_detail' group.pk %}{% else %}{% url 'groups:group_list' %}{% endif %}"
+                               class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> {% if group %}Update{% else %}Create{% endif %} Group
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if group %}
+            <!-- Danger Zone -->
+            <div class="card mt-4 border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class='bx bx-error'></i> Danger Zone</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Deleting this group will remove all student memberships and activities.
+                        This action cannot be undone.
+                    </p>
+                    <a href="{% url 'groups:group_delete' group.pk %}" class="btn btn-danger">
+                        <i class='bx bx-trash'></i> Delete Group
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

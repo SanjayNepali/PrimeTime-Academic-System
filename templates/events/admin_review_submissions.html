@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Review Submissions{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">Final Submission Review (Admin)</h2>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Total Submissions</h5>
+                    <h2>{{ total_submissions }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Approved</h5>
+                    <h2>{{ approved_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5>Rejected</h5>
+                    <h2>{{ rejected_count }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Admin Review -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Pending Admin Review ({{ pending_submissions|length }})</h5>
+        </div>
+        <div class="card-body">
+            {% if pending_submissions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Event</th>
+                                <th>Submitted</th>
+                                <th>Supervisor Approved</th>
+                                <th>Supervisor Rating</th>
+                                <th>Late</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in pending_submissions %}
+                            <tr>
+                                <td>{{ submission.student.display_name }}</td>
+                                <td>{{ submission.event.title|truncatewords:5 }}</td>
+                                <td>{{ submission.submission_date|date:"M d H:i" }}</td>
+                                <td>{{ submission.supervisor_reviewed_at|date:"M d H:i" }}</td>
+                                <td>
+                                    {% if submission.supervisor_rating %}
+                                        {% for i in "12345" %}
+                                            {% if forloop.counter <= submission.supervisor_rating %}⭐{% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if submission.late_submission %}
+                                        <span class="badge bg-danger">Late</span>
+                                    {% else %}
+                                        <span class="badge bg-success">On Time</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'events:admin_review_submission_detail' submission.id %}"
+                                       class="btn btn-sm btn-primary">Review</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No submissions pending admin review.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recently Reviewed by Admin -->
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Recently Reviewed by Admin (Last 30)</h5>
+        </div>
+        <div class="card-body">
+            {% if reviewed_submissions %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Event</th>
+                                <th>Reviewed</th>
+                                <th>Status</th>
+                                <th>Admin Rating</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in reviewed_submissions %}
+                            <tr>
+                                <td>{{ submission.student.display_name }}</td>
+                                <td>{{ submission.event.title|truncatewords:5 }}</td>
+                                <td>{{ submission.admin_reviewed_at|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    <span class="badge
+                                        {% if submission.status == 'admin_approved' %}bg-success
+                                        {% elif submission.status == 'admin_rejected' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ submission.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if submission.admin_rating %}
+                                        {{ submission.admin_rating }}/5
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ submission.admin_remarks|truncatewords:10 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No submissions reviewed by admin yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

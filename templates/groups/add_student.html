@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Add Student - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-user-plus'></i> Add Student to {{ group.name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Group Info -->
+                    <div class="alert alert-info">
+                        <strong>Group Capacity:</strong> {{ group.student_count }}/{{ group.max_students }} students
+                        <br>
+                        <strong>Available Slots:</strong> {{ group.available_slots }}
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'groups:group_detail' group.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-user-plus'></i> Add Student
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

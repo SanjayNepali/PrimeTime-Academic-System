@@ -1,0 +1,23 @@
+<div class="card mb-3 shadow-sm">
+    <div class="card-body">
+        <div class="d-flex justify-content-between">
+            <div>
+                <h5 class="card-title">
+                    <a href="{% url 'events:event_detail' event.pk %}">{{ event.title }}</a>
+                </h5>
+                <p class="text-muted">
+                    <i class="far fa-calendar"></i> {{ event.start_datetime|date:"M j, Y g:i A" }}
+                </p>
+                <span class="badge badge-primary">{{ event.get_event_type_display }}</span>
+                <span class="badge badge-{{ event.priority }}">{{ event.get_priority_display }}</span>
+            </div>
+            <div class="text-right">
+                {% if event.is_cancelled %}
+                <span class="badge badge-danger">Cancelled</span>
+                {% else %}
+                <a href="{% url 'events:event_detail' event.pk %}" class="btn btn-primary btn-sm">View</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

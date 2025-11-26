@@ -1,0 +1,413 @@
+<!-- File: Desktop/Prime/templates/projects/all_projects.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}All Projects - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-folder-open'></i> All Projects</h2>
+            <p class="text-muted mb-0">
+                {% if is_supervisor %}
+                    Viewing your supervised projects
+                {% elif is_superadmin or is_admin %}
+                    Viewing all system projects
+                {% endif %}
+            </p>
+        </div>
+        <div class="header-stats">
+            <span class="badge bg-info">Total: {{ projects.paginator.count }} projects</span>
+            {% if pending_projects %}
+                <span class="badge bg-warning ms-1">Pending: {{ pending_projects }}</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Filters Section -->
+    <div class="card modern-card mb-4">
+        <div class="card-body">
+            <form method="get" class="filter-form">
+                <div class="row g-3">
+                    <!-- Search -->
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label class="form-label small">Search</label>
+                            <input type="text" name="q" class="form-control" 
+                                   placeholder="Project title, student name, ID..." 
+                                   value="{{ search_query }}">
+                        </div>
+                    </div>
+                    
+                    <!-- Status Filter -->
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label class="form-label small">Status</label>
+                            <select name="status" class="form-control">
+                                <option value="">All Status</option>
+                                {% for value, label in statuses %}
+                                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Batch Filter -->
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label class="form-label small">Batch</label>
+                            <select name="batch" class="form-control">
+                                <option value="">All Batches</option>
+                                {% for batch in batches %}
+                                    <option value="{{ batch }}" {% if batch_filter|stringformat:"s" == batch|stringformat:"s" %}selected{% endif %}>
+                                        {{ batch }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Sort By -->
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label class="form-label small">Sort By</label>
+                            <select name="sort" class="form-control">
+                                <option value="-created" {% if sort_by == '-created' %}selected{% endif %}>Newest First</option>
+                                <option value="created" {% if sort_by == 'created' %}selected{% endif %}>Oldest First</option>
+                                <option value="title" {% if sort_by == 'title' %}selected{% endif %}>Title (A-Z)</option>
+                                <option value="-title" {% if sort_by == '-title' %}selected{% endif %}>Title (Z-A)</option>
+                                <option value="-progress" {% if sort_by == '-progress' %}selected{% endif %}>Progress (High-Low)</option>
+                                <option value="progress" {% if sort_by == 'progress' %}selected{% endif %}>Progress (Low-High)</option>
+                                <option value="student" {% if sort_by == 'student' %}selected{% endif %}>Student Name</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Filter Button -->
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class='bx bx-filter'></i> Apply Filters
+                        </button>
+                        <a href="{% url 'projects:all_projects' %}" class="btn btn-secondary">
+                            <i class='bx bx-reset'></i> Reset
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Active Filters Display -->
+                {% if search_query or status_filter or batch_filter %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="active-filters">
+                            <small class="text-muted me-2">Active filters:</small>
+                            {% if search_query %}
+                                <span class="badge bg-primary me-1">
+                                    Search: "{{ search_query }}"
+                                    <a href="?{% if status_filter %}status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="text-white ms-1">×</a>
+                                </span>
+                            {% endif %}
+                            {% if status_filter %}
+                                <span class="badge bg-info me-1">
+                                    Status: {{ status_filter|title }}
+                                    <a href="?{% if search_query %}q={{ search_query }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="text-white ms-1">×</a>
+                                </span>
+                            {% endif %}
+                            {% if batch_filter %}
+                                <span class="badge bg-success me-1">
+                                    Batch: {{ batch_filter }}
+                                    <a href="?{% if search_query %}q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="text-white ms-1">×</a>
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    
+    <!-- Projects Table -->
+    <div class="card modern-card">
+        <div class="card-body">
+            {% if projects %}
+                <div class="table-responsive">
+                    <table class="table table-hover modern-table">
+                        <thead>
+                            <tr>
+                                <th width="5%">#</th>
+                                <th width="20%">Project Title</th>
+                                <th width="15%">Student</th>
+                                <th width="10%">Student ID</th>
+                                <th width="8%">Batch</th>
+                                <th width="10%">Status</th>
+                                <th width="10%">Progress</th>
+                                <th width="12%">Technologies</th>
+                                <th width="10%">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for project in projects %}
+                            <tr>
+                                <td>{{ forloop.counter0|add:projects.start_index }}</td>
+                                <td>
+                                    <div class="project-title">
+                                        <strong>{{ project.title|truncatechars:50 }}</strong>
+                                        {% if project.description %}
+                                        <small class="text-muted d-block mt-1">
+                                            {{ project.description|truncatechars:60 }}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="student-info">
+                                        <strong>{{ project.student.display_name }}</strong>
+                                        {% if project.student.department %}
+                                        <small class="text-muted d-block">{{ project.student.department }}</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <code class="user-id">{{ project.student.user_id|default:"-" }}</code>
+                                </td>
+                                <td>
+                                    <span class="batch-year">{{ project.batch_year }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge badge-{{ project.status }}">
+                                        {{ project.get_status_display }}
+                                    </span>
+                                    {% if project.supervisor %}
+                                    <small class="text-muted d-block mt-1">
+                                        {{ project.supervisor.display_name }}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="progress-container">
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-gradient-primary" 
+                                                 style="width: {{ project.progress_percentage }}%"
+                                                 title="{{ project.progress_percentage }}% Complete">
+                                                {{ project.progress_percentage }}%
+                                            </div>
+                                        </div>
+                                        <small class="text-muted d-block text-center mt-1">
+                                            {{ project.deliverables.count }} deliverables
+                                        </small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="technologies">
+                                        {% for lang in project.languages_list|slice:":3" %}
+                                            <span class="badge bg-secondary small mb-1">{{ lang }}</span>
+                                        {% endfor %}
+                                        {% if project.languages_list|length > 3 %}
+                                            <span class="badge bg-light text-dark small" 
+                                                  title="{{ project.languages_list|join:', ' }}">
+                                                +{{ project.languages_list|length|add:"-3" }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'projects:project_detail' project.pk %}" 
+                                           class="btn btn-sm btn-outline-primary" 
+                                           title="View Details"
+                                           data-bs-toggle="tooltip">
+                                            <i class='bx bx-show'></i>
+                                        </a>
+                                        {% if user.is_superadmin or user.is_admin %}
+                                            {% if project.status == 'pending' %}
+                                            <a href="{% url 'projects:project_review' project.pk %}" 
+                                               class="btn btn-sm btn-outline-success" 
+                                               title="Review Project"
+                                               data-bs-toggle="tooltip">
+                                                <i class='bx bx-check-circle'></i>
+                                            </a>
+                                            {% endif %}
+                                            {% if not project.supervisor and project.status == 'approved' %}
+                                            <a href="{% url 'projects:project_assign_supervisor' project.pk %}" 
+                                               class="btn btn-sm btn-outline-warning" 
+                                               title="Assign Supervisor"
+                                               data-bs-toggle="tooltip">
+                                                <i class='bx bx-user-plus'></i>
+                                            </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if projects.has_other_pages %}
+                <nav class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if projects.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ projects.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                    <i class='bx bx-chevron-left'></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in projects.paginator.page_range %}
+                            {% if projects.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > projects.number|add:'-3' and num < projects.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if projects.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ projects.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                    <i class='bx bx-chevron-right'></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                    <div class="text-center mt-2">
+                        <small class="text-muted">
+                            Showing {{ projects.start_index }} - {{ projects.end_index }} of {{ projects.paginator.count }} projects
+                        </small>
+                    </div>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class='bx bx-folder-open' style="font-size: 4rem; color: var(--text-secondary);"></i>
+                    <h4 class="mt-3">No Projects Found</h4>
+                    <p class="text-muted">Try adjusting your filters or search criteria</p>
+                    {% if search_query or status_filter or batch_filter %}
+                        <a href="{% url 'projects:all_projects' %}" class="btn btn-primary mt-2">
+                            <i class='bx bx-reset'></i> Clear All Filters
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.modern-table {
+    border: none;
+}
+
+.modern-table thead th {
+    background: var(--secondary);
+    border: none;
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: 12px;
+    font-size: 0.85rem;
+}
+
+.modern-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: all 0.2s ease;
+}
+
+.modern-table tbody tr:hover {
+    background: var(--secondary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.badge-draft { background: #6B7280; color: white; }
+.badge-pending { background: #F59E0B; color: white; }
+.badge-approved { background: #10B981; color: white; }
+.badge-rejected { background: #EF4444; color: white; }
+.badge-in_progress { background: #3B82F6; color: white; }
+.badge-completed { background: #8B5CF6; color: white; }
+
+.bg-gradient-primary {
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+}
+
+.filter-form .form-label {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.active-filters {
+    padding: 8px 0;
+}
+
+.user-id {
+    background: var(--secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.batch-year {
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.progress-container {
+    min-width: 80px;
+}
+
+.technologies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.student-info strong {
+    font-size: 0.9rem;
+}
+
+.project-title strong {
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Auto-submit form when certain filters change
+    const autoSubmitFilters = document.querySelectorAll('select[name="status"], select[name="batch"], select[name="sort"]');
+    autoSubmitFilters.forEach(select => {
+        select.addEventListener('change', function() {
+            this.closest('form').submit();
+        });
+    });
+    
+    // Add loading state to filter form
+    const filterForm = document.querySelector('.filter-form');
+    filterForm.addEventListener('submit', function() {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Filtering...';
+            submitBtn.disabled = true;
+        }
+    });
+});
+</script>
+{% endblock %}

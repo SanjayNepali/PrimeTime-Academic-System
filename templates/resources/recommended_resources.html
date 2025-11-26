@@ -1,0 +1,312 @@
+<!-- File: Desktop/Prime/templates/resources/recommended_resources.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}AI Recommendations - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="hero-section mb-4">
+        <div class="hero-content">
+            <h2 class="hero-title">
+                <i class='bx bx-brain'></i> AI-Powered Recommendations
+            </h2>
+            <p class="hero-subtitle">
+                Personalized learning resources based on your project and activity
+            </p>
+        </div>
+        <div class="hero-decoration"></div>
+    </div>
+
+    <!-- Algorithm Info -->
+    <div class="alert alert-info mb-4">
+        <div class="d-flex align-items-start gap-3">
+            <i class='bx bx-info-circle' style="font-size: 2rem;"></i>
+            <div>
+                <h5 class="mb-2">How We Recommend</h5>
+                <p class="mb-0">
+                    Our ML algorithm analyzes your <strong>project technologies</strong>, 
+                    <strong>viewing history</strong>, and resources liked by <strong>students with similar interests</strong> 
+                    to provide personalized recommendations using TF-IDF and collaborative filtering.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% if recommendations %}
+    <!-- Recommendations Grid -->
+    <div class="row">
+        {% for rec_data in recommendations %}
+        {% with resource=rec_data.resource %}
+        <div class="col-md-6 col-xl-4 mb-4">
+            <div class="card recommendation-card h-100">
+                <!-- Match Score Badge -->
+                <div class="match-score">
+                    <div class="circular-progress" data-score="{{ rec_data.score|floatformat:0 }}">
+                        <svg width="60" height="60">
+                            <circle cx="30" cy="30" r="25" stroke="#e0e0e0" stroke-width="4" fill="none"/>
+                            <circle cx="30" cy="30" r="25" 
+                                    stroke="{% if rec_data.score > 0.7 %}#06ffa5{% elif rec_data.score > 0.4 %}#ffb700{% else %}#5568FE{% endif %}" 
+                                    stroke-width="4" fill="none"
+                                    stroke-dasharray="157" 
+                                    stroke-dashoffset="{{ 157|add:'-'|add:rec_data.score|multiply:'157'|floatformat:0 }}"
+                                    transform="rotate(-90 30 30)"/>
+                        </svg>
+                        <span class="score-value">{{ rec_data.score|multiply:'100'|floatformat:0 }}%</span>
+                    </div>
+                    <small class="d-block text-center mt-2">Match</small>
+                </div>
+
+                <!-- Resource Thumbnail -->
+                <div class="resource-thumbnail">
+                    {% if resource.thumbnail %}
+                    <img src="{{ resource.thumbnail.url }}" alt="{{ resource.title }}">
+                    {% else %}
+                    <div class="thumbnail-placeholder">
+                        <i class='bx bx-book-content' style="font-size: 3rem; color: var(--primary);"></i>
+                    </div>
+                    {% endif %}
+                    
+                    <span class="badge bg-primary position-absolute top-0 start-0 m-2">
+                        {{ resource.get_resource_type_display }}
+                    </span>
+                </div>
+
+                <div class="card-body">
+                    <h5 class="card-title mb-2">
+                        <a href="{% url 'resources:resource_detail' resource.pk %}?from=recommendations" 
+                           class="text-decoration-none text-dark"
+                           onclick="markClicked({{ resource.id }})">
+                            {{ resource.title }}
+                        </a>
+                    </h5>
+                    
+                    <p class="card-text text-muted small">
+                        {{ resource.description|truncatechars:100 }}
+                    </p>
+
+                    <!-- Recommendation Reason -->
+                    <div class="recommendation-reason mb-3">
+                        <i class='bx bx-bulb text-warning'></i>
+                        <small class="text-muted">{{ rec_data.reason }}</small>
+                    </div>
+
+                    <!-- Metadata -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="badge bg-light text-dark">
+                                {{ resource.get_difficulty_display }}
+                            </span>
+                            {% if resource.average_rating > 0 %}
+                            <span class="badge bg-warning text-dark">
+                                <i class='bx bxs-star'></i> {{ resource.average_rating|floatformat:1 }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">
+                            <i class='bx bx-show'></i> {{ resource.views }}
+                        </small>
+                    </div>
+
+                    <!-- Action Button -->
+                    <a href="{% url 'resources:resource_detail' resource.pk %}?from=recommendations" 
+                       class="btn btn-primary w-100"
+                       onclick="markClicked({{ resource.id }})">
+                        <i class='bx bx-right-arrow-alt'></i> View Resource
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+    </div>
+
+    <!-- Regenerate Button -->
+    <div class="text-center mt-4">
+        <button class="btn btn-outline-primary" onclick="regenerateRecommendations()">
+            <i class='bx bx-refresh'></i> Refresh Recommendations
+        </button>
+        <p class="text-muted small mt-2">
+            Recommendations are automatically updated based on your activity
+        </p>
+    </div>
+
+    {% else %}
+    <!-- No Recommendations -->
+    <div class="text-center py-5">
+        <i class='bx bx-brain' style="font-size: 5rem; color: #6c757d;"></i>
+        <h4 class="mt-3">Building Your Recommendations...</h4>
+        <p class="text-muted mb-4">
+            We're analyzing your project and activity to provide personalized recommendations.
+            <br>This might take a moment on your first visit.
+        </p>
+        <button class="btn btn-primary" onclick="regenerateRecommendations()">
+            <i class='bx bx-refresh'></i> Generate Recommendations
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- How It Works Section -->
+    <div class="card modern-card mt-5">
+        <div class="card-header">
+            <h5 class="mb-0"><i class='bx bx-cog'></i> How Our Recommendation Engine Works</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 text-center mb-3">
+                    <div class="feature-icon bg-primary mb-3">
+                        <i class='bx bx-code-alt'></i>
+                    </div>
+                    <h6>TF-IDF Analysis</h6>
+                    <p class="text-muted small">
+                        Matches resources to your project's programming languages and technologies
+                    </p>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="feature-icon bg-success mb-3">
+                        <i class='bx bx-group'></i>
+                    </div>
+                    <h6>Collaborative Filtering</h6>
+                    <p class="text-muted small">
+                        Recommends resources liked by students with similar projects
+                    </p>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="feature-icon bg-warning mb-3">
+                        <i class='bx bx-trending-up'></i>
+                    </div>
+                    <h6>Quality Ranking</h6>
+                    <p class="text-muted small">
+                        Prioritizes highly-rated and recently viewed resources
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 48px;
+    color: white;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-decoration {
+    position: absolute;
+    right: -50px;
+    top: -50px;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+}
+
+.recommendation-card {
+    border: none;
+    border-radius: 16px;
+    transition: all 0.3s;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    position: relative;
+}
+
+.recommendation-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.match-score {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    background: white;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.circular-progress {
+    position: relative;
+    width: 60px;
+    height: 60px;
+}
+
+.score-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.resource-thumbnail {
+    height: 180px;
+    overflow: hidden;
+    position: relative;
+    background: var(--secondary);
+}
+
+.resource-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumbnail-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.recommendation-reason {
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+    padding: 0.75rem;
+    border-radius: 4px;
+}
+
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: white;
+}
+</style>
+
+<script>
+function markClicked(resourceId) {
+    fetch(`/resources/api/${resourceId}/mark-clicked/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    });
+}
+
+function regenerateRecommendations() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Generating...';
+    btn.disabled = true;
+    
+    // Reload page to trigger recommendation regeneration
+    setTimeout(() => {
+        window.location.reload();
+    }, 1500);
+}
+</script>
+{% endblock %}

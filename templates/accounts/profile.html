@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card modern-card">
+                <div class="card-body text-center">
+                    <div class="profile-avatar mb-3">
+                        {% if profile.profile_picture %}
+                            <img src="{{ profile.profile_picture.url }}" alt="Profile" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
+                        {% else %}
+                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 120px; height: 120px;">
+                                <i class='bx bx-user text-white' style="font-size: 3rem;"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <h4>{{ user.display_name }}</h4>
+                    <p class="text-muted">
+                        <span class="badge bg-primary">{{ user.get_role_display }}</span>
+                    </p>
+                    <a href="{% url 'accounts:profile_update' %}" class="btn btn-outline-primary btn-sm">
+                        <i class='bx bx-edit'></i> Edit Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-info-circle'></i> Profile Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Basic Information</h6>
+                            <p><strong>Username:</strong> {{ user.username }}</p>
+                            <p><strong>Email:</strong> {{ user.email }}</p>
+                            <p><strong>Full Name:</strong> {{ user.full_name|default:"Not set" }}</p>
+                            <p><strong>Phone:</strong> {{ user.phone|default:"Not set" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Academic Information</h6>
+                            <p><strong>Department:</strong> {{ user.department|default:"Not set" }}</p>
+                            <p><strong>User ID:</strong> {{ user.user_id|default:"Not set" }}</p>
+                            <p><strong>Batch Year:</strong> {{ user.batch_year|default:"Not set" }}</p>
+                            <p><strong>Enrollment Year:</strong> {{ user.enrollment_year|default:"Not set" }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if profile.bio %}
+                    <div class="mt-3">
+                        <h6>Bio</h6>
+                        <p>{{ profile.bio }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if user.is_student and profile.student_id %}
+                    <div class="mt-3">
+                        <h6>Student Information</h6>
+                        <p><strong>Student ID:</strong> {{ profile.student_id }}</p>
+                        <p><strong>Enrollment Date:</strong> {{ profile.enrollment_date|default:"Not set" }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if user.is_supervisor and profile.specialization %}
+                    <div class="mt-3">
+                        <h6>Supervisor Information</h6>
+                        <p><strong>Specialization:</strong> {{ profile.specialization }}</p>
+                        <p><strong>Max Groups:</strong> {{ profile.max_groups }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card modern-card mt-4">
+                <div class="card-header">
+                    <h5><i class='bx bx-time'></i> Account Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Account Created:</strong> {{ user.created_at|date:"M d, Y" }}</p>
+                            <p><strong>Last Login:</strong> {{ user.last_login_at|date:"M d, Y H:i"|default:"Never" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Password Status:</strong> 
+                                {% if user.password_changed %}
+                                    <span class="badge bg-success">Changed</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Initial</span>
+                                {% endif %}
+                            </p>
+                            <p><strong>Account Status:</strong> 
+                                {% if user.is_enabled %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Disabled</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Submissions{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">Review Student Submissions</h2>
+
+    <!-- Pending Reviews -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Pending Reviews ({{ pending_submissions|length }})</h5>
+        </div>
+        <div class="card-body">
+            {% if pending_submissions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Event</th>
+                                <th>Deadline</th>
+                                <th>Submitted</th>
+                                <th>Version</th>
+                                <th>Status</th>
+                                <th>Late</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in pending_submissions %}
+                            <tr>
+                                <td>{{ submission.student.display_name }}</td>
+                                <td>{{ submission.event.title|truncatewords:5 }}</td>
+                                <td>{{ submission.event.end_datetime|date:"M d, Y" }}</td>
+                                <td>{{ submission.submission_date|date:"M d H:i" }}</td>
+                                <td>v{{ submission.version }}</td>
+                                <td><span class="badge bg-secondary">{{ submission.get_status_display }}</span></td>
+                                <td>
+                                    {% if submission.late_submission %}
+                                        <span class="badge bg-danger">Late</span>
+                                    {% else %}
+                                        <span class="badge bg-success">On Time</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'events:supervisor_review_submission_detail' submission.id %}"
+                                       class="btn btn-sm btn-primary">Review</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No pending submissions to review.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recently Reviewed -->
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Recently Reviewed Submissions</h5>
+        </div>
+        <div class="card-body">
+            {% if reviewed_submissions %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Event</th>
+                                <th>Reviewed</th>
+                                <th>Status</th>
+                                <th>Rating</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for submission in reviewed_submissions %}
+                            <tr>
+                                <td>{{ submission.student.display_name }}</td>
+                                <td>{{ submission.event.title|truncatewords:5 }}</td>
+                                <td>{{ submission.supervisor_reviewed_at|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    <span class="badge
+                                        {% if submission.status == 'supervisor_approved' or submission.status == 'admin_review' %}bg-success
+                                        {% elif submission.status == 'supervisor_rejected' %}bg-danger
+                                        {% elif submission.status == 'admin_approved' %}bg-primary
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ submission.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if submission.supervisor_rating %}
+                                        {{ submission.supervisor_rating }}/5
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ submission.supervisor_remarks|truncatewords:10 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">No reviewed submissions yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

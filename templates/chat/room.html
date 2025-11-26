@@ -1,0 +1,588 @@
+<!-- File: Desktop/Prime/templates/chat/room.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ room.name }} - Chat{% endblock %}
+
+{% block content %}
+<div class="container-fluid chat-container">
+    <div class="row h-100">
+        <!-- Participants Sidebar -->
+        <div class="col-md-3 participants-sidebar">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-group'></i> Participants ({{ participants.count }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="participants-list">
+                        {% for participant in participants %}
+                        <div class="participant-item" data-user-id="{{ participant.id }}">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="position-relative">
+                                    <div class="user-avatar-sm">
+                                        {% if participant.profile.profile_picture %}
+                                        <img src="{{ participant.profile.profile_picture.url }}" alt="{{ participant.display_name }}">
+                                        {% else %}
+                                        <i class='bx bx-user'></i>
+                                        {% endif %}
+                                    </div>
+                                    <span class="online-indicator"></span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="participant-name">{{ participant.display_name }}</div>
+                                    <small class="text-muted">{{ participant.get_role_display }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="col-md-9">
+            <div class="card h-100 chat-card">
+                <!-- Chat Header -->
+                <div class="card-header chat-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">{{ room.name }}</h5>
+                            <small class="text-muted">
+                                {% if room.is_frozen %}
+                                    <i class='bx bx-lock text-warning'></i> Scheduled Access
+                                {% else %}
+                                    <i class='bx bx-lock-open text-success'></i> Always Open
+                                {% endif %}
+                                {% if room.group %}
+                                | Group: {{ room.group.name }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div id="typing-indicators" class="text-muted small"></div>
+                    </div>
+                </div>
+
+                <!-- Messages Container -->
+                <div class="card-body messages-container" id="messages-container">
+                    <div id="messages-list">
+                        {% for message in messages %}
+                        <div class="message {% if message.sender == user %}message-own{% else %}message-other{% endif %}" 
+                             data-message-id="{{ message.id }}"
+                             data-sentiment="{{ message.sentiment_score }}">
+                            
+                            <div class="message-avatar">
+                                {% if message.sender.profile.profile_picture %}
+                                <img src="{{ message.sender.profile.profile_picture.url }}" alt="{{ message.sender.display_name }}">
+                                {% else %}
+                                <i class='bx bx-user-circle'></i>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <strong>{{ message.sender.display_name }}</strong>
+                                    <span class="message-time">{{ message.timestamp|date:"H:i" }}</span>
+                                    {% if message.sentiment_score < -0.5 %}
+                                    <span class="sentiment-badge negative" title="Negative sentiment detected">
+                                        <i class='bx bx-sad'></i>
+                                    </span>
+                                    {% elif message.sentiment_score > 0.5 %}
+                                    <span class="sentiment-badge positive" title="Positive sentiment">
+                                        <i class='bx bx-happy'></i>
+                                    </span>
+                                    {% endif %}
+                                    {% if message.is_flagged %}
+                                    <span class="badge bg-warning" title="Flagged for review">
+                                        <i class='bx bx-flag'></i>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="message-text">{{ message.display_content }}</div>
+                                
+                                {% if message.reply_to %}
+                                <div class="message-reply-to">
+                                    <i class='bx bx-reply'></i> Replying to: {{ message.reply_to.display_content|truncatechars:50 }}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="message-actions">
+                                    <button class="btn-action" onclick="replyToMessage({{ message.id }}, '{{ message.sender.display_name }}', '{{ message.display_content|escapejs }}')">
+                                        <i class='bx bx-reply'></i>
+                                    </button>
+                                    <button class="btn-action" onclick="reactToMessage({{ message.id }}, '👍')">
+                                        👍
+                                    </button>
+                                    {% if message.sender == user or user.role == 'admin' %}
+                                    <button class="btn-action text-danger" onclick="deleteMessage({{ message.id }})">
+                                        <i class='bx bx-trash'></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Message Input -->
+                <div class="card-footer chat-footer">
+                    <div id="reply-indicator" class="reply-indicator" style="display: none;">
+                        <i class='bx bx-reply'></i> Replying to <strong id="reply-to-name"></strong>
+                        <button class="btn-sm btn-link" onclick="cancelReply()">Cancel</button>
+                    </div>
+                    
+                    <form id="message-form" class="d-flex gap-2">
+                        <input type="hidden" id="reply-to-id" value="">
+                        <input type="text" 
+                               id="message-input" 
+                               class="form-control" 
+                               placeholder="Type your message..."
+                               autocomplete="off"
+                               maxlength="1000">
+                        <button type="button" class="btn btn-outline-secondary" onclick="showEmojiPicker()">
+                            <i class='bx bx-smile'></i>
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class='bx bx-send'></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.chat-container {
+    height: calc(100vh - 120px);
+    max-height: 900px;
+}
+
+.chat-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    background: white;
+    border-bottom: 2px solid var(--border);
+}
+
+.participants-sidebar {
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.participants-list {
+    padding: 0;
+}
+
+.participant-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+}
+
+.participant-item:hover {
+    background: var(--secondary);
+}
+
+.user-avatar-sm {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    overflow: hidden;
+}
+
+.user-avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.online-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    background: #10b981;
+    border: 2px solid white;
+    border-radius: 50%;
+}
+
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+#messages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.message {
+    display: flex;
+    gap: 12px;
+    animation: messageSlideIn 0.3s ease;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-own {
+    flex-direction: row-reverse;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.message-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.message-content {
+    max-width: 70%;
+    background: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.message-own .message-content {
+    background: var(--primary);
+    color: white;
+}
+
+.message-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+}
+
+.message-time {
+    color: #6c757d;
+    font-size: 0.75rem;
+}
+
+.message-own .message-time {
+    color: rgba(255,255,255,0.8);
+}
+
+.sentiment-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.sentiment-badge.positive {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.sentiment-badge.negative {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.message-text {
+    word-wrap: break-word;
+    line-height: 1.5;
+}
+
+.message-reply-to {
+    background: rgba(0,0,0,0.05);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    margin-top: 8px;
+}
+
+.message-actions {
+    display: none;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.message:hover .message-actions {
+    display: flex;
+}
+
+.btn-action {
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.btn-action:hover {
+    background: rgba(0,0,0,0.1);
+}
+
+.chat-footer {
+    background: white;
+    border-top: 2px solid var(--border);
+}
+
+.reply-indicator {
+    padding: 8px 12px;
+    background: var(--secondary);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+#typing-indicators {
+    font-style: italic;
+}
+</style>
+
+<script>
+const roomId = {{ room.id }};
+const currentUserId = {{ user.id }};
+const currentUsername = "{{ user.display_name }}";
+let replyToId = null;
+let typingTimeout;
+
+// WebSocket Connection
+const chatSocket = new WebSocket(
+    (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + 
+    window.location.host + 
+    '/ws/chat/' + roomId + '/'
+);
+
+chatSocket.onopen = function(e) {
+    console.log('WebSocket connected');
+    updateConnectionStatus(true);
+};
+
+chatSocket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    
+    switch(data.type) {
+        case 'message':
+            appendMessage(data);
+            break;
+        case 'typing':
+            updateTypingIndicator(data);
+            break;
+        case 'user_joined':
+            showSystemMessage(`${data.username} joined the chat`);
+            updateParticipantStatus(data.user_id, true);
+            break;
+        case 'user_left':
+            showSystemMessage(`${data.username} left the chat`);
+            updateParticipantStatus(data.user_id, false);
+            break;
+        case 'reaction':
+            addReaction(data);
+            break;
+        case 'deleted':
+            removeMessage(data.message_id);
+            break;
+    }
+};
+
+chatSocket.onclose = function(e) {
+    console.error('WebSocket closed');
+    updateConnectionStatus(false);
+    setTimeout(() => {
+        window.location.reload();
+    }, 3000);
+};
+
+chatSocket.onerror = function(e) {
+    console.error('WebSocket error:', e);
+};
+
+// Send Message
+document.getElementById('message-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const input = document.getElementById('message-input');
+    const message = input.value.trim();
+    
+    if (message) {
+        chatSocket.send(JSON.stringify({
+            'type': 'message',
+            'message': message,
+            'reply_to': replyToId
+        }));
+        input.value = '';
+        cancelReply();
+        stopTyping();
+    }
+});
+
+// Typing Indicator
+document.getElementById('message-input').addEventListener('input', function() {
+    clearTimeout(typingTimeout);
+    sendTyping(true);
+    
+    typingTimeout = setTimeout(() => {
+        stopTyping();
+    }, 1000);
+});
+
+function sendTyping(isTyping) {
+    chatSocket.send(JSON.stringify({
+        'type': 'typing',
+        'is_typing': isTyping
+    }));
+}
+
+function stopTyping() {
+    sendTyping(false);
+}
+
+function appendMessage(data) {
+    const messagesList = document.getElementById('messages-list');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${data.sender_id === currentUserId ? 'message-own' : 'message-other'}`;
+    messageDiv.dataset.messageId = data.message_id;
+    
+    const sentimentBadge = data.sentiment_score < -0.5 ? 
+        '<span class="sentiment-badge negative"><i class="bx bx-sad"></i></span>' :
+        data.sentiment_score > 0.5 ?
+        '<span class="sentiment-badge positive"><i class="bx bx-happy"></i></span>' : '';
+    
+    const flagBadge = data.is_flagged ? 
+        '<span class="badge bg-warning"><i class="bx bx-flag"></i></span>' : '';
+    
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            <i class='bx bx-user-circle'></i>
+        </div>
+        <div class="message-content">
+            <div class="message-header">
+                <strong>${data.sender_name}</strong>
+                <span class="message-time">${new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}</span>
+                ${sentimentBadge}
+                ${flagBadge}
+            </div>
+            <div class="message-text">${escapeHtml(data.content)}</div>
+        </div>
+    `;
+    
+    messagesList.appendChild(messageDiv);
+    scrollToBottom();
+}
+
+function updateTypingIndicator(data) {
+    const indicator = document.getElementById('typing-indicators');
+    if (data.is_typing && data.user_id !== currentUserId) {
+        indicator.textContent = `${data.username} is typing...`;
+    } else {
+        indicator.textContent = '';
+    }
+}
+
+function updateParticipantStatus(userId, isOnline) {
+    const participant = document.querySelector(`[data-user-id="${userId}"]`);
+    if (participant) {
+        const indicator = participant.querySelector('.online-indicator');
+        if (indicator) {
+            indicator.style.background = isOnline ? '#10b981' : '#6c757d';
+        }
+    }
+}
+
+function replyToMessage(messageId, senderName, content) {
+    replyToId = messageId;
+    document.getElementById('reply-to-id').value = messageId;
+    document.getElementById('reply-to-name').textContent = `${senderName}: ${content.substring(0, 50)}...`;
+    document.getElementById('reply-indicator').style.display = 'block';
+    document.getElementById('message-input').focus();
+}
+
+function cancelReply() {
+    replyToId = null;
+    document.getElementById('reply-to-id').value = '';
+    document.getElementById('reply-indicator').style.display = 'none';
+}
+
+function reactToMessage(messageId, emoji) {
+    chatSocket.send(JSON.stringify({
+        'type': 'reaction',
+        'message_id': messageId,
+        'emoji': emoji
+    }));
+}
+
+function deleteMessage(messageId) {
+    if (confirm('Delete this message?')) {
+        chatSocket.send(JSON.stringify({
+            'type': 'delete',
+            'message_id': messageId
+        }));
+    }
+}
+
+function removeMessage(messageId) {
+    const message = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (message) {
+        message.remove();
+    }
+}
+
+function scrollToBottom() {
+    const container = document.getElementById('messages-container');
+    container.scrollTop = container.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function updateConnectionStatus(connected) {
+    // You can add a connection status indicator here
+}
+
+function showSystemMessage(message) {
+    const messagesList = document.getElementById('messages-list');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'text-center text-muted small my-2';
+    messageDiv.innerHTML = `<em>${message}</em>`;
+    messagesList.appendChild(messageDiv);
+    scrollToBottom();
+}
+
+// Initial scroll to bottom
+scrollToBottom();
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}My Analytics - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fas fa-chart-line"></i> My Analytics</h2>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-center shadow">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ progress }}%</h3>
+                    <p class="text-muted">Project Progress</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center shadow">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ stress_level }}</h3>
+                    <p class="text-muted">Stress Level</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center shadow">
+                <div class="card-body">
+                    <h3 class="text-success">{{ performance }}%</h3>
+                    <p class="text-muted">Performance Score</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-4 shadow">
+        <div class="card-header">
+            <h5>Progress Over Time</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="progressChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}

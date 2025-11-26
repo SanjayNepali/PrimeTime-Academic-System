@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}My Submissions{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">My Event Submissions</h2>
+
+    <!-- Upcoming Deadlines -->
+    {% if upcoming_deadlines %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Upcoming Deadlines Requiring Submission</h5>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for event in upcoming_deadlines %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">{{ event.title }}</h6>
+                        <p class="mb-1 text-muted">Due: {{ event.end_datetime|date:"F d, Y H:i" }}</p>
+                        {% if event.submission_file_type %}
+                            <small>File type: {{ event.submission_file_type }}</small>
+                        {% endif %}
+                    </div>
+                    <a href="{% url 'events:submit_to_event' event.id %}" class="btn btn-primary">Submit</a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Submitted Assignments -->
+    <h4 class="mb-3">Submission History</h4>
+    {% if submissions %}
+        {% for submission in submissions %}
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center
+                {% if submission.status == 'admin_approved' %}bg-success text-white
+                {% elif submission.status == 'admin_rejected' or submission.status == 'supervisor_rejected' %}bg-danger text-white
+                {% elif submission.status == 'supervisor_approved' or submission.status == 'admin_review' %}bg-info text-white
+                {% else %}bg-secondary text-white{% endif %}">
+                <div>
+                    <h5 class="mb-0">{{ submission.event.title }}</h5>
+                    <small>Version {{ submission.version }} | Submitted: {{ submission.submission_date|date:"M d, Y H:i" }}</small>
+                </div>
+                <span class="badge bg-light text-dark">{{ submission.get_status_display }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>File:</strong> {{ submission.submission_file.name|truncatechars:50 }}</p>
+                        <p><strong>File Type:</strong> {{ submission.file_type }}</p>
+                        {% if submission.submission_notes %}
+                            <p><strong>Notes:</strong> {{ submission.submission_notes }}</p>
+                        {% endif %}
+                        {% if submission.late_submission %}
+                            <p class="text-danger"><strong>Late Submission</strong> (Penalty: {{ submission.late_penalty }}%)</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        {% if submission.supervisor_reviewed_at %}
+                            <h6>Supervisor Review:</h6>
+                            <p class="mb-1"><strong>Reviewed:</strong> {{ submission.supervisor_reviewed_at|date:"M d, Y H:i" }}</p>
+                            {% if submission.supervisor_rating %}
+                                <p class="mb-1"><strong>Rating:</strong>
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= submission.supervisor_rating %}⭐{% endif %}
+                                    {% endfor %}
+                                    ({{ submission.supervisor_rating }}/5)
+                                </p>
+                            {% endif %}
+                            {% if submission.supervisor_remarks %}
+                                <p class="mb-0"><strong>Remarks:</strong><br>{{ submission.supervisor_remarks }}</p>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if submission.admin_reviewed_at %}
+                            <h6 class="mt-3">Admin Review:</h6>
+                            <p class="mb-1"><strong>Reviewed:</strong> {{ submission.admin_reviewed_at|date:"M d, Y H:i" }}</p>
+                            {% if submission.admin_rating %}
+                                <p class="mb-1"><strong>Rating:</strong>
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= submission.admin_rating %}⭐{% endif %}
+                                    {% endfor %}
+                                    ({{ submission.admin_rating }}/5)
+                                </p>
+                            {% endif %}
+                            {% if submission.admin_remarks %}
+                                <p class="mb-0"><strong>Remarks:</strong><br>{{ submission.admin_remarks }}</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if submission.status == 'supervisor_rejected' %}
+                    <div class="mt-3">
+                        <a href="{% url 'events:submit_to_event' submission.event.id %}" class="btn btn-warning">Resubmit</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            <p class="mb-0">No submissions yet. Check upcoming deadlines above to submit your work.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

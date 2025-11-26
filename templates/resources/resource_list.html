@@ -1,0 +1,302 @@
+<!-- File: Desktop/Prime/templates/resources/resource_list.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Learning Resources - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-book-content'></i> Learning Resources</h2>
+            <p class="text-muted mb-0">Discover curated learning materials for your projects</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if user.is_student %}
+            <a href="{% url 'resources:recommended_resources' %}" class="btn btn-outline-primary">
+                <i class='bx bx-brain'></i> AI Recommendations
+            </a>
+            {% endif %}
+            <a href="{% url 'resources:resource_create' %}" class="btn btn-primary">
+                <i class='bx bx-plus'></i> Share Resource
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sidebar Filters -->
+        <div class="col-lg-3">
+            <div class="card modern-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-filter'></i> Filters</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get">
+                        <!-- Search -->
+                        <div class="mb-3">
+                            <label class="form-label">Search</label>
+                            {{ filter_form.search }}
+                        </div>
+
+                        <!-- Resource Type -->
+                        <div class="mb-3">
+                            <label class="form-label">Type</label>
+                            {{ filter_form.resource_type }}
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-3">
+                            <label class="form-label">Category</label>
+                            {{ filter_form.category }}
+                        </div>
+
+                        <!-- Difficulty -->
+                        <div class="mb-3">
+                            <label class="form-label">Difficulty</label>
+                            {{ filter_form.difficulty }}
+                        </div>
+
+                        <!-- Sort -->
+                        <div class="mb-3">
+                            <label class="form-label">Sort By</label>
+                            {{ filter_form.sort_by }}
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mb-2">
+                            <i class='bx bx-search'></i> Apply Filters
+                        </button>
+                        <a href="{% url 'resources:resource_list' %}" class="btn btn-outline-secondary w-100">
+                            <i class='bx bx-reset'></i> Reset
+                        </a>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Categories Quick Access -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-category'></i> Categories</h5>
+                </div>
+                <div class="card-body">
+                    {% for category in categories %}
+                    <a href="{% url 'resources:category_resources' category.id %}" 
+                       class="d-flex justify-content-between align-items-center text-decoration-none text-dark mb-2 p-2 rounded hover-bg">
+                        <span>
+                            <i class='{{ category.icon }}' style="color: {{ category.color }};"></i>
+                            {{ category.name }}
+                        </span>
+                        <span class="badge bg-secondary">{{ category.resource_count }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Popular Tags -->
+            <div class="card modern-card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-tag'></i> Popular Tags</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for tag in popular_tags %}
+                        <a href="?tags={{ tag.id }}" class="badge bg-primary text-decoration-none">
+                            {{ tag.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resources Grid -->
+        <div class="col-lg-9">
+            {% if resources %}
+            <div class="row">
+                {% for resource in resources %}
+                <div class="col-md-6 col-xl-4 mb-4">
+                    <div class="card resource-card h-100">
+                        <!-- Resource Thumbnail -->
+                        <div class="resource-thumbnail">
+                            {% if resource.thumbnail %}
+                                <img src="{{ resource.thumbnail.url }}" alt="{{ resource.title }}">
+                            {% else %}
+                                <div class="thumbnail-placeholder" style="background: linear-gradient(135deg, {{ resource.category.color }}22, {{ resource.category.color }}44);">
+                                    <i class='{{ resource.category.icon }}' style="font-size: 3rem; color: {{ resource.category.color }};"></i>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Featured Badge -->
+                            {% if resource.is_featured %}
+                            <span class="badge bg-warning position-absolute top-0 end-0 m-2">
+                                <i class='bx bx-star'></i> Featured
+                            </span>
+                            {% endif %}
+                            
+                            <!-- Type Badge -->
+                            <span class="badge bg-primary position-absolute top-0 start-0 m-2">
+                                {{ resource.get_resource_type_display }}
+                            </span>
+                        </div>
+
+                        <div class="card-body">
+                            <h5 class="card-title mb-2">
+                                <a href="{% url 'resources:resource_detail' resource.pk %}" class="text-decoration-none text-dark">
+                                    {{ resource.title|truncatechars:60 }}
+                                </a>
+                            </h5>
+                            
+                            <p class="card-text text-muted small">
+                                {{ resource.description|truncatechars:100 }}
+                            </p>
+
+                            <!-- Metadata -->
+                            <div class="resource-meta mb-3">
+                                <span class="badge bg-light text-dark">
+                                    <i class='bx bx-bar-chart'></i> {{ resource.get_difficulty_display }}
+                                </span>
+                                {% if resource.estimated_duration %}
+                                <span class="badge bg-light text-dark">
+                                    <i class='bx bx-time'></i> {{ resource.display_duration }}
+                                </span>
+                                {% endif %}
+                                {% if resource.average_rating > 0 %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class='bx bxs-star'></i> {{ resource.average_rating|floatformat:1 }}
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Tags -->
+                            <div class="resource-tags mb-3">
+                                {% for tag in resource.tags.all|slice:":3" %}
+                                <span class="badge bg-primary">{{ tag.name }}</span>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Footer -->
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class='bx bx-user'></i> {{ resource.author.display_name }}
+                                </small>
+                                <div class="d-flex gap-2">
+                                    <span class="text-muted small">
+                                        <i class='bx bx-show'></i> {{ resource.views }}
+                                    </span>
+                                    <span class="text-muted small">
+                                        <i class='bx bx-heart'></i> {{ resource.like_count }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if resources.has_other_pages %}
+            <nav aria-label="Resource pagination">
+                <ul class="pagination justify-content-center">
+                    {% if resources.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ resources.previous_page_number }}">
+                            <i class='bx bx-chevron-left'></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in resources.paginator.page_range %}
+                    {% if resources.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > resources.number|add:'-3' and num < resources.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {% if resources.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ resources.next_page_number }}">
+                            <i class='bx bx-chevron-right'></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="text-center py-5">
+                <i class='bx bx-book-open' style="font-size: 5rem; color: #6c757d;"></i>
+                <h4 class="mt-3">No Resources Found</h4>
+                <p class="text-muted">Try adjusting your filters or be the first to share a resource!</p>
+                <a href="{% url 'resources:resource_create' %}" class="btn btn-primary">
+                    <i class='bx bx-plus'></i> Share Resource
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.resource-card {
+    border: none;
+    border-radius: 16px;
+    transition: all 0.3s;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.resource-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.resource-thumbnail {
+    height: 180px;
+    overflow: hidden;
+    position: relative;
+    background: var(--secondary);
+}
+
+.resource-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumbnail-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.resource-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.resource-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.hover-bg:hover {
+    background: var(--secondary);
+}
+
+.pagination {
+    margin-top: 2rem;
+}
+
+.page-link {
+    border-radius: 8px;
+    margin: 0 2px;
+}
+</style>
+{% endblock %}

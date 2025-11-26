@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}My Feedback{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">My Feedback Log Sheet</h2>
+
+    {% if project %}
+        <div class="alert alert-info mb-4">
+            <strong>Project:</strong> {{ project.title }}<br>
+            <strong>Progress:</strong> {{ project.progress }}%
+        </div>
+    {% endif %}
+
+    {% if feedback_list %}
+        <div class="row">
+            {% for feedback in feedback_list %}
+            <div class="col-md-12 mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center
+                        {% if feedback.sentiment_score > 0.3 %}bg-success text-white
+                        {% elif feedback.sentiment_score < -0.3 %}bg-danger text-white
+                        {% else %}bg-secondary text-white{% endif %}">
+                        <div>
+                            <h5 class="mb-0">{{ feedback.context }}</h5>
+                            <small>{{ feedback.date|date:"F d, Y" }} | By: {{ feedback.supervisor.display_name }}</small>
+                        </div>
+                        <div>
+                            {% if feedback.rating %}
+                                <span class="badge bg-light text-dark">
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= feedback.rating %}⭐{% endif %}
+                                    {% endfor %}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">{{ feedback.remarks }}</p>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                {% if feedback.action_required %}
+                                    <span class="badge bg-danger">Action Required</span>
+                                {% endif %}
+                                {% if feedback.follow_up_required %}
+                                    <span class="badge bg-warning text-dark">Follow-up: {{ feedback.follow_up_date|date:"M d, Y" }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <small class="text-muted">Added: {{ feedback.created_at|date:"M d, Y H:i" }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <p class="mb-0">No feedback entries yet. Your supervisor will add feedback as your project progresses.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

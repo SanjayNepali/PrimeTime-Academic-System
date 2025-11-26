@@ -1,0 +1,223 @@
+<!-- File: Desktop/Prime/templates/projects/project_detail.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}{{ project.title }} - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="project-header mb-4">
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h2>{{ project.title }}</h2>
+            <p class="text-muted mb-2">
+                <i class='bx bx-user'></i> {{ project.student.get_full_name }}
+                | <i class='bx bx-calendar'></i> Batch {{ project.batch_year }}
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-{% if project.status == 'approved' %}success{% elif project.status == 'pending' %}warning{% elif project.status == 'rejected' %}danger{% elif project.status == 'completed' %}info{% else %}secondary{% endif %} fs-6">
+                {{ project.get_status_display }}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="mb-4">
+    {% if can_edit %}
+        <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-primary">
+            <i class='bx bx-edit'></i> Edit Project
+        </a>
+    {% endif %}
+    
+    {% if project.status == 'draft' and request.user == project.student %}
+        <a href="{% url 'projects:project_submit' project.pk %}" class="btn btn-success">
+            <i class='bx bx-send'></i> Submit for Review
+        </a>
+    {% endif %}
+    
+    {% if can_review %}
+        <a href="{% url 'projects:project_review' project.pk %}" class="btn btn-warning">
+            <i class='bx bx-check-circle'></i> Review Project
+        </a>
+    {% endif %}
+</div>
+
+<div class="row">
+    <!-- Project Details -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class='bx bx-detail'></i> Project Details</h5>
+            </div>
+            <div class="card-body">
+                <h6>Description</h6>
+                <p>{{ project.description|linebreaks }}</p>
+                
+                <h6>Technologies</h6>
+                <div class="mb-3">
+                    {% for lang in project.languages_list %}
+                        <span class="badge bg-primary me-1">{{ lang }}</span>
+                    {% endfor %}
+                </div>
+                
+                {% if project.supervisor %}
+                <h6>Supervisor</h6>
+                <p><i class='bx bx-user-check'></i> {{ project.supervisor.get_full_name }}</p>
+                {% endif %}
+                
+                {% if project.rejection_reason %}
+                <div class="alert alert-danger mt-3">
+                    <h6><i class='bx bx-x-circle'></i> Rejection Reason</h6>
+                    <p class="mb-0">{{ project.rejection_reason }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Deliverables -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class='bx bx-file'></i> Project Deliverables</h5>
+            </div>
+            <div class="card-body">
+                {% if deliverables %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Stage</th>
+                                    <th>Status</th>
+                                    <th>Marks</th>
+                                    <th>Submitted</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deliverable in deliverables %}
+                                <tr>
+                                    <td>{{ deliverable.get_stage_display }}</td>
+                                    <td>
+                                        {% if deliverable.is_approved %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if deliverable.marks %}
+                                            {{ deliverable.marks }}/100
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ deliverable.submitted_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{{ deliverable.document.url }}" class="btn btn-sm btn-outline-primary" target="_blank">
+                                            <i class='bx bx-download'></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No deliverables submitted yet.</p>
+                {% endif %}
+                
+                {% if project.status == 'approved' and request.user == project.student %}
+                    <a href="#" class="btn btn-primary">
+                        <i class='bx bx-upload'></i> Submit Deliverable
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-md-4">
+        <!-- Progress -->
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class='bx bx-stats'></i> Progress</h5>
+            </div>
+            <div class="card-body">
+                <div class="progress" style="height: 25px;">
+                    <div class="progress-bar bg-gradient" role="progressbar" 
+                         style="width: {{ project.progress_percentage }}%; background: linear-gradient(90deg, var(--primary-color), var(--accent-color));">
+                        {{ project.progress_percentage }}%
+                    </div>
+                </div>
+                <small class="text-muted d-block mt-2">Overall completion</small>
+            </div>
+        </div>
+        
+        <!-- Timeline -->
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class='bx bx-history'></i> Activity Timeline</h5>
+            </div>
+            <div class="card-body">
+                {% if activities %}
+                    <div class="timeline">
+                        {% for activity in activities %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">{{ activity.get_action_display }}</h6>
+                                {% if activity.details %}
+                                    <p class="mb-1 small">{{ activity.details }}</p>
+                                {% endif %}
+                                <small class="text-muted">
+                                    {{ activity.timestamp|timesince }} ago
+                                    {% if activity.user %}
+                                        by {{ activity.user.get_full_name|default:activity.user.username }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">No activities yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e0e0e0;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -24px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #e0e0e0;
+    }
+</style>
+{% endblock %}

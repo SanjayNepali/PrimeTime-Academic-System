@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}My Events - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="fas fa-user-calendar"></i> My Events</h2>
+
+    <ul class="nav nav-tabs mt-3">
+        <li class="nav-item">
+            <a class="nav-link {% if not filter %}active{% endif %}" href="{% url 'events:my_events' %}">All</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if filter == 'attending' %}active{% endif %}" href="?filter=attending">Attending</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if filter == 'organizing' %}active{% endif %}" href="?filter=organizing">Organizing</a>
+        </li>
+    </ul>
+
+    <div class="mt-4">
+        {% for event in events %}
+        {% include 'events/_event_card.html' %}
+        {% empty %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> No events found.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-folder-open'></i> {{ title }}</h2>
+            <p class="text-muted">Projects you are supervising</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card modern-card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="q" class="form-control" placeholder="Search projects..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-control">
+                        <option value="">All Statuses</option>
+                        {% for value, label in statuses %}
+                            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary me-2">Filter</button>
+                    <a href="{% url 'projects:supervisor_projects' %}" class="btn btn-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Projects List -->
+    <div class="row">
+        {% if projects %}
+            {% for project in projects %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card modern-card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">{{ project.title|truncatechars:40 }}</h5>
+                        <span class="badge badge-{{ project.status }}">{{ project.get_status_display }}</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted mb-2">
+                            <i class='bx bx-user'></i> {{ project.student.display_name }}
+                            {% if project.student.user_id %}
+                            <br><small>{{ project.student.user_id }}</small>
+                            {% endif %}
+                        </p>
+                        <p class="text-muted mb-2">
+                            <i class='bx bx-code-alt'></i> {{ project.programming_languages|truncatechars:30 }}
+                        </p>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar" role="progressbar" 
+                                 style="width: {{ project.progress_percentage }}%"
+                                 aria-valuenow="{{ project.progress_percentage }}" 
+                                 aria-valuemin="0" aria-valuemax="100">
+                                {{ project.progress_percentage }}%
+                            </div>
+                        </div>
+                        <small class="text-muted">Progress</small>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-primary w-100">
+                            <i class='bx bx-show'></i> View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="card modern-card">
+                    <div class="card-body text-center py-5">
+                        <i class='bx bx-folder-open' style="font-size: 4rem; color: #6c757d;"></i>
+                        <h4 class="mt-3">No Projects Found</h4>
+                        <p class="text-muted">You don't have any projects assigned yet.</p>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.badge-draft { background: #6c757d; color: white; }
+.badge-pending { background: #ffc107; color: #000; }
+.badge-approved { background: #28a745; color: white; }
+.badge-rejected { background: #dc3545; color: white; }
+.badge-in_progress { background: #17a2b8; color: white; }
+.badge-completed { background: #007bff; color: white; }
+</style>
+{% endblock %}

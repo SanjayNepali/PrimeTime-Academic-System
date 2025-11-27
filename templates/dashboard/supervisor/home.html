@@ -6,8 +6,20 @@
 
 {% block content %}
 <div class="dashboard-header mb-4">
-    <h2><i class='bx bxs-user-badge'></i> Supervisor Dashboard</h2>
-    <p class="text-muted">Welcome back, {{ user.get_full_name|default:user.username }}!</p>
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h2><i class='bx bxs-user-badge'></i> Supervisor Dashboard</h2>
+            <p class="text-muted">Welcome back, {{ user.get_full_name|default:user.username }}!</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'analytics:supervisor_analytics' %}" class="btn btn-outline-primary">
+                <i class='bx bx-stats'></i> View Analytics
+            </a>
+            <a href="{% url 'chat:create_room' %}" class="btn btn-outline-primary">
+                <i class='bx bx-chat'></i> Create Chat
+            </a>
+        </div>
+    </div>
 </div>
 
 <!-- Statistics Cards -->
@@ -19,6 +31,7 @@
                     <div>
                         <h6 class="text-muted mb-2">Total Groups</h6>
                         <h3 class="mb-0">{{ total_groups }}</h3>
+                        <small class="text-muted">Active groups</small>
                     </div>
                     <i class='bx bx-group' style="font-size: 2.5rem; color: var(--primary-color);"></i>
                 </div>
@@ -33,6 +46,7 @@
                     <div>
                         <h6 class="text-muted mb-2">Total Students</h6>
                         <h3 class="mb-0">{{ total_students }}</h3>
+                        <small class="text-muted">Under supervision</small>
                     </div>
                     <i class='bx bx-user' style="font-size: 2.5rem; color: var(--secondary-color);"></i>
                 </div>
@@ -47,6 +61,7 @@
                     <div>
                         <h6 class="text-muted mb-2">Avg Progress</h6>
                         <h3 class="mb-0">{{ avg_progress }}%</h3>
+                        <small class="text-muted">Across all projects</small>
                     </div>
                     <i class='bx bx-trending-up' style="font-size: 2.5rem; color: var(--success-color);"></i>
                 </div>
@@ -61,6 +76,7 @@
                     <div>
                         <h6 class="text-muted mb-2">Pending Reviews</h6>
                         <h3 class="mb-0">{{ pending_reviews }}</h3>
+                        <small class="text-muted">Need attention</small>
                     </div>
                     <i class='bx bx-time' style="font-size: 2.5rem; color: var(--warning-color);"></i>
                 </div>
@@ -69,52 +85,95 @@
     </div>
 </div>
 
-<!-- My Groups -->
+<!-- Quick Actions -->
 <div class="row mb-4">
     <div class="col-md-12">
         <div class="card">
             <div class="card-header bg-white">
-                <h5 class="mb-0"><i class='bx bx-group'></i> My Groups</h5>
+                <h5 class="mb-0"><i class='bx bx-rocket'></i> Quick Actions</h5>
             </div>
             <div class="card-body">
-                {% if supervised_groups %}
-                    <div class="row">
-                        {% for group in supervised_groups %}
-                        <div class="col-md-4 mb-3">
-                            <div class="card border">
-                                <div class="card-body">
-                                    <h6 class="card-title">{{ group.name }}</h6>
-                                    <p class="card-text">
-                                        <small class="text-muted">
-                                            <i class='bx bx-user'></i> {{ group.student_count }} / {{ group.max_students }} students<br>
-                                            <i class='bx bx-calendar'></i> Batch {{ group.batch_year }}
-                                        </small>
-                                    </p>
-                                    <div class="d-flex gap-2">
-                                        <a href="#" class="btn btn-sm btn-primary">View Details</a>
-                                        <a href="#" class="btn btn-sm btn-outline-primary">
-                                            <i class='bx bx-chat'></i> Chat
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
+                <div class="row">
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'groups:group_list' %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-group'></i> Manage Groups
+                        </a>
                     </div>
-                {% else %}
-                    <p class="text-muted mb-0">You are not supervising any groups yet.</p>
-                {% endif %}
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'projects:supervisor_projects' %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-folder'></i> View Projects
+                        </a>
+                    </div>
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'analytics:supervisor_analytics' %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-stats'></i> Analytics
+                        </a>
+                    </div>
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'analytics:supervisor_view_student' user.pk %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-user'></i> Monitor Students
+                        </a>
+                    </div>
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'chat:create_room' %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-chat'></i> Create Chat
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <div class="row">
-    <!-- Pending Deliverables -->
-    <div class="col-md-6 mb-4">
+    <!-- My Groups -->
+    <div class="col-lg-6 mb-4">
         <div class="card">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class='bx bx-file'></i> Pending Deliverables</h5>
+                <h5 class="mb-0"><i class='bx bx-group'></i> My Groups</h5>
+                <span class="badge bg-primary">{{ supervised_groups.count }}</span>
+            </div>
+            <div class="card-body">
+                {% if supervised_groups %}
+                    <div class="list-group list-group-flush">
+                        {% for group in supervised_groups %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ group.name }}</h6>
+                                    <small class="text-muted">
+                                        <i class='bx bx-user'></i> {{ group.student_count }} students
+                                        | <i class='bx bx-calendar'></i> Batch {{ group.batch_year }}
+                                    </small>
+                                </div>
+                                <div class="btn-group">
+                                    <a href="{% url 'groups:group_detail' group.pk %}" class="btn btn-sm btn-outline-primary">
+                                        View
+                                    </a>
+                                    <a href="#" class="btn btn-sm btn-outline-secondary">
+                                        <i class='bx bx-chat'></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class='bx bx-group' style="font-size: 3rem; color: var(--text-muted);"></i>
+                        <h5 class="mt-3">No Groups Assigned</h5>
+                        <p class="text-muted">You haven't been assigned to any groups yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Reviews -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class='bx bx-time'></i> Pending Reviews</h5>
                 <span class="badge bg-warning">{{ pending_reviews }}</span>
             </div>
             <div class="card-body">
@@ -135,41 +194,19 @@
                         </div>
                         {% endfor %}
                     </div>
-                {% else %}
-                    <p class="text-muted mb-0">No pending deliverables to review.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
-    <!-- Recent Submissions -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-white">
-                <h5 class="mb-0"><i class='bx bx-upload'></i> Recent Submissions</h5>
-            </div>
-            <div class="card-body">
-                {% if recent_submissions %}
-                    <div class="list-group list-group-flush">
-                        {% for submission in recent_submissions %}
-                        <div class="list-group-item px-0">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">{{ submission.get_stage_display }}</h6>
-                                    <small class="text-muted">
-                                        <i class='bx bx-user'></i> {{ submission.project.student.get_full_name }}
-                                        {% if submission.is_approved %}
-                                            | <span class="badge bg-success">Approved</span>
-                                        {% endif %}
-                                    </small>
-                                </div>
-                                <small class="text-muted">{{ submission.submitted_at|timesince }} ago</small>
-                            </div>
-                        </div>
-                        {% endfor %}
+                    {% if pending_deliverables.count > 5 %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'events:supervisor_review_submissions' %}" class="btn btn-sm btn-outline-primary">
+                            View All {{ pending_deliverables.count }} Pending
+                        </a>
                     </div>
+                    {% endif %}
                 {% else %}
-                    <p class="text-muted mb-0">No recent submissions.</p>
+                    <div class="text-center py-4">
+                        <i class='bx bx-check-circle' style="font-size: 3rem; color: var(--success-color);"></i>
+                        <h5 class="mt-3">All Caught Up!</h5>
+                        <p class="text-muted">No pending reviews at this time.</p>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -192,17 +229,35 @@
                                     <th>Student</th>
                                     <th>Project</th>
                                     <th>Progress</th>
-                                    <th>Stress Level</th>
+                                    <th>Status</th>
+                                    <th>Last Activity</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for student in supervised_students|slice:":10" %}
                                 <tr>
-                                    <td>{{ student.get_full_name }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm me-2">
+                                                {% if student.profile.profile_picture %}
+                                                    <img src="{{ student.profile.profile_picture.url }}" alt="Avatar" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+                                                {% else %}
+                                                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                        <i class='bx bx-user text-white'></i>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <strong>{{ student.get_full_name }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ student.username }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td>
                                         {% if student.projects.exists %}
-                                            {{ student.projects.first.title|truncatechars:30 }}
+                                            {{ student.projects.first.title|truncatechars:25 }}
                                         {% else %}
                                             <span class="text-muted">No project</span>
                                         {% endif %}
@@ -210,12 +265,30 @@
                                     <td>
                                         <div class="progress" style="width: 100px; height: 20px;">
                                             <div class="progress-bar" role="progressbar" 
-                                                 style="width: {% if student.projects.exists %}{{ student.projects.first.progress_percentage }}{% else %}0{% endif %}%;">
+                                                 style="width: {% if student.projects.exists %}{{ student.projects.first.progress_percentage }}{% else %}0{% endif %}%;"
+                                                 aria-valuenow="{% if student.projects.exists %}{{ student.projects.first.progress_percentage }}{% else %}0{% endif %}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
                                             </div>
                                         </div>
+                                        <small>{% if student.projects.exists %}{{ student.projects.first.progress_percentage }}%{% else %}0%{% endif %}</small>
                                     </td>
                                     <td>
-                                        <span class="badge bg-success">Low</span>
+                                        {% if student.projects.exists %}
+                                            <span class="badge bg-{% if student.projects.first.status == 'approved' %}success{% elif student.projects.first.status == 'pending' %}warning{% elif student.projects.first.status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                                                {{ student.projects.first.get_status_display }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">No Project</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if student.projects.exists and student.projects.first.updated_at %}
+                                                {{ student.projects.first.updated_at|timesince }} ago
+                                            {% else %}
+                                                Never
+                                            {% endif %}
+                                        </small>
                                     </td>
                                     <td>
                                         <a href="#" class="btn btn-sm btn-outline-primary">View</a>
@@ -225,8 +298,19 @@
                             </tbody>
                         </table>
                     </div>
+                    {% if supervised_students.count > 10 %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'analytics:supervisor_view_student' user.pk %}" class="btn btn-sm btn-outline-primary">
+                            View All {{ supervised_students.count }} Students
+                        </a>
+                    </div>
+                    {% endif %}
                 {% else %}
-                    <p class="text-muted mb-0">No students to supervise yet.</p>
+                    <div class="text-center py-4">
+                        <i class='bx bx-user' style="font-size: 3rem; color: var(--text-muted);"></i>
+                        <h5 class="mt-3">No Students Assigned</h5>
+                        <p class="text-muted">You don't have any students to supervise yet.</p>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -244,6 +328,7 @@
         border-radius: 15px;
         transition: all 0.3s;
         height: 100%;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
     
     .stat-card:hover {
@@ -254,6 +339,11 @@
     .list-group-item {
         border: none;
         border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+    
+    .list-group-item:hover {
+        background-color: rgba(0, 0, 0, 0.02);
     }
     
     .list-group-item:last-child {
@@ -267,6 +357,11 @@
     
     .progress-bar {
         background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    }
+    
+    .avatar-sm {
+        width: 32px;
+        height: 32px;
     }
 </style>
 {% endblock %}

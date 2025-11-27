@@ -67,42 +67,14 @@ class AdvancedSentimentAnalyzer:
         return self._save_stress_analysis(stress_data, overall_stress)
     
     def _analyze_chat_sentiment(self, days):
-        """Analyze sentiment in chat messages"""
-        since = timezone.now() - timedelta(days=days)
-        
-        messages = Message.objects.filter(
-            Q(sender=self.user) | Q(receiver=self.user),
-            timestamp__gte=since
-        )
-        
-        if not messages.exists():
-            return {'score': 0, 'message_count': 0, 'sentiment_breakdown': {}}
-        
-        sentiments = []
-        keyword_scores = []
-        
-        for message in messages:
-            # Only analyze messages sent by the user
-            if message.sender == self.user:
-                analysis = self._analyze_single_message(message.content)
-                sentiments.append(analysis['polarity'])
-                keyword_scores.append(analysis['keyword_score'])
-        
-        if not sentiments:
-            return {'score': 0, 'message_count': 0, 'sentiment_breakdown': {}}
-        
-        avg_sentiment = np.mean(sentiments)
-        avg_keyword_score = np.mean(keyword_scores)
-        
-        # Combine sentiment and keyword analysis
-        chat_stress_score = self._normalize_chat_stress(avg_sentiment, avg_keyword_score)
-        
+        """Temporary simplified chat sentiment analysis"""
+        # Return default values until chat system is properly set up
         return {
-            'score': chat_stress_score,
-            'message_count': len(sentiments),
-            'avg_sentiment': avg_sentiment,
-            'avg_keyword_score': avg_keyword_score,
-            'sentiment_breakdown': self._get_sentiment_breakdown(sentiments)
+            'score': 50,  # Neutral default
+            'message_count': 0,
+            'avg_sentiment': 0,
+            'avg_keyword_score': 0,
+            'sentiment_breakdown': {'positive': 0, 'negative': 0, 'neutral': 0}
         }
     
     def _analyze_single_message(self, text):
@@ -241,30 +213,13 @@ class AdvancedSentimentAnalyzer:
         }
     
     def _analyze_social_engagement(self, days):
-        """Analyze social engagement and isolation"""
-        since = timezone.now() - timedelta(days=days)
-        
-        # Count interactions
-        sent_messages = Message.objects.filter(sender=self.user, timestamp__gte=since).count()
-        received_messages = Message.objects.filter(receiver=self.user, timestamp__gte=since).count()
-        
-        total_interactions = sent_messages + received_messages
-        
-        # Calculate isolation score (more interactions = less isolation)
-        if total_interactions == 0:
-            isolation_score = 80  # High isolation if no interactions
-        else:
-            # Normalize based on expected daily interactions
-            expected_daily = 5
-            actual_daily = total_interactions / days
-            isolation_score = max(0, 100 - (actual_daily / expected_daily) * 100)
-        
+        """Temporary simplified social engagement"""
         return {
-            'score': isolation_score,
-            'sent_messages': sent_messages,
-            'received_messages': received_messages,
-            'total_interactions': total_interactions,
-            'isolation_level': 'high' if isolation_score > 70 else 'medium' if isolation_score > 40 else 'low'
+            'score': 50,  # Neutral default
+            'sent_messages': 0,
+            'received_messages': 0,
+            'total_interactions': 0,
+            'isolation_level': 'medium'
         }
     
     def _calculate_comprehensive_stress(self, stress_data):

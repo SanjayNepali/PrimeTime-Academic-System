@@ -6,56 +6,127 @@
 
 {% block content %}
 <div class="dashboard-header mb-4">
-    <h2><i class='bx bxs-graduation'></i> Student Dashboard</h2>
-    <p class="text-muted">Welcome back, {{ user.get_full_name|default:user.username }}!</p>
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex gap-2">
+            {% if not project %}
+                <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
+                    <i class='bx bx-plus'></i> Create Project
+                </a>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
-<!-- Progress Overview -->
+<!-- Main Content Grid -->
 <div class="row mb-4">
+    <!-- Project Progress -->
     <div class="col-md-8">
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title mb-4"><i class='bx bx-trending-up'></i> Project Progress</h5>
                 
                 {% if project %}
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span><strong>{{ project.title }}</strong></span>
-                            <span class="badge bg-{% if project.status == 'approved' %}success{% elif project.status == 'pending' %}warning{% elif project.status == 'rejected' %}danger{% else %}secondary{% endif %}">
-                                {{ project.get_status_display }}
-                            </span>
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-3">
+                            <div>
+                                <h4 class="mb-1">{{ project.title }}</h4>
+                                <span class="badge bg-{% if project.status == 'approved' %}success{% elif project.status == 'pending' %}warning{% elif project.status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                                    {{ project.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="text-end">
+                                <h3 class="text-primary mb-0">{{ progress }}%</h3>
+                                <small class="text-muted">Overall Completion</small>
+                            </div>
                         </div>
-                        <div class="progress" style="height: 25px;">
+                        
+                        <div class="progress mb-3" style="height: 25px;">
                             <div class="progress-bar bg-gradient" role="progressbar" 
                                  style="width: {{ progress }}%; background: linear-gradient(90deg, var(--primary-color), var(--accent-color));"
                                  aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
                                 {{ progress }}%
                             </div>
                         </div>
-                        <small class="text-muted">Overall project completion</small>
+                        
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class='bx bx-code-alt me-3' style="font-size: 1.5rem; color: var(--primary-color);"></i>
+                                    <div>
+                                        <small class="text-muted">Technologies</small>
+                                        <p class="mb-0 fw-semibold">{{ project.programming_languages }}</p>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class='bx bx-calendar me-3' style="font-size: 1.5rem; color: var(--info);"></i>
+                                    <div>
+                                        <small class="text-muted">Batch Year</small>
+                                        <p class="mb-0 fw-semibold">{{ project.batch_year }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class='bx bx-user me-3' style="font-size: 1.5rem; color: var(--success);"></i>
+                                    <div>
+                                        <small class="text-muted">Supervisor</small>
+                                        <p class="mb-0 fw-semibold">
+                                            {% if project.supervisor %}
+                                                {{ project.supervisor.get_full_name }}
+                                            {% else %}
+                                                <span class="text-warning">Not assigned yet</span>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class='bx bx-group me-3' style="font-size: 1.5rem; color: var(--warning);"></i>
+                                    <div>
+                                        <small class="text-muted">Group</small>
+                                        <p class="mb-0 fw-semibold">
+                                            {% if group %}
+                                                {{ group.name }}
+                                            {% else %}
+                                                <span class="text-warning">Not in a group</span>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="row mt-4">
-                        <div class="col-6">
-                            <small class="text-muted">Technologies:</small>
-                            <p class="mb-0"><i class='bx bx-code-alt'></i> {{ project.programming_languages }}</p>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted">Supervisor:</small>
-                            <p class="mb-0">
-                                {% if project.supervisor %}
-                                    <i class='bx bx-user'></i> {{ project.supervisor.get_full_name }}
-                                {% else %}
-                                    <span class="text-warning">Not assigned yet</span>
-                                {% endif %}
-                            </p>
-                        </div>
+                    <!-- Project Actions -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        {% if project.is_editable %}
+                            <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-primary">
+                                <i class='bx bx-edit'></i> Edit Project
+                            </a>
+                        {% endif %}
+                        
+                        {% if project.status == 'draft' %}
+                            <a href="{% url 'projects:project_submit' project.pk %}" class="btn btn-success">
+                                <i class='bx bx-send'></i> Submit for Review
+                            </a>
+                        {% endif %}
+                        
+                        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-primary">
+                            <i class='bx bx-show'></i> View Details
+                        </a>
+                        
+                        {% if group %}
+                            <a href="#" class="btn btn-outline-secondary">
+                                <i class='bx bx-chat'></i> Group Chat
+                            </a>
+                        {% endif %}
                     </div>
                 {% else %}
-                    <div class="alert alert-info">
-                        <i class='bx bx-info-circle'></i> You haven't created a project yet.
-                        <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-sm ms-3">
-                            <i class='bx bx-plus'></i> Create Project
+                    <div class="text-center py-5">
+                        <i class='bx bx-folder-plus' style="font-size: 4rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                        <h4>No Project Created</h4>
+                        <p class="text-muted mb-4">You haven't created a project for this batch year yet.</p>
+                        <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-lg">
+                            <i class='bx bx-plus'></i> Create Your First Project
                         </a>
                     </div>
                 {% endif %}
@@ -63,24 +134,30 @@
         </div>
     </div>
     
+    <!-- Stress Level & Quick Stats -->
     <div class="col-md-4">
-        <div class="card">
+        <!-- Stress Level -->
+        <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title mb-4"><i class='bx bx-heart'></i> Stress Level</h5>
                 <div class="text-center">
                     <div class="stress-meter mb-3" data-stress="{{ stress_level }}">
-                        <svg width="120" height="120">
-                            <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="10" fill="none"/>
-                            <circle cx="60" cy="60" r="50" 
-                                    stroke="{% if stress_level < 30 %}#06ffa5{% elif stress_level < 60 %}#ffb700{% else %}#ff006e{% endif %}" 
-                                    stroke-width="10" fill="none"
-                                    stroke-dasharray="{{ stress_level|add:'0' }} 314"
-                                    stroke-dashoffset="0"
-                                    transform="rotate(-90 60 60)"/>
-                        </svg>
-                        <div class="stress-value">{{ stress_level }}%</div>
+                        <div class="position-relative d-inline-block">
+                            <svg width="120" height="120" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="50" stroke="#e0e0e0" stroke-width="10" fill="none"/>
+                                <circle cx="60" cy="60" r="50" 
+                                        stroke="{% if stress_level < 30 %}#06ffa5{% elif stress_level < 60 %}#ffb700{% else %}#ff006e{% endif %}" 
+                                        stroke-width="10" fill="none"
+                                        stroke-dasharray="{{ stress_level|add:'0' }} 314"
+                                        stroke-dashoffset="0"
+                                        transform="rotate(-90 60 60)"/>
+                            </svg>
+                            <div class="position-absolute top-50 start-50 translate-middle">
+                                <div class="stress-value fw-bold" style="font-size: 1.5rem;">{{ stress_level }}%</div>
+                            </div>
+                        </div>
                     </div>
-                    <p class="mb-0">
+                    <p class="mb-0 fw-semibold">
                         {% if stress_level < 30 %}
                             <span class="text-success">Low stress - Keep it up!</span>
                         {% elif stress_level < 60 %}
@@ -89,13 +166,51 @@
                             <span class="text-danger">High stress - Take a break!</span>
                         {% endif %}
                     </p>
+                    <small class="text-muted">Based on your recent activity</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Stats -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4"><i class='bx bx-stats'></i> Quick Stats</h5>
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="border rounded p-3">
+                            <i class='bx bx-folder mb-2' style="font-size: 1.5rem; color: var(--primary-color);"></i>
+                            <h4 class="mb-1">{{ deliverables_submitted }}</h4>
+                            <small class="text-muted">Submitted</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="border rounded p-3">
+                            <i class='bx bx-check-circle mb-2' style="font-size: 1.5rem; color: var(--success);"></i>
+                            <h4 class="mb-1">{{ deliverables_approved }}</h4>
+                            <small class="text-muted">Approved</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <i class='bx bx-message-detail mb-2' style="font-size: 1.5rem; color: var(--info);"></i>
+                            <h4 class="mb-1">{{ feedback_count|default:"0" }}</h4>
+                            <small class="text-muted">Feedback</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <i class='bx bx-time mb-2' style="font-size: 1.5rem; color: var(--warning);"></i>
+                            <h4 class="mb-1">{{ upcoming_deadlines|length }}</h4>
+                            <small class="text-muted">Deadlines</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Quick Actions & Info -->
+<!-- Quick Actions -->
 <div class="row mb-4">
     <div class="col-md-12">
         <div class="card">
@@ -105,42 +220,48 @@
             <div class="card-body">
                 <div class="row">
                     {% if project and project.is_editable %}
-                    <div class="col-md-3 mb-2">
-                        <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-primary w-100">
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-outline-primary w-100">
                             <i class='bx bx-edit'></i> Edit Project
                         </a>
                     </div>
                     {% elif not project %}
-                    <div class="col-md-3 mb-2">
-                        <a href="{% url 'projects:project_create' %}" class="btn btn-primary w-100">
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'projects:project_create' %}" class="btn btn-outline-primary w-100">
                             <i class='bx bx-plus'></i> Create Project
                         </a>
                     </div>
                     {% endif %}
                     
                     {% if project and project.status in 'approved,in_progress' %}
-                    <div class="col-md-3 mb-2">
+                    <div class="col-xl-2 col-md-4 mb-2">
                         <a href="#" class="btn btn-outline-primary w-100">
                             <i class='bx bx-upload'></i> Submit Deliverable
                         </a>
                     </div>
                     {% endif %}
                     
-                    <div class="col-md-3 mb-2">
+                    <div class="col-xl-2 col-md-4 mb-2">
                         <a href="#" class="btn btn-outline-primary w-100">
                             <i class='bx bx-chat'></i> Group Chat
                         </a>
                     </div>
                     
-                    <div class="col-md-3 mb-2">
+                    <div class="col-xl-2 col-md-4 mb-2">
                         <a href="#" class="btn btn-outline-primary w-100">
                             <i class='bx bx-book'></i> Resources
                         </a>
                     </div>
                     
-                    <div class="col-md-3 mb-2">
+                    <div class="col-xl-2 col-md-4 mb-2">
                         <a href="#" class="btn btn-outline-primary w-100">
                             <i class='bx bx-help-circle'></i> Forum
+                        </a>
+                    </div>
+                    
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'analytics:my_analytics' %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-stats'></i> Analytics
                         </a>
                     </div>
                 </div>
@@ -149,12 +270,14 @@
     </div>
 </div>
 
+<!-- Quick Information -->
 <div class="row">
     <!-- Upcoming Deadlines -->
-    <div class="col-md-6 mb-4">
+    <div class="col-lg-6 mb-4">
         <div class="card">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class='bx bx-calendar'></i> Upcoming Deadlines</h5>
+                <span class="badge bg-warning">{{ upcoming_deadlines|length }}</span>
             </div>
             <div class="card-body">
                 {% if upcoming_deadlines %}
@@ -174,17 +297,22 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p class="text-muted mb-0">No upcoming deadlines.</p>
+                    <div class="text-center py-4">
+                        <i class='bx bx-check-circle' style="font-size: 3rem; color: var(--success);"></i>
+                        <h5 class="mt-3">No Upcoming Deadlines</h5>
+                        <p class="text-muted">You're all caught up!</p>
+                    </div>
                 {% endif %}
             </div>
         </div>
     </div>
     
     <!-- Recent Activities -->
-    <div class="col-md-6 mb-4">
+    <div class="col-lg-6 mb-4">
         <div class="card">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class='bx bx-history'></i> Recent Activities</h5>
+                <span class="badge bg-primary">{{ recent_activities|length }}</span>
             </div>
             <div class="card-body">
                 {% if recent_activities %}
@@ -202,7 +330,11 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    <p class="text-muted mb-0">No recent activities.</p>
+                    <div class="text-center py-4">
+                        <i class='bx bx-info-circle' style="font-size: 3rem; color: var(--text-muted);"></i>
+                        <h5 class="mt-3">No Recent Activities</h5>
+                        <p class="text-muted">Your activities will appear here.</p>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -219,17 +351,33 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4">
-                        <small class="text-muted">Supervisor:</small>
-                        <p><i class='bx bx-user-check'></i> {{ group.supervisor.get_full_name }}</p>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class='bx bx-user-check' style="font-size: 2rem; color: var(--primary-color);"></i>
+                            <h6 class="mt-2">Supervisor</h6>
+                            <p class="mb-0 fw-semibold">{{ group.supervisor.get_full_name }}</p>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <small class="text-muted">Group Size:</small>
-                        <p><i class='bx bx-group'></i> {{ group.student_count }} students</p>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class='bx bx-group' style="font-size: 2rem; color: var(--success);"></i>
+                            <h6 class="mt-2">Group Size</h6>
+                            <p class="mb-0 fw-semibold">{{ group.student_count }} students</p>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <small class="text-muted">Batch Year:</small>
-                        <p><i class='bx bx-calendar'></i> {{ group.batch_year }}</p>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class='bx bx-calendar' style="font-size: 2rem; color: var(--info);"></i>
+                            <h6 class="mt-2">Batch Year</h6>
+                            <p class="mb-0 fw-semibold">{{ group.batch_year }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <i class='bx bx-chat' style="font-size: 2rem; color: var(--warning);"></i>
+                            <h6 class="mt-2">Group Chat</h6>
+                            <a href="#" class="btn btn-sm btn-outline-primary mt-1">Open Chat</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -254,17 +402,45 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: 1.5rem;
         font-weight: bold;
     }
     
     .list-group-item {
         border: none;
         border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+    
+    .list-group-item:hover {
+        background-color: rgba(0, 0, 0, 0.02);
     }
     
     .list-group-item:last-child {
         border-bottom: none;
+    }
+    
+    .progress {
+        background-color: #e9ecef;
+        border-radius: 10px;
+    }
+    
+    .progress-bar {
+        background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    }
+    
+    .border.rounded {
+        transition: all 0.2s;
+    }
+    
+    .border.rounded:hover {
+        border-color: var(--primary-color) !important;
+        transform: translateY(-2px);
+    }
+    
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
 </style>
 {% endblock %}

@@ -84,7 +84,7 @@ class StressCalculator:
         from analytics.models import StressLevel
 
         try:
-            return StressLevel.objects.filter(student=user).latest('calculated_at')
+            return StressLevel.objects.filter(student=user).latest('timestamp')
         except StressLevel.DoesNotExist:
             return None
 
@@ -96,8 +96,8 @@ class StressCalculator:
         since = timezone.now() - timedelta(days=days)
         stress_records = StressLevel.objects.filter(
             student=user,
-            calculated_at__gte=since
-        ).order_by('calculated_at')
+            timestamp=since
+        ).order_by('timestamp')
 
         if not stress_records.exists():
             return {'trend': 'stable', 'average': 0, 'records': []}
@@ -123,7 +123,7 @@ class StressCalculator:
             'trend': trend,
             'average': average,
             'current': levels[-1] if levels else 0,
-            'records': list(stress_records.values('calculated_at', 'level'))
+            'records': list(stress_records.values('timestamp', 'level'))
         }
 
     @staticmethod
@@ -134,7 +134,7 @@ class StressCalculator:
         # Get latest stress level for each student
         latest_stress = StressLevel.objects.filter(
             level__gte=threshold
-        ).order_by('student', '-calculated_at').distinct('student')
+        ).order_by('student', '-timestamp').distinct('student')
 
         return latest_stress
 

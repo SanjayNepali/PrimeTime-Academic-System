@@ -25,22 +25,33 @@ def my_analytics(request):
     # Get latest stress level
     latest_stress = StressCalculator.get_latest_stress_level(request.user)
 
-    # Get stress trend
+    # Get stress trend (your existing logic)
     stress_trend = StressCalculator.get_stress_trend(request.user, days=30)
 
     # Get performance metrics
     performance = PerformanceCalculator.calculate_student_performance(request.user)
 
     # Get recent stress history
-    stress_history = StressLevel.objects.filter(student=request.user).order_by('-calculated_at')[:10]
+    stress_history = StressLevel.objects.filter(student=request.user).order_by('-timestamp')[:10]
+
+    # ---------------------------------------------------
+    # NEW: Safely compute chat_factor_width for template
+    # ---------------------------------------------------
+    if latest_stress and getattr(latest_stress, "chat_sentiment_score", None) is not None:
+        chat_factor_width = (latest_stress.chat_sentiment_score + 1) * 50
+    else:
+        chat_factor_width = 0
 
     context = {
         'latest_stress': latest_stress,
         'stress_trend': stress_trend,
         'performance': performance,
         'stress_history': stress_history,
+        'chat_factor_width': chat_factor_width,
     }
+
     return render(request, 'analytics/my_analytics.html', context)
+
 
 
 @login_required
@@ -122,8 +133,8 @@ def run_stress_analysis(request):
         return JsonResponse({
             'success': True,
             'stress_level': stress_record.level,
-            'category': stress_record.get_stress_category_display(),
-            'message': f'Your current stress level is {stress_record.level:.1f}% ({stress_record.get_stress_category_display()})'
+            'category': stress_record.stress_category,  # FIXED: removed get_stress_category_display
+            'message': f'Your current stress level is {stress_record.level:.1f}% ({stress_record.stress_category})'  # FIXED
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

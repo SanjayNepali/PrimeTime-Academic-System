@@ -23,6 +23,104 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{% static 'css/modern.css' %}">
     {% block extra_css %}{% endblock %}
+    
+    <style>
+        /* OVERRIDE ANY CONFLICTING STYLES */
+        .user-dropdown {
+            display: none !important;
+            position: absolute !important;
+            top: 100% !important;
+            right: 0 !important;
+            background: white !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 12px !important;
+            padding: 8px !important;
+            min-width: 260px !important;
+            max-height: 70vh !important; /* Limit height */
+            overflow-y: auto !important; /* Make it scrollable */
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important;
+            z-index: 1000 !important;
+            margin-top: 8px !important;
+        }
+        
+        .user-dropdown.show {
+            display: block !important;
+        }
+        
+        .user-dropdown a {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            padding: 10px 12px !important;
+            text-decoration: none !important;
+            color: #1a1d26 !important;
+            border-radius: 8px !important;
+            transition: all 0.2s !important;
+            font-size: 14px !important;
+            white-space: nowrap !important; /* Prevent text wrapping */
+        }
+        
+        .user-dropdown a:hover {
+            background: #f6f8fb !important;
+        }
+        
+        .dropdown-divider {
+            height: 1px !important;
+            background: #e5e7eb !important;
+            margin: 8px 0 !important;
+            flex-shrink: 0 !important; /* Prevent dividers from shrinking */
+        }
+        
+        .create-post-btn {
+            background: #10B981 !important;
+            color: white !important;
+        }
+        
+        /* FIX NAV-RIGHT POSITIONING */
+        .nav-right {
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            position: relative !important; /* Ensure proper stacking */
+            z-index: 1001 !important; /* Higher than dropdown */
+        }
+        
+        /* Ensure buttons stay in place */
+        .notification-btn, .create-post-btn {
+            position: relative !important;
+            z-index: 1002 !important; /* Higher than user menu */
+        }
+        
+        .user-menu {
+            position: relative !important;
+            z-index: 1000 !important;
+        }
+        
+        /* Custom scrollbar for the dropdown */
+        .user-dropdown::-webkit-scrollbar {
+            width: 6px !important;
+        }
+        
+        .user-dropdown::-webkit-scrollbar-track {
+            background: #f1f1f1 !important;
+            border-radius: 3px !important;
+        }
+        
+        .user-dropdown::-webkit-scrollbar-thumb {
+            background: #c1c1c1 !important;
+            border-radius: 3px !important;
+        }
+        
+        .user-dropdown::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8 !important;
+        }
+        
+        /* Firefox scrollbar */
+        .user-dropdown {
+            scrollbar-width: thin !important;
+            scrollbar-color: #c1c1c1 #f1f1f1 !important;
+        }
+    </style>
 </head>
 <body>
     {% if user.is_authenticated %}
@@ -36,81 +134,73 @@
                 </a>
                 
                 <div class="nav-links">
-                    <a href="{% url 'dashboard:home' %}" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+                    <!-- Dashboard -->
+                    <a href="{% url 'dashboard:home' %}" class="nav-link">
                         <i class='bx bx-home-alt'></i> Dashboard
                     </a>
                     
+                    <!-- Simple Links Only - No Dropdowns -->
                     {% if user.is_student %}
-                    <a href="{% url 'projects:my_project' %}" class="nav-link {% if 'my-project' in request.path %}active{% endif %}">
+                    <a href="{% url 'projects:my_project' %}" class="nav-link">
                         <i class='bx bx-folder'></i> My Project
+                    </a>
+                    <a href="{% url 'analytics:my_analytics' %}" class="nav-link">
+                        <i class='bx bx-stats'></i> My Analytics
                     </a>
                     {% endif %}
                     
                     {% if user.is_supervisor %}
-                    <a href="{% url 'projects:supervisor_projects' %}" class="nav-link {% if 'supervisor-projects' in request.path %}active{% endif %}">
-                        <i class='bx bx-group'></i> My Groups
+                    <a href="{% url 'projects:supervisor_projects' %}" class="nav-link">
+                        <i class='bx bx-group'></i> My Group
+                    </a>
+                    <a href="{% url 'analytics:supervisor_analytics' %}" class="nav-link">
+                        <i class='bx bx-stats'></i> Analytics
                     </a>
                     {% endif %}
                     
-                    {% if user.is_superadmin or user.is_admin %}
-                    <div class="nav-dropdown">
-                        <a href="#" class="nav-link {% if 'all-projects' in request.path or 'users' in request.path %}active{% endif %}">
-                            <i class='bx bx-cog'></i> Admin <i class='bx bx-chevron-down'></i>
-                        </a>
-                        <div class="dropdown-menu">
-                            <a href="{% url 'projects:all_projects' %}" class="dropdown-link {% if 'all-projects' in request.path %}active{% endif %}">
-                                <i class='bx bx-folder-open'></i> All Projects
-                            </a>
-                            <a href="{% url 'accounts:user_list' %}" class="dropdown-link {% if 'users' in request.path %}active{% endif %}">
-                                <i class='bx bx-user'></i> User Management
-                            </a>
-                            <a href="#" class="dropdown-link">
-                                <i class='bx bx-data'></i> System Reports
-                            </a>
-                        </div>
-                    </div>
-                    {% elif user.is_supervisor %}
-                    <a href="{% url 'projects:all_projects' %}" class="nav-link {% if 'all-projects' in request.path %}active{% endif %}">
-                        <i class='bx bx-folder-open'></i> All Projects
+                    {% if user.is_superuser or user.is_admin %}
+                    <a href="{% url 'projects:all_projects' %}" class="nav-link">
+                        <i class='bx bx-folder-open'></i> Projects
+                    </a>
+                    <a href="{% url 'accounts:user_list' %}" class="nav-link">
+                        <i class='bx bx-user'></i> Users
+                    </a>
+                    <a href="{% url 'analytics:admin_analytics' %}" class="nav-link">
+                        <i class='bx bx-stats'></i> Analytics
                     </a>
                     {% endif %}
                     
-                    <a href="#" class="nav-link {% if 'resources' in request.path %}active{% endif %}">
-                        <i class='bx bx-book-content'></i> Resources
+                    <!-- Universal Links -->
+                    <a href="{% url 'resources:resource_list' %}" class="nav-link">
+                        <i class='bx bx-book'></i> Resources
+                    </a>
+                    
+                    <a href="{% url 'chat:chat_home' %}" class="nav-link">
+                        <i class='bx bx-chat'></i> Chat
+                    </a>
+                    
+                    <a href="{% url 'forum:forum_home' %}" class="nav-link">
+                        <i class='bx bx-message-rounded'></i> Forum
                     </a>
                 </div>
             </div>
             
+            <!-- FIXED: nav-right without role selector -->
             <div class="nav-right">
-                <!-- Role Switcher for admin users -->
-                {% if user.is_superadmin or user.role == 'admin' %}
-                <div class="role-switcher">
-                    <form method="post" action="{% url 'dashboard:switch_role' %}" class="role-form">
-                        {% csrf_token %}
-                        <select name="role" class="role-select" onchange="this.form.submit()">
-                            <option value="superadmin" {% if request.session.active_role == 'superadmin' %}selected{% endif %}>
-                                Super Admin
-                            </option>
-                            <option value="admin" {% if request.session.active_role == 'admin' %}selected{% endif %}>
-                                Admin
-                            </option>
-                            {% if user.is_supervisor %}
-                            <option value="supervisor" {% if request.session.active_role == 'supervisor' %}selected{% endif %}>
-                                Supervisor
-                            </option>
-                            {% endif %}
-                        </select>
-                    </form>
-                </div>
-                {% endif %}
+                <!-- Create Post Icon -->
+                <button class="notification-btn create-post-btn" onclick="window.location.href='{% url 'forum:post_create' %}'" title="Create Post">
+                    <i class='bx bx-edit-alt'></i>
+                </button>
                 
-                <button class="notification-btn">
+                <!-- Notifications -->
+                <button class="notification-btn" onclick="window.location.href='{% url 'chat:notifications' %}'" title="Notifications">
                     <i class='bx bx-bell'></i>
                     <span class="notification-badge">3</span>
                 </button>
                 
+                <!-- User Menu - SCROLLABLE VERSION -->
                 <div class="user-menu">
-                    <button class="user-menu-btn">
+                    <button class="user-menu-btn" id="userMenuButton">
                         <div class="user-avatar">
                             {% if user.profile.profile_picture %}
                                 <img src="{{ user.profile.profile_picture.url }}" alt="Avatar">
@@ -121,7 +211,7 @@
                         <div class="user-info">
                             <span class="user-name">{{ user.display_name }}</span>
                             <span class="user-role">
-                                {% if user.is_superadmin %}
+                                {% if user.is_superuser %}
                                     Super Admin
                                 {% elif user.is_admin %}
                                     Admin
@@ -133,14 +223,116 @@
                         <i class='bx bx-chevron-down'></i>
                     </button>
                     
-                    <div class="user-dropdown">
+                    <div class="user-dropdown" id="userDropdown">
+                        <!-- Profile Section -->
                         <a href="{% url 'dashboard:user_profile' %}">
                             <i class='bx bx-user'></i> My Profile
                         </a>
+                        <a href="{% url 'accounts:profile' %}">
+                            <i class='bx bx-cog'></i> Account Settings
+                        </a>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- Events Section -->
+                        <a href="{% url 'events:event_list' %}">
+                            <i class='bx bx-calendar'></i> Events
+                        </a>
+                        <a href="{% url 'events:calendar_view' %}">
+                            <i class='bx bx-calendar-event'></i> Calendar
+                        </a>
+                        <a href="{% url 'events:my_events' %}">
+                            <i class='bx bx-user-check'></i> My Events
+                        </a>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- Analytics Section -->
+                        {% if user.is_student %}
+                        <a href="{% url 'analytics:student_view_feedback' %}">
+                            <i class='bx bx-message-detail'></i> My Feedback
+                        </a>
+                        {% endif %}
+                        
+                        {% if user.is_supervisor %}
+                        <a href="{% url 'groups:group_list' %}">
+                            <i class='bx bx-group'></i> Manage Groups
+                        </a>
+                        <a href="{% url 'analytics:supervisor_view_student' user.pk %}">
+                            <i class='bx bx-user'></i> Student Monitoring
+                        </a>
+                        {% endif %}
+                        
+                        {% if user.is_superuser or user.is_admin %}
+                        <a href="{% url 'analytics:admin_view_all_logsheets' %}">
+                            <i class='bx bx-data'></i> All Logsheets
+                        </a>
+                        <a href="{% url 'forum:flagged_posts' %}">
+                            <i class='bx bx-flag'></i> Flagged Posts
+                        </a>
+                        <a href="{% url 'resources:pending_resources' %}">
+                            <i class='bx bx-time'></i> Pending Resources
+                        </a>
+                        {% endif %}
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- Resources Section -->
+                        <a href="{% url 'resources:my_resources' %}">
+                            <i class='bx bx-bookmark'></i> My Resources
+                        </a>
+                        <a href="{% url 'resources:recommended_resources' %}">
+                            <i class='bx bx-star'></i> Recommended
+                        </a>
+                        <a href="{% url 'resources:resource_categories' %}">
+                            <i class='bx bx-category'></i> Categories
+                        </a>
+                        
+                        {% if user.is_superuser or user.is_admin %}
+                        <a href="{% url 'resources:resource_create' %}">
+                            <i class='bx bx-plus'></i> Create Resource
+                        </a>
+                        {% endif %}
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- Forum Section -->
+                        <a href="{% url 'forum:my_posts' %}">
+                            <i class='bx bx-edit'></i> My Posts
+                        </a>
+                        <a href="{% url 'forum:notifications' %}">
+                            <i class='bx bx-bell'></i> Forum Notifications
+                        </a>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- Chat Section -->
+                        <a href="{% url 'chat:create_room' %}">
+                            <i class='bx bx-plus'></i> Create Chat Room
+                        </a>
+                        <a href="{% url 'chat:notifications' %}">
+                            <i class='bx bx-bell'></i> Chat Notifications
+                        </a>
+                        
+                        <div class="dropdown-divider"></div>
+                        
+                        <!-- System Section -->
                         <a href="{% url 'accounts:change_password' %}">
                             <i class='bx bx-lock'></i> Change Password
                         </a>
+                        <a href="{% url 'accounts:login_history' %}">
+                            <i class='bx bx-history'></i> Login History
+                        </a>
+                        
+                        {% if user.is_superuser or user.is_admin %}
+                        <a href="{% url 'admin:index' %}">
+                            <i class='bx bx-cog'></i> Django Admin
+                        </a>
+                        {% endif %}
+                        
                         <div class="dropdown-divider"></div>
+                        
+                        <!-- Logout -->
                         <a href="{% url 'accounts:logout' %}">
                             <i class='bx bx-log-out'></i> Logout
                         </a>
@@ -185,53 +377,54 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // User dropdown toggle
-        document.querySelector('.user-menu-btn')?.addEventListener('click', function() {
-            document.querySelector('.user-dropdown').classList.toggle('show');
-        });
-        
-        // Nav dropdown toggle
-        document.querySelectorAll('.nav-dropdown > .nav-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                this.parentElement.classList.toggle('show');
-            });
-        });
-        
-        // Close dropdowns on outside click
-        document.addEventListener('click', function(e) {
-            // Close user dropdown
-            if (!e.target.closest('.user-menu')) {
-                document.querySelector('.user-dropdown')?.classList.remove('show');
-            }
+        // SIMPLE BULLETPROOF DROPDOWN
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded - setting up dropdown');
             
-            // Close nav dropdowns
-            if (!e.target.closest('.nav-dropdown')) {
-                document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
-                    dropdown.classList.remove('show');
+            const userMenuButton = document.getElementById('userMenuButton');
+            const userDropdown = document.getElementById('userDropdown');
+            
+            console.log('User button:', userMenuButton);
+            console.log('User dropdown:', userDropdown);
+            
+            if (userMenuButton && userDropdown) {
+                // Click to toggle dropdown
+                userMenuButton.addEventListener('click', function(event) {
+                    console.log('User menu clicked');
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    // Toggle using class instead of inline style
+                    userDropdown.classList.toggle('show');
+                    console.log('Dropdown class list:', userDropdown.classList);
                 });
+                
+                // Close dropdown when clicking anywhere else
+                document.addEventListener('click', function(event) {
+                    if (!event.target.closest('.user-menu')) {
+                        console.log('Click outside - closing dropdown');
+                        userDropdown.classList.remove('show');
+                    }
+                });
+                
+                // Close dropdown when clicking links inside it
+                userDropdown.addEventListener('click', function(event) {
+                    if (event.target.tagName === 'A') {
+                        console.log('Link clicked - closing dropdown');
+                        userDropdown.classList.remove('show');
+                    }
+                });
+            } else {
+                console.error('Dropdown elements not found!');
             }
         });
         
-        // Auto-hide alerts after 5 seconds
+        // Auto-hide alerts
         setTimeout(() => {
             document.querySelectorAll('.modern-alert').forEach(alert => {
-                alert.style.animation = 'slideOut 0.3s ease forwards';
-                setTimeout(() => alert.remove(), 300);
+                alert.remove();
             });
         }, 5000);
-        
-        // Add loading state to role switcher
-        document.querySelectorAll('.role-select').forEach(select => {
-            select.addEventListener('change', function() {
-                const form = this.closest('form');
-                const submitBtn = form.querySelector('button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Switching...';
-                    submitBtn.disabled = true;
-                }
-            });
-        });
     </script>
     
     {% block extra_js %}{% endblock %}

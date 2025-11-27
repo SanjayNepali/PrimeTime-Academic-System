@@ -84,25 +84,109 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-xl-3 col-md-6 mb-2">
+                    <div class="col-xl-2 col-md-4 mb-2">
                         <a href="{% url 'accounts:create_user' %}" class="btn btn-primary w-100">
                             <i class='bx bx-user-plus'></i> Create User
                         </a>
                     </div>
-                    <div class="col-xl-3 col-md-6 mb-2">
+                    <div class="col-xl-2 col-md-4 mb-2">
                         <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-primary w-100">
                             <i class='bx bx-group'></i> Manage Users
                         </a>
                     </div>
-                    <div class="col-xl-3 col-md-6 mb-2">
+                    <div class="col-xl-2 col-md-4 mb-2">
                         <a href="{% url 'projects:all_projects' %}" class="btn btn-outline-primary w-100">
                             <i class='bx bx-folder-open'></i> All Projects
                         </a>
                     </div>
-                    <div class="col-xl-3 col-md-6 mb-2">
-                        <a href="#" class="btn btn-outline-primary w-100">
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'events:event_create' %}" class="btn btn-outline-primary w-100">
                             <i class='bx bx-calendar'></i> Create Event
                         </a>
+                    </div>
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'resources:resource_create' %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-book'></i> Add Resource
+                        </a>
+                    </div>
+                    <div class="col-xl-2 col-md-4 mb-2">
+                        <a href="{% url 'analytics:admin_analytics' %}" class="btn btn-outline-primary w-100">
+                            <i class='bx bx-stats'></i> Analytics
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Navigation Grid -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card modern-card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class='bx bx-navigation'></i> Admin Navigation</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- User Management -->
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body text-center">
+                                <i class='bx bx-group display-4 text-primary mb-3'></i>
+                                <h6>User Management</h6>
+                                <div class="btn-group-vertical w-100">
+                                    <a href="{% url 'accounts:user_list' %}" class="btn btn-sm btn-outline-primary mb-1">All Users</a>
+                                    <a href="{% url 'accounts:create_user' %}" class="btn btn-sm btn-outline-primary mb-1">Create User</a>
+                                    <a href="{% url 'accounts:login_history' %}" class="btn btn-sm btn-outline-primary">Login History</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Project Management -->
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body text-center">
+                                <i class='bx bx-folder display-4 text-success mb-3'></i>
+                                <h6>Project Management</h6>
+                                <div class="btn-group-vertical w-100">
+                                    <a href="{% url 'projects:all_projects' %}" class="btn btn-sm btn-outline-success mb-1">All Projects</a>
+                                    <a href="{% url 'events:admin_review_submissions' %}" class="btn btn-sm btn-outline-success mb-1">Review Submissions</a>
+                                    <a href="{% url 'groups:group_list' %}" class="btn btn-sm btn-outline-success">All Groups</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Analytics & Reports -->
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body text-center">
+                                <i class='bx bx-stats display-4 text-info mb-3'></i>
+                                <h6>Analytics & Reports</h6>
+                                <div class="btn-group-vertical w-100">
+                                    <a href="{% url 'analytics:admin_analytics' %}" class="btn btn-sm btn-outline-info mb-1">System Analytics</a>
+                                    <a href="{% url 'analytics:admin_view_all_logsheets' %}" class="btn btn-sm btn-outline-info mb-1">All Logsheets</a>
+                                    <a href="#" class="btn btn-sm btn-outline-info">Reports</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Management -->
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body text-center">
+                                <i class='bx bx-cog display-4 text-warning mb-3'></i>
+                                <h6>System Management</h6>
+                                <div class="btn-group-vertical w-100">
+                                    <a href="{% url 'resources:pending_resources' %}" class="btn btn-sm btn-outline-warning mb-1">Pending Resources</a>
+                                    <a href="{% url 'forum:flagged_posts' %}" class="btn btn-sm btn-outline-warning mb-1">Flagged Posts</a>
+                                    <a href="{% url 'events:event_create' %}" class="btn btn-sm btn-outline-warning">Create Event</a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -73,20 +73,18 @@ class StressLevel(models.Model):
             self.social_isolation_score * weights['social']
         )
         self.save()
-    
+
     @property
     def stress_category(self):
-        """Categorize stress level"""
-        if self.level < 30:
-            return "Low"
-        elif self.level < 60:
-            return "Moderate"
-        elif self.level < 80:
-            return "High"
-        else:
+        """Determine stress category based on level"""
+        if self.level >= 80:
             return "Critical"
-
-
+        elif self.level >= 70:
+            return "High"
+        elif self.level >= 40:
+            return "Moderate"
+        else:
+            return "Low"
 class ProgressTracking(models.Model):
     """Track project progress over time"""
     

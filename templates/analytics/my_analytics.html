@@ -199,7 +199,7 @@
                                     <small class="text-muted">Chat Sentiment</small>
                                     <div class="progress mt-1" style="height: 6px;">
                                         <div class="progress-bar bg-info" 
-                                             style="width: {{ latest_stress.chat_sentiment_score|add:1|mul:50 }}%"></div>
+                                             style="width: {{ chat_factor_width }}%"></div>
                                     </div>
                                 </div>
                             </div>
@@ -499,7 +499,7 @@ function refreshStressAnalysis() {
     btn.disabled = true;
     btn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Analyzing...';
     
-    fetch('/analytics/run-stress-analysis/', {
+    fetch('/analytics/run-analysis/', {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),

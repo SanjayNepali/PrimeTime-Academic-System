@@ -1,0 +1,652 @@
+<!-- File: templates/forum/post_form.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if post %}Edit Post{% else %}Create New Post{% endif %} - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .form-header {
+        margin-bottom: 32px;
+        padding-bottom: 24px;
+        border-bottom: 2px solid var(--border);
+    }
+
+    .form-header h2 {
+        margin-bottom: 8px;
+    }
+
+    .form-header p {
+        color: var(--text-secondary);
+        margin: 0;
+    }
+
+    .form-group {
+        margin-bottom: 24px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .form-label .required {
+        color: var(--danger);
+    }
+
+    .form-control, .form-select {
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 15px;
+        transition: all 0.2s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(85, 104, 254, 0.1);
+    }
+
+    .form-text {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-top: 6px;
+        display: block;
+    }
+
+    .character-count {
+        text-align: right;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .character-count.warning {
+        color: var(--warning);
+    }
+
+    .character-count.danger {
+        color: var(--danger);
+    }
+
+    .tag-selector {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        min-height: 100px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .tag-option {
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: var(--secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 13px;
+        user-select: none;
+    }
+
+    .tag-option:hover {
+        background: var(--border);
+    }
+
+    .tag-option.selected {
+        background: var(--primary);
+        color: white;
+    }
+
+    .type-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+    }
+
+    .type-option {
+        padding: 16px;
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+    }
+
+    .type-option:hover {
+        border-color: var(--primary);
+        background: rgba(85, 104, 254, 0.05);
+    }
+
+    .type-option.selected {
+        border-color: var(--primary);
+        background: rgba(85, 104, 254, 0.1);
+    }
+
+    .type-option i {
+        font-size: 32px;
+        color: var(--primary);
+        margin-bottom: 8px;
+    }
+
+    .type-option .type-name {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .guidelines-box {
+        background: #FEF3C7;
+        border-left: 4px solid #F59E0B;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+    }
+
+    .guidelines-box h6 {
+        color: #92400E;
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+
+    .guidelines-box ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #78350F;
+    }
+
+    .guidelines-box li {
+        margin-bottom: 6px;
+    }
+
+    .preview-section {
+        background: var(--secondary);
+        border-radius: 12px;
+        padding: 24px;
+        margin-top: 24px;
+    }
+
+    .preview-header {
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--text-primary);
+    }
+
+    .preview-content {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        min-height: 100px;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding-top: 24px;
+        border-top: 2px solid var(--border);
+        margin-top: 32px;
+    }
+
+    .invalid-feedback {
+        color: var(--danger);
+        font-size: 13px;
+        margin-top: 6px;
+    }
+
+    .tech-input-wrapper {
+        position: relative;
+    }
+
+    .tech-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 2px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 10;
+        display: none;
+    }
+
+    .tech-suggestions.show {
+        display: block;
+    }
+
+    .tech-suggestion-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .tech-suggestion-item:hover {
+        background: var(--secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="form-container">
+        <!-- Back Button -->
+        <div class="mb-3">
+            <a href="{% url 'forum:forum_home' %}" class="btn btn-outline-secondary btn-sm">
+                <i class='bx bx-arrow-back'></i> Back to Forum
+            </a>
+        </div>
+
+        <div class="form-card">
+            <!-- Form Header -->
+            <div class="form-header">
+                <h2>
+                    <i class='bx bx-edit-alt'></i>
+                    {% if post %}Edit Your Post{% else %}Create New Post{% endif %}
+                </h2>
+                <p>Share your question, knowledge, or start a discussion with the community</p>
+            </div>
+
+            <!-- Guidelines -->
+            <div class="guidelines-box">
+                <h6><i class='bx bx-info-circle'></i> Posting Guidelines</h6>
+                <ul>
+                    <li>Be clear and specific in your title</li>
+                    <li>Provide context and details in your content</li>
+                    <li>Use appropriate tags and select the right category</li>
+                    <li>Be respectful and constructive</li>
+                    <li>Search for existing posts before creating a new one</li>
+                </ul>
+            </div>
+
+            <!-- Form -->
+            <form method="post" id="post-form">
+                {% csrf_token %}
+
+                <!-- Post Type -->
+                <div class="form-group">
+                    <label class="form-label">
+                        Post Type <span class="required">*</span>
+                    </label>
+                    <div class="type-selector">
+                        <div class="type-option" data-value="question">
+                            <i class='bx bx-help-circle'></i>
+                            <div class="type-name">Question</div>
+                        </div>
+                        <div class="type-option" data-value="discussion">
+                            <i class='bx bx-conversation'></i>
+                            <div class="type-name">Discussion</div>
+                        </div>
+                        <div class="type-option" data-value="help">
+                            <i class='bx bx-first-aid'></i>
+                            <div class="type-name">Help Request</div>
+                        </div>
+                        <div class="type-option" data-value="tutorial">
+                            <i class='bx bx-book-open'></i>
+                            <div class="type-name">Tutorial</div>
+                        </div>
+                        <div class="type-option" data-value="showcase">
+                            <i class='bx bx-rocket'></i>
+                            <div class="type-name">Showcase</div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="post_type" id="post_type" value="{{ form.post_type.value|default:'question' }}">
+                    {% if form.post_type.errors %}
+                    <div class="invalid-feedback d-block">{{ form.post_type.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Title -->
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.title.id_for_label }}">
+                        Title <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           class="form-control {% if form.title.errors %}is-invalid{% endif %}" 
+                           name="{{ form.title.name }}" 
+                           id="{{ form.title.id_for_label }}"
+                           value="{{ form.title.value|default:'' }}"
+                           placeholder="e.g., How to implement authentication in Django?"
+                           maxlength="200"
+                           required>
+                    <div class="character-count" id="title-count">0 / 200</div>
+                    <small class="form-text">
+                        Make it descriptive and specific (minimum 10 characters)
+                    </small>
+                    {% if form.title.errors %}
+                    <div class="invalid-feedback d-block">{{ form.title.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Category -->
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.category.id_for_label }}">
+                        Category <span class="required">*</span>
+                    </label>
+                    {{ form.category }}
+                    <small class="form-text">
+                        Select the most relevant category for your post
+                    </small>
+                    {% if form.category.errors %}
+                    <div class="invalid-feedback d-block">{{ form.category.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Content -->
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.content.id_for_label }}">
+                        Content <span class="required">*</span>
+                    </label>
+                    <textarea class="form-control {% if form.content.errors %}is-invalid{% endif %}" 
+                              name="{{ form.content.name }}" 
+                              id="{{ form.content.id_for_label }}"
+                              rows="12"
+                              placeholder="Provide details, context, what you've tried, and any relevant code or errors..."
+                              required>{{ form.content.value|default:'' }}</textarea>
+                    <div class="character-count" id="content-count">0 / 5000</div>
+                    <small class="form-text">
+                        Minimum 20 characters. Be detailed and clear.
+                    </small>
+                    {% if form.content.errors %}
+                    <div class="invalid-feedback d-block">{{ form.content.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Programming Languages -->
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.programming_languages.id_for_label }}">
+                        Technologies / Programming Languages
+                    </label>
+                    <div class="tech-input-wrapper">
+                        <input type="text" 
+                               class="form-control" 
+                               name="{{ form.programming_languages.name }}" 
+                               id="{{ form.programming_languages.id_for_label }}"
+                               value="{{ form.programming_languages.value|default:'' }}"
+                               placeholder="e.g., Python, Django, JavaScript, React"
+                               autocomplete="off">
+                        <div class="tech-suggestions" id="tech-suggestions">
+                            <!-- Auto-populated with common technologies -->
+                        </div>
+                    </div>
+                    <small class="form-text">
+                        Comma-separated list of technologies related to your post
+                    </small>
+                    {% if form.programming_languages.errors %}
+                    <div class="invalid-feedback d-block">{{ form.programming_languages.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Tags -->
+                <div class="form-group">
+                    <label class="form-label">
+                        Tags
+                    </label>
+                    <div class="tag-selector" id="tag-selector">
+                        <!-- Tags will be populated here -->
+                    </div>
+                    <select multiple name="tags" id="tags" style="display: none;">
+                        {% for choice in form.tags.field.queryset %}
+                        <option value="{{ choice.id }}">{{ choice.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text">
+                        Select relevant tags to help others find your post
+                    </small>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-section" id="preview-section" style="display: none;">
+                    <div class="preview-header">
+                        <i class='bx bx-show'></i> Preview
+                    </div>
+                    <div class="preview-content" id="preview-content">
+                        <!-- Preview will be shown here -->
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline-secondary" id="preview-btn">
+                        <i class='bx bx-show'></i> Preview
+                    </button>
+                    <a href="{% url 'forum:forum_home' %}" class="btn btn-outline-secondary">
+                        <i class='bx bx-x'></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class='bx bx-send'></i>
+                        {% if post %}Update Post{% else %}Create Post{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Common technologies for suggestions
+    const commonTechnologies = [
+        'Python', 'Django', 'JavaScript', 'React', 'Node.js', 'TypeScript',
+        'Java', 'Spring', 'C++', 'C#', '.NET', 'PHP', 'Laravel',
+        'Ruby', 'Rails', 'Go', 'Rust', 'Swift', 'Kotlin',
+        'HTML', 'CSS', 'Bootstrap', 'Tailwind', 'Vue.js', 'Angular',
+        'PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Docker', 'Kubernetes',
+        'AWS', 'Azure', 'GCP', 'Git', 'Linux', 'Machine Learning', 'AI'
+    ];
+
+    // Post Type Selector
+    const typeOptions = document.querySelectorAll('.type-option');
+    const postTypeInput = document.getElementById('post_type');
+
+    // Set initial selected type
+    const initialType = postTypeInput.value || 'question';
+    typeOptions.forEach(option => {
+        if (option.dataset.value === initialType) {
+            option.classList.add('selected');
+        }
+    });
+
+    typeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            typeOptions.forEach(opt => opt.classList.remove('selected'));
+            this.classList.add('selected');
+            postTypeInput.value = this.dataset.value;
+        });
+    });
+
+    // Character Count
+    const titleInput = document.querySelector('input[name="title"]');
+    const contentTextarea = document.querySelector('textarea[name="content"]');
+    const titleCount = document.getElementById('title-count');
+    const contentCount = document.getElementById('content-count');
+
+    function updateCharCount(input, countElement, maxLength) {
+        const length = input.value.length;
+        countElement.textContent = `${length} / ${maxLength}`;
+        
+        if (length > maxLength * 0.9) {
+            countElement.classList.add('warning');
+        } else {
+            countElement.classList.remove('warning');
+        }
+        
+        if (length >= maxLength) {
+            countElement.classList.add('danger');
+        } else {
+            countElement.classList.remove('danger');
+        }
+    }
+
+    titleInput.addEventListener('input', function() {
+        updateCharCount(this, titleCount, 200);
+    });
+
+    contentTextarea.addEventListener('input', function() {
+        updateCharCount(this, contentCount, 5000);
+    });
+
+    // Initial count
+    updateCharCount(titleInput, titleCount, 200);
+    updateCharCount(contentTextarea, contentCount, 5000);
+
+    // Technology Suggestions
+    const techInput = document.querySelector('input[name="programming_languages"]');
+    const techSuggestions = document.getElementById('tech-suggestions');
+
+    techInput.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        const lastComma = value.lastIndexOf(',');
+        const currentTech = lastComma >= 0 ? value.substring(lastComma + 1).trim() : value.trim();
+
+        if (currentTech.length >= 2) {
+            const matches = commonTechnologies.filter(tech => 
+                tech.toLowerCase().includes(currentTech)
+            );
+
+            if (matches.length > 0) {
+                techSuggestions.innerHTML = matches.map(tech => 
+                    `<div class="tech-suggestion-item" data-tech="${tech}">${tech}</div>`
+                ).join('');
+                techSuggestions.classList.add('show');
+            } else {
+                techSuggestions.classList.remove('show');
+            }
+        } else {
+            techSuggestions.classList.remove('show');
+        }
+    });
+
+    techSuggestions.addEventListener('click', function(e) {
+        if (e.target.classList.contains('tech-suggestion-item')) {
+            const tech = e.target.dataset.tech;
+            const currentValue = techInput.value;
+            const lastComma = currentValue.lastIndexOf(',');
+            
+            if (lastComma >= 0) {
+                techInput.value = currentValue.substring(0, lastComma + 1) + ' ' + tech + ', ';
+            } else {
+                techInput.value = tech + ', ';
+            }
+            
+            techSuggestions.classList.remove('show');
+            techInput.focus();
+        }
+    });
+
+    // Close suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!techInput.contains(e.target) && !techSuggestions.contains(e.target)) {
+            techSuggestions.classList.remove('show');
+        }
+    });
+
+    // Tag Selector
+    const tagSelector = document.getElementById('tag-selector');
+    const tagsSelect = document.getElementById('tags');
+    const selectedTags = new Set();
+
+    // Populate tag selector
+    Array.from(tagsSelect.options).forEach(option => {
+        const tagElement = document.createElement('div');
+        tagElement.className = 'tag-option';
+        tagElement.dataset.value = option.value;
+        tagElement.textContent = option.text;
+        
+        tagElement.addEventListener('click', function() {
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                selectedTags.delete(option.value);
+            } else {
+                if (selectedTags.size < 5) {
+                    this.classList.add('selected');
+                    selectedTags.add(option.value);
+                } else {
+                    alert('You can select maximum 5 tags');
+                }
+            }
+            updateSelectedTags();
+        });
+        
+        tagSelector.appendChild(tagElement);
+    });
+
+    function updateSelectedTags() {
+        Array.from(tagsSelect.options).forEach(option => {
+            option.selected = selectedTags.has(option.value);
+        });
+    }
+
+    // Preview
+    const previewBtn = document.getElementById('preview-btn');
+    const previewSection = document.getElementById('preview-section');
+    const previewContent = document.getElementById('preview-content');
+    let previewShown = false;
+
+    previewBtn.addEventListener('click', function() {
+        if (!previewShown) {
+            const title = titleInput.value;
+            const content = contentTextarea.value;
+            
+            if (title && content) {
+                previewContent.innerHTML = `
+                    <h4>${title}</h4>
+                    <hr>
+                    <p>${content.replace(/\n/g, '<br>')}</p>
+                `;
+                previewSection.style.display = 'block';
+                previewBtn.innerHTML = '<i class="bx bx-hide"></i> Hide Preview';
+                previewShown = true;
+            } else {
+                alert('Please fill in the title and content to preview');
+            }
+        } else {
+            previewSection.style.display = 'none';
+            previewBtn.innerHTML = '<i class="bx bx-show"></i> Preview';
+            previewShown = false;
+        }
+    });
+
+    // Form Validation
+    const form = document.getElementById('post-form');
+    form.addEventListener('submit', function(e) {
+        const title = titleInput.value.trim();
+        const content = contentTextarea.value.trim();
+
+        if (title.length < 10) {
+            e.preventDefault();
+            alert('Title must be at least 10 characters long');
+            titleInput.focus();
+            return false;
+        }
+
+        if (content.length < 20) {
+            e.preventDefault();
+            alert('Content must be at least 20 characters long');
+            contentTextarea.focus();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

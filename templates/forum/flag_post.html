@@ -1,0 +1,61 @@
+<!-- File: templates/forum/flag_post.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Report Post - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">
+                        <i class='bx bx-flag'></i> Report Post
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class='bx bx-info-circle'></i>
+                        Help us maintain a safe and respectful community by reporting inappropriate content.
+                    </div>
+
+                    <h6 class="mb-3">Reporting: "{{ post.title }}"</h6>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Reason for reporting:</label>
+                            {% for choice in form.reason %}
+                            <div class="form-check">
+                                {{ choice.tag }}
+                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                    {{ choice.choice_label }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Additional details (optional):</label>
+                            {{ form.details }}
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'forum:post_detail' post.pk %}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class='bx bx-flag'></i> Submit Report
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

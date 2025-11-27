@@ -1,0 +1,61 @@
+<!-- File: templates/forum/notifications.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Notifications - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class='bx bx-bell'></i> Forum Notifications</h2>
+        {% if unread_count > 0 %}
+        <a href="?mark_all_read=1" class="btn btn-outline-primary">
+            <i class='bx bx-check-double'></i> Mark All as Read
+        </a>
+        {% endif %}
+    </div>
+
+    {% if notifications %}
+        <div class="list-group">
+            {% for notification in notifications %}
+            <a href="{% url 'forum:mark_notification_read' notification.pk %}" 
+               class="list-group-item list-group-item-action {% if not notification.is_read %}list-group-item-primary{% endif %}">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">
+                        {% if notification.notification_type == 'reply' %}
+                            <i class='bx bx-comment'></i> New reply on your post
+                        {% elif notification.notification_type == 'upvote' %}
+                            <i class='bx bx-up-arrow-alt'></i> Someone upvoted your post
+                        {% elif notification.notification_type == 'solution' %}
+                            <i class='bx bx-check-circle'></i> Your reply was marked as solution
+                        {% elif notification.notification_type == 'follow' %}
+                            <i class='bx bx-bell'></i> Someone is following your post
+                        {% endif %}
+                    </h6>
+                    <small>{{ notification.created_at|timesince }} ago</small>
+                </div>
+                <p class="mb-1">
+                    <strong>{{ notification.actor.display_name }}</strong>
+                    {% if notification.notification_type == 'reply' %}
+                        replied to "{{ notification.post.title }}"
+                    {% elif notification.notification_type == 'upvote' %}
+                        upvoted your {% if notification.reply %}reply{% else %}post{% endif %}
+                    {% elif notification.notification_type == 'solution' %}
+                        marked your reply as the solution
+                    {% elif notification.notification_type == 'follow' %}
+                        started following your post
+                    {% endif %}
+                </p>
+            </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <i class='bx bx-bell-off' style="font-size: 64px; color: #ccc;"></i>
+            <h4 class="mt-3">No notifications</h4>
+            <p class="text-muted">You'll see notifications here when someone interacts with your posts</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,73 +1,650 @@
-{% extends 'base.html' %}
+<!-- File: templates/forum/forum_home.html -->
 
-{% block title %}Forum - {{ block.super }}{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Community Forum - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .forum-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 40px;
+        color: white;
+        margin-bottom: 30px;
+    }
+
+    .search-bar {
+        background: white;
+        border-radius: 12px;
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .search-bar input {
+        border: none;
+        outline: none;
+        flex: 1;
+        font-size: 15px;
+    }
+
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .stats-card .stat-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 8px;
+    }
+
+    .stats-card .stat-label {
+        color: var(--text-secondary);
+        font-size: 14px;
+    }
+
+    .filter-section {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .filter-group {
+        margin-bottom: 16px;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .post-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: all 0.2s;
+        border-left: 4px solid transparent;
+    }
+
+    .post-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        transform: translateX(4px);
+    }
+
+    .post-card.pinned {
+        border-left-color: #F59E0B;
+        background: linear-gradient(to right, #FEF3C7 0%, white 10%);
+    }
+
+    .post-card.solved {
+        border-left-color: #10B981;
+    }
+
+    .post-header {
+        display: flex;
+        align-items: start;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .post-votes {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px;
+        background: var(--secondary);
+        border-radius: 8px;
+        min-width: 50px;
+    }
+
+    .vote-count {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .vote-label {
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+
+    .post-content-wrapper {
+        flex: 1;
+    }
+
+    .post-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+
+    .post-title a {
+        color: inherit;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .post-title a:hover {
+        color: var(--primary);
+    }
+
+    .post-excerpt {
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+
+    .post-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    .post-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .post-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+
+    .badge {
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .badge-question { background: #DBEAFE; color: #1E40AF; }
+    .badge-discussion { background: #D1FAE5; color: #065F46; }
+    .badge-help { background: #FEF3C7; color: #92400E; }
+    .badge-announcement { background: #FEE2E2; color: #991B1B; }
+    .badge-tutorial { background: #EDE9FE; color: #5B21B6; }
+    .badge-showcase { background: #FCE7F3; color: #9F1239; }
+    .badge-solved { background: #D1FAE5; color: #065F46; }
+    .badge-pinned { background: #FEF3C7; color: #92400E; }
+
+    .category-filter {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+    }
+
+    .category-chip {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 2px solid var(--border);
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .category-chip:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .category-chip.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .tag-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tag-chip {
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: var(--secondary);
+        color: var(--text-secondary);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .tag-chip:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state i {
+        font-size: 64px;
+        color: #D1D5DB;
+        margin-bottom: 16px;
+    }
+
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 32px;
+    }
+
+    .author-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 14px;
+        overflow: hidden;
+    }
+
+    .author-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .sort-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .tech-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background: #EEF2FF;
+        color: #4F46E5;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="fas fa-comments"></i> Community Forum</h2>
-        <a href="{% url 'forum:post_create' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> New Post
-        </a>
+<div class="container-fluid py-4">
+    <!-- Forum Header -->
+    <div class="forum-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-2">
+                    <i class='bx bx-conversation'></i> Community Forum
+                </h1>
+                <p class="mb-0 opacity-90">
+                    Ask questions, share knowledge, and collaborate with your peers
+                </p>
+            </div>
+            <a href="{% url 'forum:post_create' %}" class="btn btn-light btn-lg">
+                <i class='bx bx-plus-circle'></i> New Post
+            </a>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar mt-4">
+            <i class='bx bx-search' style="color: var(--text-secondary); font-size: 20px;"></i>
+            <form method="get" style="flex: 1; display: flex;">
+                <input type="text" 
+                       name="search" 
+                       placeholder="Search posts, topics, or technologies..." 
+                       value="{{ search_form.search.value|default:'' }}">
+                <button type="submit" class="btn btn-primary" style="border-radius: 8px;">
+                    Search
+                </button>
+            </form>
+        </div>
     </div>
 
-    <!-- Stats -->
+    <!-- Stats Cards -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ stats.total_posts }}</h4>
-                    <small class="text-muted">Total Posts</small>
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="stat-value">{{ stats.total_posts }}</div>
+                <div class="stat-label">
+                    <i class='bx bx-file'></i> Total Posts
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ stats.total_replies }}</h4>
-                    <small class="text-muted">Replies</small>
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="stat-value">{{ stats.total_replies }}</div>
+                <div class="stat-label">
+                    <i class='bx bx-comment-detail'></i> Replies
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ stats.solved_posts }}</h4>
-                    <small class="text-muted">Solved</small>
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="stat-value">{{ stats.solved_posts }}</div>
+                <div class="stat-label">
+                    <i class='bx bx-check-circle'></i> Solved
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h4>{{ stats.active_users }}</h4>
-                    <small class="text-muted">Active Users</small>
+        <div class="col-md-3 mb-3">
+            <div class="stats-card">
+                <div class="stat-value">{{ stats.active_users }}</div>
+                <div class="stat-label">
+                    <i class='bx bx-group'></i> Active Users
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Posts -->
-    {% for post in posts %}
-    <div class="card mb-3 shadow-sm">
-        <div class="card-body">
-            <div class="d-flex justify-content-between">
-                <div>
-                    <h5><a href="{% url 'forum:post_detail' post.pk %}">{{ post.title }}</a></h5>
-                    <p class="text-muted mb-2">{{ post.content|truncatewords:30 }}</p>
-                    <div>
-                        <span class="badge badge-primary">{{ post.get_post_type_display }}</span>
-                        {% if post.is_solved %}<span class="badge badge-success">Solved</span>{% endif %}
-                        {% if post.is_pinned %}<span class="badge badge-warning">Pinned</span>{% endif %}
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Filters -->
+            <div class="filter-section">
+                <form method="get" id="filter-form">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="filter-group">
+                                <label>Category</label>
+                                {{ search_form.category }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="filter-group">
+                                <label>Post Type</label>
+                                {{ search_form.post_type }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="filter-group">
+                                <label>Status</label>
+                                {{ search_form.status }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="filter-group">
+                                <label>Sort By</label>
+                                {{ search_form.sort_by }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class='bx bx-filter'></i> Apply Filters
+                        </button>
+                        <a href="{% url 'forum:forum_home' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class='bx bx-reset'></i> Clear All
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Posts List -->
+            {% if posts %}
+                {% for post in posts %}
+                <div class="post-card {% if post.is_pinned %}pinned{% endif %} {% if post.is_solved %}solved{% endif %}">
+                    <div class="post-header">
+                        <!-- Votes -->
+                        <div class="post-votes">
+                            <div class="vote-count">{{ post.upvote_count }}</div>
+                            <div class="vote-label">votes</div>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="post-content-wrapper">
+                            <!-- Badges -->
+                            <div class="post-badges">
+                                <span class="badge badge-{{ post.post_type }}">
+                                    {{ post.get_post_type_display }}
+                                </span>
+                                {% if post.is_solved %}
+                                <span class="badge badge-solved">
+                                    <i class='bx bx-check-circle'></i> Solved
+                                </span>
+                                {% endif %}
+                                {% if post.is_pinned %}
+                                <span class="badge badge-pinned">
+                                    <i class='bx bx-pin'></i> Pinned
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Title -->
+                            <h3 class="post-title">
+                                <a href="{% url 'forum:post_detail' post.pk %}">
+                                    {{ post.title }}
+                                </a>
+                            </h3>
+
+                            <!-- Excerpt -->
+                            <div class="post-excerpt">
+                                {{ post.content|truncatewords:30 }}
+                            </div>
+
+                            <!-- Technologies -->
+                            {% if post.programming_languages %}
+                            <div class="mb-2">
+                                {% for lang in post.languages_list %}
+                                <span class="tech-tag">
+                                    <i class='bx bx-code-alt'></i> {{ lang }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Meta -->
+                            <div class="post-meta">
+                                <div class="post-meta-item">
+                                    <div class="author-avatar">
+                                        {% if post.author.profile.profile_picture %}
+                                        <img src="{{ post.author.profile.profile_picture.url }}" alt="Avatar">
+                                        {% else %}
+                                        {{ post.author.display_name|first|upper }}
+                                        {% endif %}
+                                    </div>
+                                    <span>{{ post.author.display_name }}</span>
+                                </div>
+                                <div class="post-meta-item">
+                                    <i class='bx bx-time-five'></i>
+                                    {{ post.created_at|timesince }} ago
+                                </div>
+                                <div class="post-meta-item">
+                                    <i class='bx bx-comment'></i>
+                                    {{ post.reply_count }} replies
+                                </div>
+                                <div class="post-meta-item">
+                                    <i class='bx bx-show'></i>
+                                    {{ post.views }} views
+                                </div>
+                                {% if post.category %}
+                                <div class="post-meta-item">
+                                    <i class='bx bx-folder'></i>
+                                    {{ post.category.name }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="text-right">
-                    <div><i class="fas fa-arrow-up"></i> {{ post.upvote_count }}</div>
-                    <div><i class="fas fa-comments"></i> {{ post.reply_count }}</div>
+                {% endfor %}
+
+                <!-- Pagination -->
+                {% if posts.has_other_pages %}
+                <div class="pagination-wrapper">
+                    <nav>
+                        <ul class="pagination">
+                            {% if posts.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ posts.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    Previous
+                                </a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in posts.paginator.page_range %}
+                                {% if posts.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                                {% elif num > posts.number|add:'-3' and num < posts.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                        {{ num }}
+                                    </a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if posts.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ posts.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                    Next
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-state">
+                    <i class='bx bx-search-alt'></i>
+                    <h4>No posts found</h4>
+                    <p class="text-muted">
+                        {% if request.GET.search %}
+                            No results for "{{ request.GET.search }}". Try different keywords.
+                        {% else %}
+                            Be the first to start a discussion!
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'forum:post_create' %}" class="btn btn-primary mt-3">
+                        <i class='bx bx-plus-circle'></i> Create First Post
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-3">
+            <!-- Categories -->
+            <div class="card modern-card mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">
+                        <i class='bx bx-category'></i> Categories
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for category in categories %}
+                        <a href="?category={{ category.id }}" 
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class='bx {{ category.icon }}' style="color: {{ category.color }};"></i>
+                                {{ category.name }}
+                            </span>
+                            <span class="badge bg-secondary rounded-pill">
+                                {{ category.post_count }}
+                            </span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Popular Tags -->
+            <div class="card modern-card mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">
+                        <i class='bx bx-purchase-tag'></i> Popular Tags
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="tag-cloud">
+                        {% for tag in popular_tags %}
+                        <a href="?tags={{ tag.id }}" class="tag-chip">
+                            {{ tag.name }}
+                            <small>({{ tag.post_count }})</small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="card modern-card">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">
+                        <i class='bx bx-link'></i> Quick Links
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="{% url 'forum:my_posts' %}" class="list-group-item list-group-item-action">
+                            <i class='bx bx-user'></i> My Posts
+                        </a>
+                        <a href="{% url 'forum:notifications' %}" class="list-group-item list-group-item-action">
+                            <i class='bx bx-bell'></i> Notifications
+                        </a>
+                        <a href="?status=solved" class="list-group-item list-group-item-action">
+                            <i class='bx bx-check-circle'></i> Solved Posts
+                        </a>
+                        <a href="?status=open" class="list-group-item list-group-item-action">
+                            <i class='bx bx-help-circle'></i> Open Questions
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    {% endfor %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit filter form on change
+    const filterForm = document.getElementById('filter-form');
+    const filterSelects = filterForm.querySelectorAll('select');
+    
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -1,0 +1,503 @@
+<!-- File: templates/projects/project_analytics.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Project Analytics - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-line-chart'></i> Project Analytics</h2>
+            <p class="text-muted mb-0">{{ project.title }}</p>
+        </div>
+        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-secondary">
+            <i class='bx bx-arrow-back'></i> Back to Project
+        </a>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Overall Progress</div>
+                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10B981;">
+                        <i class='bx bx-trending-up'></i>
+                    </div>
+                </div>
+                <div class="stat-value">{{ project.progress_percentage }}%</div>
+                <div class="stat-change positive">
+                    <i class='bx bx-up-arrow-alt'></i> On track
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Deliverables</div>
+                    <div class="stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #3B82F6;">
+                        <i class='bx bx-file'></i>
+                    </div>
+                </div>
+                <div class="stat-value">{{ completed_deliverables }}/{{ total_deliverables }}</div>
+                <div class="stat-subtitle">{{ completion_rate }}% complete</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Average Marks</div>
+                    <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #F59E0B;">
+                        <i class='bx bx-medal'></i>
+                    </div>
+                </div>
+                <div class="stat-value">{{ average_marks|floatformat:1 }}</div>
+                <div class="stat-subtitle">Out of 100</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-title">Time Remaining</div>
+                    <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #8B5CF6;">
+                        <i class='bx bx-time'></i>
+                    </div>
+                </div>
+                <div class="stat-value">{{ days_remaining }}</div>
+                <div class="stat-subtitle">Days left</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <!-- Progress Over Time -->
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-line-chart'></i> Progress Timeline</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="progressChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Breakdown -->
+        <div class="col-md-4">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-pie-chart'></i> Progress Components</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="progressBreakdownChart"></canvas>
+                    
+                    <div class="mt-4">
+                        <div class="progress-item mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Deliverables</span>
+                                <strong>{{ deliverable_progress }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" style="width: {{ deliverable_progress }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="progress-item mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Quality (Marks)</span>
+                                <strong>{{ marks_progress }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-primary" style="width: {{ marks_progress }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="progress-item">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Recent Activity</span>
+                                <strong>{{ activity_progress }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-warning" style="width: {{ activity_progress }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deliverables Performance -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-bar-chart'></i> Deliverables Performance</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="deliverablesChart" height="60"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Heatmap -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-calendar'></i> Activity Heatmap</h5>
+                </div>
+                <div class="card-body">
+                    <div id="activityHeatmap"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Insights -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-bulb'></i> Performance Insights</h5>
+                </div>
+                <div class="card-body">
+                    {% for insight in performance_insights %}
+                    <div class="insight-item mb-3">
+                        <div class="insight-icon {{ insight.type }}">
+                            <i class='bx {{ insight.icon }}'></i>
+                        </div>
+                        <div class="insight-content">
+                            <h6>{{ insight.title }}</h6>
+                            <p class="text-muted mb-0">{{ insight.description }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-target-lock'></i> Recommendations</h5>
+                </div>
+                <div class="card-body">
+                    {% for recommendation in recommendations %}
+                    <div class="recommendation-item mb-3">
+                        <div class="d-flex align-items-start">
+                            <div class="recommendation-priority priority-{{ recommendation.priority }}">
+                                {{ recommendation.priority_label }}
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6>{{ recommendation.title }}</h6>
+                                <p class="text-muted mb-2">{{ recommendation.description }}</p>
+                                {% if recommendation.action_url %}
+                                <a href="{{ recommendation.action_url }}" class="btn btn-sm btn-outline-primary">
+                                    {{ recommendation.action_label }}
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.stat-title {
+    font-size: 14px;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1A1D26;
+    margin-bottom: 4px;
+}
+
+.stat-subtitle {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.stat-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.stat-change.positive {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+}
+
+.stat-change.negative {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+}
+
+.insight-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: #F6F8FB;
+    border-radius: 12px;
+}
+
+.insight-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.insight-icon.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+}
+
+.insight-icon.warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+
+.insight-icon.info {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+}
+
+.insight-content h6 {
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.recommendation-item {
+    padding: 16px;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+}
+
+.recommendation-priority {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.priority-high {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+}
+
+.priority-medium {
+    background: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+
+.priority-low {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+}
+
+#activityHeatmap {
+    min-height: 200px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+    gap: 4px;
+}
+
+.heatmap-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.heatmap-cell:hover {
+    transform: scale(1.1);
+}
+
+.heatmap-cell.level-0 { background: #E5E7EB; }
+.heatmap-cell.level-1 { background: #C7D2FE; }
+.heatmap-cell.level-2 { background: #A5B4FC; }
+.heatmap-cell.level-3 { background: #818CF8; }
+.heatmap-cell.level-4 { background: #6366F1; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Progress Timeline Chart
+    const progressCtx = document.getElementById('progressChart').getContext('2d');
+    new Chart(progressCtx, {
+        type: 'line',
+        data: {
+            labels: {{ progress_timeline_labels|safe }},
+            datasets: [{
+                label: 'Progress',
+                data: {{ progress_timeline_data|safe }},
+                borderColor: '#5568FE',
+                backgroundColor: 'rgba(85, 104, 254, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }, {
+                label: 'Expected Progress',
+                data: {{ expected_progress_data|safe }},
+                borderColor: '#E5E7EB',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.4,
+                fill: false,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Progress Breakdown Doughnut Chart
+    const breakdownCtx = document.getElementById('progressBreakdownChart').getContext('2d');
+    new Chart(breakdownCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Deliverables', 'Quality', 'Activity'],
+            datasets: [{
+                data: [{{ deliverable_progress }}, {{ marks_progress }}, {{ activity_progress }}],
+                backgroundColor: ['#10B981', '#5568FE', '#F59E0B'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            cutout: '70%'
+        }
+    });
+
+    // Deliverables Performance Chart
+    const deliverablesCtx = document.getElementById('deliverablesChart').getContext('2d');
+    new Chart(deliverablesCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ deliverable_labels|safe }},
+            datasets: [{
+                label: 'Marks Obtained',
+                data: {{ deliverable_marks|safe }},
+                backgroundColor: '#5568FE',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Generate Activity Heatmap
+    const heatmapData = {{ activity_heatmap_data|safe }};
+    const heatmapContainer = document.getElementById('activityHeatmap');
+    
+    heatmapData.forEach(day => {
+        const cell = document.createElement('div');
+        cell.className = `heatmap-cell level-${day.level}`;
+        cell.title = `${day.date}: ${day.activities} activities`;
+        heatmapContainer.appendChild(cell);
+    });
+});
+</script>
+{% endblock %}

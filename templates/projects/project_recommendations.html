@@ -1,0 +1,605 @@
+<!-- File: templates/projects/project_recommendations.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Recommended Resources - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-bulb'></i> Recommended Resources</h2>
+            <p class="text-muted mb-0">Personalized for {{ project.title }}</p>
+        </div>
+        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-secondary">
+            <i class='bx bx-arrow-back'></i> Back to Project
+        </a>
+    </div>
+
+    <!-- Recommendation Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="recommendation-stat">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <i class='bx bx-book-bookmark'></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ total_recommendations }}</div>
+                    <div class="stat-label">Resources Found</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="recommendation-stat">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <i class='bx bx-target-lock'></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ match_score }}%</div>
+                    <div class="stat-label">Match Score</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="recommendation-stat">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <i class='bx bx-trending-up'></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ trending_count }}</div>
+                    <div class="stat-label">Trending Resources</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="recommendation-stat">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                    <i class='bx bx-star'></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ high_rated_count }}</div>
+                    <div class="stat-label">Highly Rated</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card modern-card mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <select class="form-control" id="categoryFilter">
+                        <option value="">All Categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category.0 }}">{{ category.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <select class="form-control" id="sortFilter">
+                        <option value="relevance">Most Relevant</option>
+                        <option value="rating">Highest Rated</option>
+                        <option value="views">Most Popular</option>
+                        <option value="recent">Most Recent</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <select class="form-control" id="technologyFilter">
+                        <option value="">All Technologies</option>
+                        {% for tech in project.languages_list %}
+                        <option value="{{ tech }}">{{ tech }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="onlyUnviewed">
+                        <label class="form-check-label" for="onlyUnviewed">
+                            Only show unviewed
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technology-Based Recommendations -->
+    {% if tech_recommendations %}
+    <div class="recommendation-section mb-4">
+        <div class="section-header">
+            <div>
+                <h4><i class='bx bx-code-alt'></i> Based on Your Technologies</h4>
+                <p class="text-muted mb-0">Resources matching {{ project.programming_languages }}</p>
+            </div>
+            <span class="badge bg-primary">{{ tech_recommendations|length }} resources</span>
+        </div>
+
+        <div class="row resources-grid">
+            {% for resource in tech_recommendations %}
+            <div class="col-md-6 col-lg-4 mb-4" data-category="{{ resource.category }}" data-tech="{{ resource.programming_languages }}">
+                <div class="resource-card">
+                    <div class="resource-badge">
+                        <span class="badge bg-success"><i class='bx bx-check-circle'></i> {{ resource.match_percentage }}% Match</span>
+                    </div>
+
+                    <div class="resource-header">
+                        <div class="resource-icon {{ resource.category }}">
+                            <i class='bx {{ resource.category_icon }}'></i>
+                        </div>
+                        <div class="resource-type">{{ resource.get_category_display }}</div>
+                    </div>
+
+                    <h5 class="resource-title">{{ resource.title }}</h5>
+                    <p class="resource-description">{{ resource.description|truncatechars:120 }}</p>
+
+                    <div class="resource-tags mb-3">
+                        {% for tech in resource.tech_list|slice:":3" %}
+                        <span class="badge bg-light text-dark">{{ tech }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="resource-meta">
+                        <div class="meta-item">
+                            <i class='bx bx-star'></i>
+                            <span>{{ resource.average_rating|floatformat:1 }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class='bx bx-show'></i>
+                            <span>{{ resource.views }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class='bx bx-heart'></i>
+                            <span>{{ resource.like_count }}</span>
+                        </div>
+                    </div>
+
+                    <div class="resource-reason">
+                        <i class='bx bx-info-circle'></i>
+                        <small>{{ resource.recommendation_reason }}</small>
+                    </div>
+
+                    <div class="resource-actions">
+                        <a href="{{ resource.url }}" class="btn btn-primary btn-sm" target="_blank">
+                            <i class='bx bx-link-external'></i> View Resource
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm bookmark-btn" data-id="{{ resource.id }}">
+                            <i class='bx bx-bookmark'></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Collaborative Recommendations -->
+    {% if collaborative_recommendations %}
+    <div class="recommendation-section mb-4">
+        <div class="section-header">
+            <div>
+                <h4><i class='bx bx-group'></i> Students Like You Also Viewed</h4>
+                <p class="text-muted mb-0">Based on similar projects and interests</p>
+            </div>
+            <span class="badge bg-info">{{ collaborative_recommendations|length }} resources</span>
+        </div>
+
+        <div class="row resources-grid">
+            {% for resource in collaborative_recommendations %}
+            <div class="col-md-6 col-lg-4 mb-4" data-category="{{ resource.category }}" data-tech="{{ resource.programming_languages }}">
+                <div class="resource-card">
+                    <div class="resource-badge">
+                        <span class="badge bg-info"><i class='bx bx-group'></i> Popular</span>
+                    </div>
+
+                    <div class="resource-header">
+                        <div class="resource-icon {{ resource.category }}">
+                            <i class='bx {{ resource.category_icon }}'></i>
+                        </div>
+                        <div class="resource-type">{{ resource.get_category_display }}</div>
+                    </div>
+
+                    <h5 class="resource-title">{{ resource.title }}</h5>
+                    <p class="resource-description">{{ resource.description|truncatechars:120 }}</p>
+
+                    <div class="resource-tags mb-3">
+                        {% for tech in resource.tech_list|slice:":3" %}
+                        <span class="badge bg-light text-dark">{{ tech }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="resource-meta">
+                        <div class="meta-item">
+                            <i class='bx bx-star'></i>
+                            <span>{{ resource.average_rating|floatformat:1 }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class='bx bx-show'></i>
+                            <span>{{ resource.views }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class='bx bx-heart'></i>
+                            <span>{{ resource.like_count }}</span>
+                        </div>
+                    </div>
+
+                    <div class="resource-reason">
+                        <i class='bx bx-info-circle'></i>
+                        <small>{{ resource.recommendation_reason }}</small>
+                    </div>
+
+                    <div class="resource-actions">
+                        <a href="{{ resource.url }}" class="btn btn-primary btn-sm" target="_blank">
+                            <i class='bx bx-link-external'></i> View Resource
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm bookmark-btn" data-id="{{ resource.id }}">
+                            <i class='bx bx-bookmark'></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Trending Resources -->
+    {% if trending_recommendations %}
+    <div class="recommendation-section mb-4">
+        <div class="section-header">
+            <div>
+                <h4><i class='bx bx-trending-up'></i> Trending This Week</h4>
+                <p class="text-muted mb-0">Popular resources from the past 7 days</p>
+            </div>
+            <span class="badge bg-warning text-dark">{{ trending_recommendations|length }} resources</span>
+        </div>
+
+        <div class="row resources-grid">
+            {% for resource in trending_recommendations %}
+            <div class="col-md-6 col-lg-4 mb-4" data-category="{{ resource.category }}" data-tech="{{ resource.programming_languages }}">
+                <div class="resource-card">
+                    <div class="resource-badge">
+                        <span class="badge bg-warning text-dark"><i class='bx bx-trending-up'></i> Trending</span>
+                    </div>
+
+                    <div class="resource-header">
+                        <div class="resource-icon {{ resource.category }}">
+                            <i class='bx {{ resource.category_icon }}'></i>
+                        </div>
+                        <div class="resource-type">{{ resource.get_category_display }}</div>
+                    </div>
+
+                    <h5 class="resource-title">{{ resource.title }}</h5>
+                    <p class="resource-description">{{ resource.description|truncatechars:120 }}</p>
+
+                    <div class="resource-tags mb-3">
+                        {% for tech in resource.tech_list|slice:":3" %}
+                        <span class="badge bg-light text-dark">{{ tech }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="resource-meta">
+                        <div class="meta-item">
+                            <i class='bx bx-star'></i>
+                            <span>{{ resource.average_rating|floatformat:1 }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class='bx bx-show'></i>
+                            <span>{{ resource.views }}</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class='bx bx-heart'></i>
+                            <span>{{ resource.like_count }}</span>
+                        </div>
+                    </div>
+
+                    <div class="resource-reason">
+                        <i class='bx bx-info-circle'></i>
+                        <small>{{ resource.recommendation_reason }}</small>
+                    </div>
+
+                    <div class="resource-actions">
+                        <a href="{{ resource.url }}" class="btn btn-primary btn-sm" target="_blank">
+                            <i class='bx bx-link-external'></i> View Resource
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm bookmark-btn" data-id="{{ resource.id }}">
+                            <i class='bx bx-bookmark'></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.recommendation-stat {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.recommendation-stat .stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 28px;
+}
+
+.recommendation-stat .stat-info {
+    flex: 1;
+}
+
+.recommendation-stat .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.recommendation-stat .stat-label {
+    font-size: 13px;
+    color: #6B7280;
+}
+
+.recommendation-section {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #F6F8FB;
+}
+
+.section-header h4 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.resource-card {
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 16px;
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.resource-card:hover {
+    border-color: #5568FE;
+    box-shadow: 0 10px 40px rgba(85, 104, 254, 0.15);
+    transform: translateY(-4px);
+}
+
+.resource-badge {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+}
+
+.resource-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.resource-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.resource-icon.tutorial {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+}
+
+.resource-icon.documentation {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10B981;
+}
+
+.resource-icon.video {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
+}
+
+.resource-icon.article {
+    background: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+}
+
+.resource-icon.tool {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8B5CF6;
+}
+
+.resource-type {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.resource-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.resource-description {
+    color: #6B7280;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    flex-grow: 1;
+}
+
+.resource-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.resource-meta {
+    display: flex;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid #F6F8FB;
+    border-bottom: 1px solid #F6F8FB;
+    margin-bottom: 12px;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: #6B7280;
+}
+
+.meta-item i {
+    font-size: 18px;
+}
+
+.resource-reason {
+    display: flex;
+    align-items: start;
+    gap: 8px;
+    padding: 12px;
+    background: #F6F8FB;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.resource-reason i {
+    color: #5568FE;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.resource-reason small {
+    color: #6B7280;
+    line-height: 1.4;
+}
+
+.resource-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.resource-actions .btn {
+    flex: 1;
+}
+
+.bookmark-btn.bookmarked {
+    background: #5568FE;
+    border-color: #5568FE;
+    color: white;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter functionality
+    const categoryFilter = document.getElementById('categoryFilter');
+    const sortFilter = document.getElementById('sortFilter');
+    const technologyFilter = document.getElementById('technologyFilter');
+    const onlyUnviewed = document.getElementById('onlyUnviewed');
+
+    function filterResources() {
+        const category = categoryFilter.value;
+        const technology = technologyFilter.value;
+        const unviewed = onlyUnviewed.checked;
+
+        document.querySelectorAll('.resources-grid > div').forEach(card => {
+            let show = true;
+
+            if (category && card.dataset.category !== category) {
+                show = false;
+            }
+
+            if (technology && !card.dataset.tech.toLowerCase().includes(technology.toLowerCase())) {
+                show = false;
+            }
+
+            card.style.display = show ? 'block' : 'none';
+        });
+    }
+
+    categoryFilter.addEventListener('change', filterResources);
+    technologyFilter.addEventListener('change', filterResources);
+    onlyUnviewed.addEventListener('change', filterResources);
+
+    // Bookmark functionality
+    document.querySelectorAll('.bookmark-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const resourceId = this.dataset.id;
+            this.classList.toggle('bookmarked');
+            
+            // Send AJAX request to bookmark/unbookmark
+            fetch(`/resources/${resourceId}/bookmark/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            });
+        });
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock %}

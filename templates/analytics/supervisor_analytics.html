@@ -1,0 +1,571 @@
+<!-- File: templates/analytics/supervisor_analytics.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supervisor Analytics - PrimeTime{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+    
+    .analytics-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        transition: transform 0.2s;
+    }
+    
+    .analytics-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    
+    .metric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+    
+    .metric-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+    
+    .icon-primary { background: rgba(85, 104, 254, 0.1); color: #5568FE; }
+    .icon-success { background: rgba(16, 185, 129, 0.1); color: #10B981; }
+    .icon-warning { background: rgba(245, 158, 11, 0.1); color: #F59E0B; }
+    .icon-danger { background: rgba(239, 68, 68, 0.1); color: #EF4444; }
+    
+    .metric-value {
+        font-size: 36px;
+        font-weight: 700;
+        color: #1A1D26;
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+    
+    .metric-label {
+        font-size: 14px;
+        color: #6B7280;
+        font-weight: 500;
+    }
+    
+    .group-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        border: 1px solid #E5E7EB;
+        transition: all 0.2s;
+    }
+    
+    .group-card:hover {
+        border-color: #5568FE;
+        box-shadow: 0 4px 12px rgba(85, 104, 254, 0.1);
+    }
+    
+    .group-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+    
+    .progress-bar-container {
+        background: #F3F4F6;
+        border-radius: 8px;
+        height: 12px;
+        overflow: hidden;
+        margin: 12px 0;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 8px;
+        transition: width 0.5s ease;
+        background: linear-gradient(90deg, #5568FE, #667eea);
+    }
+    
+    .student-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px;
+    }
+    
+    .student-item {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        padding: 12px;
+        background: #F9FAFB;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    
+    .student-item:hover {
+        background: #F3F4F6;
+    }
+    
+    .student-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+    }
+    
+    .student-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 16px;
+    }
+    
+    .student-details {
+        flex: 1;
+    }
+    
+    .student-name {
+        font-weight: 600;
+        color: #1A1D26;
+        margin-bottom: 4px;
+    }
+    
+    .student-status {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .badge-low { background: #D1FAE5; color: #065F46; }
+    .badge-moderate { background: #FEF3C7; color: #92400E; }
+    .badge-high { background: #FEE2E2; color: #991B1B; }
+    .badge-critical { background: #DC2626; color: white; }
+    
+    .alert-panel {
+        background: linear-gradient(135deg, #FEF3C7, #FED7AA);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border-left: 4px solid #F59E0B;
+    }
+    
+    .alert-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .alert-icon {
+        width: 48px;
+        height: 48px;
+        background: white;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: #F59E0B;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 20px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
+    
+    .btn-view {
+        padding: 8px 16px;
+        background: #5568FE;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+    }
+    
+    .btn-view:hover {
+        background: #4054E0;
+        transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+        background: #F3F4F6;
+        color: #1A1D26;
+    }
+    
+    .btn-secondary:hover {
+        background: #E5E7EB;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    
+    .empty-state i {
+        font-size: 64px;
+        color: #D1D5DB;
+        margin-bottom: 16px;
+    }
+    
+    .empty-state h3 {
+        color: #6B7280;
+        margin-bottom: 8px;
+    }
+    
+    .empty-state p {
+        color: #9CA3AF;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-line-chart'></i> Supervisor Analytics Dashboard</h2>
+            <p class="text-muted">AI-powered insights for your supervised groups</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="refreshAnalytics()">
+                <i class='bx bx-refresh'></i> Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- High-Level Metrics -->
+    <div class="analytics-grid">
+        <div class="analytics-card">
+            <div class="metric-header">
+                <div>
+                    <div class="metric-value">{{ analytics.total_groups }}</div>
+                    <div class="metric-label">Active Groups</div>
+                </div>
+                <div class="metric-icon icon-primary">
+                    <i class='bx bx-group'></i>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: 100%;"></div>
+            </div>
+        </div>
+
+        <div class="analytics-card">
+            <div class="metric-header">
+                <div>
+                    <div class="metric-value">{{ analytics.total_students }}</div>
+                    <div class="metric-label">Total Students</div>
+                </div>
+                <div class="metric-icon icon-success">
+                    <i class='bx bx-user'></i>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: 100%; background: linear-gradient(90deg, #10B981, #059669);"></div>
+            </div>
+        </div>
+
+        <div class="analytics-card">
+            <div class="metric-header">
+                <div>
+                    <div class="metric-value">{{ analytics.average_progress|floatformat:1 }}%</div>
+                    <div class="metric-label">Average Progress</div>
+                </div>
+                <div class="metric-icon icon-primary">
+                    <i class='bx bx-trending-up'></i>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {{ analytics.average_progress }}%;"></div>
+            </div>
+        </div>
+
+        <div class="analytics-card">
+            <div class="metric-header">
+                <div>
+                    <div class="metric-value">{{ analytics.high_stress_students|length }}</div>
+                    <div class="metric-label">High Stress Alerts</div>
+                </div>
+                <div class="metric-icon icon-{% if analytics.high_stress_students|length > 5 %}danger{% elif analytics.high_stress_students|length > 2 %}warning{% else %}success{% endif %}">
+                    <i class='bx bx-error-circle'></i>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: {% widthratio analytics.high_stress_students|length analytics.total_students 100 %}%; background: linear-gradient(90deg, #EF4444, #DC2626);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- High Stress Alerts -->
+    {% if analytics.high_stress_students %}
+    <div class="alert-panel">
+        <div class="alert-header">
+            <div class="alert-icon">
+                <i class='bx bx-error-circle'></i>
+            </div>
+            <div>
+                <h4 class="mb-1">⚠️ Students Requiring Immediate Attention</h4>
+                <p class="mb-0 text-muted">{{ analytics.high_stress_students|length }} student(s) showing high stress levels</p>
+            </div>
+        </div>
+        <div class="student-list">
+            {% for stress_info in analytics.high_stress_students %}
+            <div class="student-item">
+                <div class="student-info">
+                    <div class="student-avatar">
+                        {{ stress_info.student.display_name|slice:":1"|upper }}
+                    </div>
+                    <div class="student-details">
+                        <div class="student-name">{{ stress_info.student.display_name }}</div>
+                        <div class="student-status">
+                            <span class="status-badge badge-{% if stress_info.stress_level >= 80 %}critical{% else %}high{% endif %}">
+                                Stress: {{ stress_info.stress_level|floatformat:0 }}%
+                            </span>
+                            <span class="text-muted small">{{ stress_info.group }}</span>
+                        </div>
+                    </div>
+                </div>
+                <a href="{% url 'analytics:supervisor_view_student' stress_info.student.id %}" class="btn-view btn-secondary">
+                    <i class='bx bx-show'></i> View Details
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Low Performing Students -->
+    {% if analytics.low_performing_students %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class='bx bx-trending-down'></i> Students Below 50% Progress
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="student-list">
+                {% for perf_info in analytics.low_performing_students %}
+                <div class="student-item">
+                    <div class="student-info">
+                        <div class="student-avatar">
+                            {{ perf_info.student.display_name|slice:":1"|upper }}
+                        </div>
+                        <div class="student-details">
+                            <div class="student-name">{{ perf_info.student.display_name }}</div>
+                            <div class="student-status">
+                                <span class="status-badge badge-moderate">
+                                    Progress: {{ perf_info.progress|floatformat:0 }}%
+                                </span>
+                                <span class="text-muted small">{{ perf_info.group }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <a href="{% url 'analytics:supervisor_view_student' perf_info.student.id %}" class="btn-view">
+                            <i class='bx bx-show'></i> View
+                        </a>
+                        <a href="{% url 'analytics:supervisor_add_feedback' perf_info.student.id %}" class="btn-view btn-secondary">
+                            <i class='bx bx-message-square-add'></i> Add Feedback
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Group Performance -->
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class='bx bx-group'></i> Group Performance Overview
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if analytics.group_summaries %}
+            <div class="row">
+                {% for group_info in analytics.group_summaries %}
+                <div class="col-md-6 mb-3">
+                    <div class="group-card">
+                        <div class="group-header">
+                            <div>
+                                <h6 class="mb-1">{{ group_info.group.name }}</h6>
+                                <small class="text-muted">{{ group_info.student_count }} members</small>
+                            </div>
+                            <span class="badge bg-primary">{{ group_info.average_progress|floatformat:0 }}%</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: {{ group_info.average_progress }}%;"></div>
+                        </div>
+                        <div class="action-buttons">
+                            <a href="{% url 'groups:group_detail' group_info.group.id %}" class="btn-view">
+                                <i class='bx bx-show'></i> View Group
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class='bx bx-group'></i>
+                <h3>No Groups Yet</h3>
+                <p>You haven't been assigned to any groups yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Performance Trends Chart -->
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class='bx bx-line-chart'></i> Progress Trends
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="progressTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class='bx bx-pie-chart'></i> Stress Distribution
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="stressDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Sample data - replace with actual data from backend
+const progressData = {
+    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current'],
+    datasets: [{
+        label: 'Average Progress',
+        data: [15, 28, 45, 62, {{ analytics.average_progress|floatformat:0 }}],
+        borderColor: '#5568FE',
+        backgroundColor: 'rgba(85, 104, 254, 0.1)',
+        tension: 0.4,
+        fill: true
+    }]
+};
+
+const progressCtx = document.getElementById('progressTrendChart').getContext('2d');
+new Chart(progressCtx, {
+    type: 'line',
+    data: progressData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                    callback: function(value) {
+                        return value + '%';
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Stress Distribution Chart
+const stressCtx = document.getElementById('stressDistributionChart').getContext('2d');
+new Chart(stressCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Low', 'Moderate', 'High', 'Critical'],
+        datasets: [{
+            data: [40, 35, 20, 5],
+            backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#DC2626']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+function refreshAnalytics() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Refreshing...';
+    
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,167 @@
+<!-- File: templates/resources/bulk_upload.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bulk Upload Resources - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-upload'></i> Bulk Upload Resources
+                    </h4>
+                    <p class="mb-0 small">Upload multiple resources at once using a CSV file</p>
+                </div>
+                <div class="card-body">
+                    <!-- Instructions -->
+                    <div class="alert alert-info">
+                        <h6><i class='bx bx-info-circle'></i> Instructions</h6>
+                        <ol class="mb-0">
+                            <li>Download the CSV template below</li>
+                            <li>Fill in resource details (title, description, type, URL, etc.)</li>
+                            <li>Upload the completed CSV file</li>
+                            <li>Review and confirm the import</li>
+                        </ol>
+                    </div>
+
+                    <!-- Download Template -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="mb-3"><i class='bx bx-download'></i> Download Template</h6>
+                            <p class="text-muted small mb-3">
+                                Download our CSV template to ensure proper formatting
+                            </p>
+                            <button class="btn btn-outline-primary" onclick="downloadTemplate()">
+                                <i class='bx bx-download'></i> Download CSV Template
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CSV Format -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="mb-3"><i class='bx bx-spreadsheet'></i> Required Columns</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Column</th>
+                                            <th>Required</th>
+                                            <th>Description</th>
+                                            <th>Example</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>title</code></td>
+                                            <td><span class="badge bg-danger">Yes</span></td>
+                                            <td>Resource title</td>
+                                            <td>Introduction to Python</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>description</code></td>
+                                            <td><span class="badge bg-danger">Yes</span></td>
+                                            <td>Brief description</td>
+                                            <td>Learn Python basics</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>resource_type</code></td>
+                                            <td><span class="badge bg-danger">Yes</span></td>
+                                            <td>article, video, document, etc.</td>
+                                            <td>video</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>url</code></td>
+                                            <td><span class="badge bg-warning">Optional</span></td>
+                                            <td>External link</td>
+                                            <td>https://example.com</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>difficulty</code></td>
+                                            <td><span class="badge bg-warning">Optional</span></td>
+                                            <td>beginner, intermediate, advanced</td>
+                                            <td>beginner</td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>programming_languages</code></td>
+                                            <td><span class="badge bg-warning">Optional</span></td>
+                                            <td>Comma-separated list</td>
+                                            <td>Python, Django</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upload Form -->
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="{{ form.csv_file.id_for_label }}" class="form-label">
+                                Upload CSV File <span class="text-danger">*</span>
+                            </label>
+                            {{ form.csv_file }}
+                            {% if form.csv_file.errors %}
+                                <div class="text-danger small mt-1">{{ form.csv_file.errors.0 }}</div>
+                            {% endif %}
+                            <small class="text-muted d-block mt-1">
+                                Maximum file size: 5 MB
+                            </small>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class='bx bx-error-circle'></i>
+                            <strong>Note:</strong> All resources uploaded via CSV will be automatically approved.
+                            Make sure the data is accurate before uploading.
+                        </div>
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors.0 }}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'resources:resource_list' %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-upload'></i> Upload & Import
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function downloadTemplate() {
+    // Generate CSV template
+    const csvContent = `title,description,resource_type,url,difficulty,programming_languages
+"Introduction to Python","Learn Python programming basics","video","https://example.com/python","beginner","Python"
+"Django REST Framework Guide","Complete guide to building APIs","article","https://example.com/drf","intermediate","Python, Django"
+"React Hooks Tutorial","Modern React development with hooks","video","https://example.com/react","intermediate","JavaScript, React"`;
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'resources_template.csv');
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
+{% endblock %}

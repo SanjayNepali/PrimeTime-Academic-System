@@ -1,0 +1,80 @@
+<!-- File: templates/resources/categories.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Resource Categories - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="mb-4">
+        <h2><i class='bx bx-category'></i> Resource Categories</h2>
+        <p class="text-muted">Browse resources by category to find what you need</p>
+    </div>
+
+    {% if categories %}
+    <div class="row">
+        {% for category in categories %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <a href="{% url 'resources:category_resources' category.id %}" class="text-decoration-none">
+                <div class="card category-card h-100" 
+                     style="border-left: 4px solid {{ category.color }};">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="category-icon" style="background: {{ category.color }}22;">
+                                <i class='{{ category.icon }}' 
+                                   style="font-size: 2.5rem; color: {{ category.color }};"></i>
+                            </div>
+                            <span class="badge bg-secondary">
+                                {{ category.resource_count }} resources
+                            </span>
+                        </div>
+
+                        <h5 class="card-title text-dark mb-2">{{ category.name }}</h5>
+                        <p class="card-text text-muted small">
+                            {{ category.description|truncatechars:100 }}
+                        </p>
+
+                        <div class="mt-3">
+                            <span class="btn btn-sm btn-outline-primary">
+                                Browse <i class='bx bx-right-arrow-alt'></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class='bx bx-category' style="font-size: 5rem; color: #6c757d;"></i>
+        <h4 class="mt-3">No Categories Available</h4>
+        <p class="text-muted">Categories will appear here once created.</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.category-card {
+    border: none;
+    border-radius: 16px;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.category-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.category-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+</style>
+{% endblock %}

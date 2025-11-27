@@ -1,45 +1,542 @@
-{% extends 'base.html' %}
+<!-- File: templates/analytics/my_analytics.html -->
 
-{% block title %}My Analytics - {{ block.super }}{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Analytics - PrimeTime{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2><i class="fas fa-chart-line"></i> My Analytics</h2>
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <h2><i class='bx bx-line-chart'></i> My Analytics Dashboard</h2>
+        <p class="text-muted">Track your stress levels, progress, and performance</p>
+    </div>
 
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card text-center shadow">
+    <!-- Stress Alert -->
+    {% if latest_stress and latest_stress.level >= 70 %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-center">
+            <i class='bx bx-error-circle' style="font-size: 24px; margin-right: 12px;"></i>
+            <div>
+                <strong>High Stress Level Detected</strong>
+                <p class="mb-0">Your current stress level is {{ latest_stress.level|floatformat:1 }}%. 
+                Consider taking a break or reaching out to your supervisor.</p>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Stress Level Card -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card modern-card h-100">
                 <div class="card-body">
-                    <h3 class="text-primary">{{ progress }}%</h3>
-                    <p class="text-muted">Project Progress</p>
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Current Stress Level</h6>
+                            <h2 class="mb-0 stress-level-value">
+                                {% if latest_stress %}
+                                    {{ latest_stress.level|floatformat:1 }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h2>
+                        </div>
+                        <div class="stat-icon bg-{% if latest_stress.level >= 70 %}danger{% elif latest_stress.level >= 40 %}warning{% else %}success{% endif %}-light">
+                            <i class='bx bx-heart-circle'></i>
+                        </div>
+                    </div>
+                    
+                    {% if latest_stress %}
+                    <div class="stress-indicator mb-3">
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-{% if latest_stress.level >= 70 %}danger{% elif latest_stress.level >= 40 %}warning{% else %}success{% endif %}"
+                                 style="width: {{ latest_stress.level }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="stress-category">
+                        <span class="badge bg-{% if latest_stress.level >= 70 %}danger{% elif latest_stress.level >= 40 %}warning{% else %}success{% endif %}">
+                            {{ latest_stress.stress_category }}
+                        </span>
+                        <span class="badge bg-secondary ms-1">
+                            {% if stress_trend.trend == 'increasing' %}
+                                <i class='bx bx-trending-up'></i> Increasing
+                            {% elif stress_trend.trend == 'decreasing' %}
+                                <i class='bx bx-trending-down'></i> Decreasing
+                            {% else %}
+                                <i class='bx bx-minus'></i> Stable
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <small class="text-muted d-block mt-2">
+                        Last updated: {{ latest_stress.timestamp|timesince }} ago
+                    </small>
+                    {% else %}
+                    <p class="text-muted mb-0">No stress data available yet</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow">
+
+        <!-- Performance Score Card -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card modern-card h-100">
                 <div class="card-body">
-                    <h3 class="text-warning">{{ stress_level }}</h3>
-                    <p class="text-muted">Stress Level</p>
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Performance Score</h6>
+                            <h2 class="mb-0">{{ performance.overall_score|floatformat:1 }}%</h2>
+                        </div>
+                        <div class="stat-icon bg-primary-light">
+                            <i class='bx bx-trophy'></i>
+                        </div>
+                    </div>
+                    
+                    <div class="performance-grade mb-3">
+                        <div class="grade-badge grade-{{ performance.grade|lower }}">
+                            {{ performance.grade }}
+                        </div>
+                    </div>
+                    
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-gradient-primary" 
+                             style="width: {{ performance.overall_score }}%"></div>
+                    </div>
+                    
+                    <small class="text-muted d-block mt-2">
+                        Based on deliverables, consistency, and quality
+                    </small>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow">
+
+        <!-- Progress Card -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card modern-card h-100">
                 <div class="card-body">
-                    <h3 class="text-success">{{ performance }}%</h3>
-                    <p class="text-muted">Performance Score</p>
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Project Progress</h6>
+                            <h2 class="mb-0">{{ performance.breakdown.progress|floatformat:0 }}%</h2>
+                        </div>
+                        <div class="stat-icon bg-info-light">
+                            <i class='bx bx-line-chart'></i>
+                        </div>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar bg-gradient-info" 
+                             style="width: {{ performance.breakdown.progress }}%"></div>
+                    </div>
+                    
+                    <small class="text-muted">
+                        {% if performance.breakdown.progress >= 80 %}
+                        Excellent progress! Keep it up.
+                        {% elif performance.breakdown.progress >= 50 %}
+                        Good progress. Stay consistent.
+                        {% else %}
+                        Need to catch up on deliverables.
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consistency Card -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card modern-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Consistency Score</h6>
+                            <h2 class="mb-0">{{ performance.breakdown.consistency|floatformat:0 }}%</h2>
+                        </div>
+                        <div class="stat-icon bg-success-light">
+                            <i class='bx bx-calendar-check'></i>
+                        </div>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar bg-gradient-success" 
+                             style="width: {{ performance.breakdown.consistency }}%"></div>
+                    </div>
+                    
+                    <small class="text-muted">
+                        Regular activity and engagement
+                    </small>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="card mt-4 shadow">
-        <div class="card-header">
-            <h5>Progress Over Time</h5>
+    <!-- Detailed Analytics Row -->
+    <div class="row">
+        <!-- Stress Trend Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card modern-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class='bx bx-chart'></i> Stress Level Trend (Last 30 Days)
+                    </h5>
+                    <button class="btn btn-sm btn-primary" onclick="refreshStressAnalysis()">
+                        <i class='bx bx-refresh'></i> Refresh Analysis
+                    </button>
+                </div>
+                <div class="card-body">
+                    <canvas id="stressTrendChart" height="80"></canvas>
+                    
+                    <!-- Stress Factors Breakdown -->
+                    <div class="mt-4">
+                        <h6>Contributing Factors</h6>
+                        <div class="row">
+                            {% if latest_stress %}
+                            <div class="col-md-3">
+                                <div class="factor-card">
+                                    <small class="text-muted">Chat Sentiment</small>
+                                    <div class="progress mt-1" style="height: 6px;">
+                                        <div class="progress-bar bg-info" 
+                                             style="width: {{ latest_stress.chat_sentiment_score|add:1|mul:50 }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="factor-card">
+                                    <small class="text-muted">Deadline Pressure</small>
+                                    <div class="progress mt-1" style="height: 6px;">
+                                        <div class="progress-bar bg-warning" 
+                                             style="width: {{ latest_stress.deadline_pressure }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="factor-card">
+                                    <small class="text-muted">Workload</small>
+                                    <div class="progress mt-1" style="height: 6px;">
+                                        <div class="progress-bar bg-danger" 
+                                             style="width: {{ latest_stress.workload_score }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="factor-card">
+                                    <small class="text-muted">Social Isolation</small>
+                                    <div class="progress mt-1" style="height: 6px;">
+                                        <div class="progress-bar bg-secondary" 
+                                             style="width: {{ latest_stress.social_isolation_score }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <canvas id="progressChart"></canvas>
+
+        <!-- Performance Breakdown -->
+        <div class="col-lg-4 mb-4">
+            <div class="card modern-card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class='bx bx-pie-chart-alt'></i> Performance Breakdown
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="performanceChart" height="200"></canvas>
+                    
+                    <div class="mt-4">
+                        <div class="breakdown-item">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Progress</span>
+                                <strong>{{ performance.breakdown.progress|floatformat:0 }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-primary" 
+                                     style="width: {{ performance.breakdown.progress }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="breakdown-item mt-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Quality</span>
+                                <strong>{{ performance.breakdown.deliverable_quality|floatformat:0 }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-success" 
+                                     style="width: {{ performance.breakdown.deliverable_quality }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="breakdown-item mt-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Consistency</span>
+                                <strong>{{ performance.breakdown.consistency|floatformat:0 }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-info" 
+                                     style="width: {{ performance.breakdown.consistency }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="breakdown-item mt-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Timeliness</span>
+                                <strong>{{ performance.breakdown.timeliness|floatformat:0 }}%</strong>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-warning" 
+                                     style="width: {{ performance.breakdown.timeliness }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Stress History -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card modern-card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class='bx bx-history'></i> Recent Stress Measurements
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if stress_history %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Stress Level</th>
+                                    <th>Category</th>
+                                    <th>Chat Sentiment</th>
+                                    <th>Deadline Pressure</th>
+                                    <th>Workload</th>
+                                    <th>Project Phase</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stress in stress_history %}
+                                <tr>
+                                    <td>{{ stress.timestamp|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress" style="width: 100px; height: 20px; margin-right: 10px;">
+                                                <div class="progress-bar bg-{% if stress.level >= 70 %}danger{% elif stress.level >= 40 %}warning{% else %}success{% endif %}"
+                                                     style="width: {{ stress.level }}%">
+                                                    {{ stress.level|floatformat:1 }}%
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if stress.level >= 70 %}danger{% elif stress.level >= 40 %}warning{% else %}success{% endif %}">
+                                            {{ stress.stress_category }}
+                                        </span>
+                                    </td>
+                                    <td>{{ stress.chat_sentiment_score|floatformat:2 }}</td>
+                                    <td>{{ stress.deadline_pressure|floatformat:0 }}%</td>
+                                    <td>{{ stress.workload_score|floatformat:0 }}%</td>
+                                    <td>{{ stress.project_phase|title }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class='bx bx-chart' style="font-size: 3rem; color: #ccc;"></i>
+                        <p class="text-muted mt-3">No stress measurements recorded yet</p>
+                        <button class="btn btn-primary" onclick="refreshStressAnalysis()">
+                            <i class='bx bx-refresh'></i> Run Initial Analysis
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<style>
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.bg-primary-light { background: rgba(85, 104, 254, 0.1); color: var(--primary); }
+.bg-success-light { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+.bg-danger-light { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.bg-warning-light { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+.bg-info-light { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+
+.grade-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.grade-a-plus, .grade-a { background: #10B981; color: white; }
+.grade-a-minus, .grade-b-plus, .grade-b { background: #3B82F6; color: white; }
+.grade-b-minus, .grade-c-plus, .grade-c { background: #F59E0B; color: white; }
+.grade-c-minus, .grade-f { background: #EF4444; color: white; }
+
+.factor-card {
+    padding: 12px;
+    background: var(--secondary);
+    border-radius: 8px;
+}
+
+.breakdown-item {
+    padding: 8px 0;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(90deg, var(--primary), #667eea);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(90deg, var(--success), #059669);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(90deg, var(--info), #2563eb);
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Stress Trend Chart
+{% if stress_history %}
+const stressCtx = document.getElementById('stressTrendChart').getContext('2d');
+new Chart(stressCtx, {
+    type: 'line',
+    data: {
+        labels: [
+            {% for stress in stress_history reversed %}
+            '{{ stress.timestamp|date:"M d" }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Stress Level',
+            data: [
+                {% for stress in stress_history reversed %}
+                {{ stress.level|floatformat:1 }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            borderColor: '#EF4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100
+            }
+        }
+    }
+});
+{% endif %}
+
+// Performance Breakdown Chart
+const perfCtx = document.getElementById('performanceChart').getContext('2d');
+new Chart(perfCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Progress', 'Quality', 'Consistency', 'Timeliness'],
+        datasets: [{
+            data: [
+                {{ performance.breakdown.progress|floatformat:0 }},
+                {{ performance.breakdown.deliverable_quality|floatformat:0 }},
+                {{ performance.breakdown.consistency|floatformat:0 }},
+                {{ performance.breakdown.timeliness|floatformat:0 }}
+            ],
+            backgroundColor: [
+                '#5568FE',
+                '#10B981',
+                '#3B82F6',
+                '#F59E0B'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Refresh stress analysis
+function refreshStressAnalysis() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Analyzing...';
+    
+    fetch('/analytics/run-stress-analysis/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error running analysis: ' + error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}

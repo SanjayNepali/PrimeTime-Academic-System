@@ -1,0 +1,309 @@
+<!-- File: templates/events/deadline_event_form.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Deadline Event - PrimeTime{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .form-section h5 {
+        color: var(--primary);
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--primary);
+    }
+    
+    .requirement-preview {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid var(--warning);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card modern-card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-file-blank'></i> {{ title }}
+                    </h4>
+                    <p class="mb-0 small">Create a deadline event with submission requirements</p>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="deadlineForm">
+                        {% csrf_token %}
+                        
+                        <!-- Basic Information Section -->
+                        <div class="form-section">
+                            <h5><i class='bx bx-info-circle'></i> Basic Information</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="{{ form.title.id_for_label }}" class="form-label">
+                                        Event Title <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.title }}
+                                    {% if form.title.errors %}
+                                        <div class="text-danger small">{{ form.title.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-12 mb-3">
+                                    <label for="{{ form.description.id_for_label }}" class="form-label">
+                                        Description <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="text-danger small">{{ form.description.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Date & Time Section -->
+                        <div class="form-section">
+                            <h5><i class='bx bx-calendar'></i> Date & Time</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.start_datetime.id_for_label }}" class="form-label">
+                                        Start Date & Time <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.start_datetime }}
+                                    {% if form.start_datetime.errors %}
+                                        <div class="text-danger small">{{ form.start_datetime.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.end_datetime.id_for_label }}" class="form-label">
+                                        Deadline (End Date & Time) <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.end_datetime }}
+                                    {% if form.end_datetime.errors %}
+                                        <div class="text-danger small">{{ form.end_datetime.errors.0 }}</div>
+                                    {% endif %}
+                                    <small class="text-muted">This is when submissions will close</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Location Section -->
+                        <div class="form-section">
+                            <h5><i class='bx bx-map'></i> Location (Optional)</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.location.id_for_label }}" class="form-label">
+                                        Physical Location
+                                    </label>
+                                    {{ form.location }}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.virtual_link.id_for_label }}" class="form-label">
+                                        Virtual Meeting Link
+                                    </label>
+                                    {{ form.virtual_link }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submission Requirements Section -->
+                        <div class="form-section">
+                            <h5><i class='bx bx-file'></i> Submission Requirements</h5>
+                            
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.requires_submission }}
+                                    <label class="form-check-label" for="{{ form.requires_submission.id_for_label }}">
+                                        {{ form.requires_submission.label }}
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div id="submissionRequirements" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.submission_file_type.id_for_label }}" class="form-label">
+                                            Expected File Type <span class="text-danger">*</span>
+                                        </label>
+                                        {{ form.submission_file_type }}
+                                        {% if form.submission_file_type.errors %}
+                                            <div class="text-danger small">{{ form.submission_file_type.errors.0 }}</div>
+                                        {% endif %}
+                                        <small class="text-muted">e.g., PDF, DOCX, PPTX</small>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.max_file_size_mb.id_for_label }}" class="form-label">
+                                            Maximum File Size (MB)
+                                        </label>
+                                        {{ form.max_file_size_mb }}
+                                        <small class="text-muted">Default: 10 MB</small>
+                                    </div>
+                                    
+                                    <div class="col-md-12 mb-3">
+                                        <label for="{{ form.submission_instructions.id_for_label }}" class="form-label">
+                                            Submission Instructions
+                                        </label>
+                                        {{ form.submission_instructions }}
+                                        <small class="text-muted">Guidelines for students on what to submit</small>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="{{ form.late_submission_penalty.id_for_label }}" class="form-label">
+                                            Late Submission Penalty (%)
+                                        </label>
+                                        {{ form.late_submission_penalty }}
+                                        <small class="text-muted">Percentage deduction for late submissions</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Participants Section -->
+                        <div class="form-section">
+                            <h5><i class='bx bx-group'></i> Participants</h5>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.batch_year.id_for_label }}" class="form-label">
+                                        Batch Year
+                                    </label>
+                                    {{ form.batch_year }}
+                                    <small class="text-muted">Leave empty for all batches</small>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.group.id_for_label }}" class="form-label">
+                                        Specific Group
+                                    </label>
+                                    {{ form.group }}
+                                    <small class="text-muted">Leave empty for all groups</small>
+                                </div>
+                                
+                                <div class="col-md-12 mb-3">
+                                    <label for="{{ form.participants.id_for_label }}" class="form-label">
+                                        Specific Participants
+                                    </label>
+                                    {{ form.participants }}
+                                    <small class="text-muted">Select specific students (hold Ctrl/Cmd for multiple)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings Section -->
+                        <div class="form-section">
+                            <h5><i class='bx bx-cog'></i> Additional Settings</h5>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ form.is_mandatory }}
+                                    <label class="form-check-label" for="{{ form.is_mandatory.id_for_label }}">
+                                        {{ form.is_mandatory.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview Section -->
+                        <div class="requirement-preview mb-4">
+                            <h6><i class='bx bx-show'></i> Submission Requirements Preview</h6>
+                            <div id="previewContent">
+                                <p class="text-muted mb-0">Configure submission requirements to see preview</p>
+                            </div>
+                        </div>
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors.0 }}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'events:event_list' %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> Create Deadline Event
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const requiresSubmissionCheckbox = document.getElementById('{{ form.requires_submission.id_for_label }}');
+    const submissionRequirements = document.getElementById('submissionRequirements');
+    const fileTypeInput = document.getElementById('{{ form.submission_file_type.id_for_label }}');
+    const maxSizeInput = document.getElementById('{{ form.max_file_size_mb.id_for_label }}');
+    const instructionsInput = document.getElementById('{{ form.submission_instructions.id_for_label }}');
+    const penaltyInput = document.getElementById('{{ form.late_submission_penalty.id_for_label }}');
+    const previewContent = document.getElementById('previewContent');
+    
+    // Toggle submission requirements visibility
+    function toggleSubmissionRequirements() {
+        submissionRequirements.style.display = requiresSubmissionCheckbox.checked ? 'block' : 'none';
+        updatePreview();
+    }
+    
+    // Update preview
+    function updatePreview() {
+        if (!requiresSubmissionCheckbox.checked) {
+            previewContent.innerHTML = '<p class="text-muted mb-0">No submission required for this deadline</p>';
+            return;
+        }
+        
+        const fileType = fileTypeInput.value || 'Any';
+        const maxSize = maxSizeInput.value || '10';
+        const instructions = instructionsInput.value || 'None specified';
+        const penalty = penaltyInput.value || '0';
+        
+        previewContent.innerHTML = `
+            <p class="mb-2"><strong>File Type:</strong> ${fileType}</p>
+            <p class="mb-2"><strong>Max Size:</strong> ${maxSize} MB</p>
+            <p class="mb-2"><strong>Late Penalty:</strong> ${penalty}%</p>
+            <p class="mb-0"><strong>Instructions:</strong> ${instructions}</p>
+        `;
+    }
+    
+    // Event listeners
+    requiresSubmissionCheckbox.addEventListener('change', toggleSubmissionRequirements);
+    fileTypeInput.addEventListener('input', updatePreview);
+    maxSizeInput.addEventListener('input', updatePreview);
+    instructionsInput.addEventListener('input', updatePreview);
+    penaltyInput.addEventListener('input', updatePreview);
+    
+    // Initial state
+    toggleSubmissionRequirements();
+    
+    // Form validation
+    document.getElementById('deadlineForm').addEventListener('submit', function(e) {
+        if (requiresSubmissionCheckbox.checked && !fileTypeInput.value) {
+            e.preventDefault();
+            alert('Please specify the expected file type when submission is required.');
+            fileTypeInput.focus();
+        }
+    });
+});
+</script>
+{% endblock %}

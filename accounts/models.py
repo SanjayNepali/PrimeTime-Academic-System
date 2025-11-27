@@ -93,13 +93,16 @@ class User(AbstractUser):
     
     # Simplified role properties
     @property
+    def is_superadmin(self):
+        return self.role == 'superadmin'
+    @property
     def is_admin(self):
-        return self.role == 'admin' or self.is_superuser
-    
+        return self.role in ['admin', 'superadmin'] or self.is_superuser
+
     @property
     def is_student(self):
         return self.role == 'student'
-    
+
     @property
     def is_supervisor(self):
         return self.role == 'supervisor'

@@ -1,0 +1,70 @@
+<!-- File: templates/events/event_cancel.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cancel Event - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class='bx bx-error-circle'></i> Cancel Event
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class='bx bx-info-circle'></i>
+                        <strong>Warning:</strong> Canceling this event will notify all participants.
+                    </div>
+
+                    <div class="mb-3">
+                        <h5>{{ event.title }}</h5>
+                        <p class="text-muted mb-1">
+                            <i class='bx bx-calendar'></i> 
+                            {{ event.start_datetime|date:"F d, Y" }} at {{ event.start_datetime|time:"g:i A" }}
+                        </p>
+                        {% if event.location %}
+                        <p class="text-muted mb-1">
+                            <i class='bx bx-map'></i> {{ event.location }}
+                        </p>
+                        {% endif %}
+                        <p class="text-muted mb-0">
+                            <i class='bx bx-group'></i> 
+                            {{ event.participants.count }} participant(s) will be notified
+                        </p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="reason" class="form-label">
+                                Cancellation Reason <span class="text-danger">*</span>
+                            </label>
+                            <textarea name="reason" id="reason" class="form-control" rows="4" 
+                                      placeholder="Explain why this event is being canceled..."
+                                      required></textarea>
+                            <small class="text-muted">
+                                This message will be sent to all participants
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'events:event_detail' event.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Go Back
+                            </a>
+                            <button type="submit" class="btn btn-warning">
+                                <i class='bx bx-x-circle'></i> Cancel Event
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,116 @@
+<!-- File: templates/events/calendar_list.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Academic Calendars - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-calendar-event'></i> Academic Calendars</h2>
+            <p class="text-muted mb-0">Manage batch-wise academic calendars and important dates</p>
+        </div>
+        <a href="{% url 'events:calendar_create' %}" class="btn btn-primary">
+            <i class='bx bx-plus'></i> Create Calendar
+        </a>
+    </div>
+
+    {% if calendars %}
+    <div class="row">
+        {% for calendar in calendars %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm hover-shadow">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ calendar.name }}</h5>
+                        {% if calendar.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-muted mb-2">Batch Year</h6>
+                        <h4 class="text-primary mb-0">{{ calendar.batch_year }}</h4>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-2">
+                        <small class="text-muted">Academic Period</small>
+                        <p class="mb-0">
+                            <i class='bx bx-calendar'></i> 
+                            {{ calendar.start_date|date:"M d, Y" }} - {{ calendar.end_date|date:"M d, Y" }}
+                        </p>
+                    </div>
+
+                    {% if calendar.proposal_deadline %}
+                    <div class="mb-2">
+                        <small class="text-muted">Proposal Deadline</small>
+                        <p class="mb-0">
+                            <i class='bx bx-time-five'></i> {{ calendar.proposal_deadline|date:"M d, Y" }}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <hr>
+
+                    <!-- Defense Periods -->
+                    <div class="mb-2">
+                        <small class="text-muted d-block mb-1">Defense Periods</small>
+                        {% if calendar.mid_defense_start %}
+                        <div class="badge bg-info text-dark mb-1 me-1">
+                            Mid: {{ calendar.mid_defense_start|date:"M d" }}
+                        </div>
+                        {% endif %}
+                        {% if calendar.pre_defense_start %}
+                        <div class="badge bg-warning text-dark mb-1 me-1">
+                            Pre: {{ calendar.pre_defense_start|date:"M d" }}
+                        </div>
+                        {% endif %}
+                        {% if calendar.final_defense_start %}
+                        <div class="badge bg-danger mb-1">
+                            Final: {{ calendar.final_defense_start|date:"M d" }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mt-3">
+                        <small class="text-muted">Created by {{ calendar.created_by.display_name }}</small>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'events:calendar_detail' calendar.pk %}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class='bx bx-show'></i> View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class='bx bx-calendar-x' style="font-size: 5rem; color: #ccc;"></i>
+        <h4 class="mt-3 text-muted">No Calendars Created</h4>
+        <p class="text-muted">Start by creating an academic calendar for a batch</p>
+        <a href="{% url 'events:calendar_create' %}" class="btn btn-primary mt-3">
+            <i class='bx bx-plus'></i> Create First Calendar
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.hover-shadow {
+    transition: all 0.3s;
+}
+.hover-shadow:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+}
+</style>
+{% endblock %}

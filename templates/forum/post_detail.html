@@ -1,0 +1,509 @@
+<!-- File: templates/forum/post_detail.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ post.title }} - Forum{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Back Navigation -->
+    <div class="mb-3">
+        <a href="{% url 'forum:forum_home' %}" class="btn btn-outline-secondary btn-sm">
+            <i class='bx bx-arrow-back'></i> Back to Forum
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Post Card -->
+            <div class="card modern-card mb-4">
+                <div class="card-body">
+                    <!-- Post Header -->
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h3 class="mb-2">{{ post.title }}</h3>
+                            <div class="post-meta">
+                                <span class="badge badge-{{ post.post_type }}">
+                                    {{ post.get_post_type_display }}
+                                </span>
+                                {% if post.is_solved %}
+                                <span class="badge bg-success">
+                                    <i class='bx bx-check-circle'></i> Solved
+                                </span>
+                                {% endif %}
+                                {% if post.is_pinned %}
+                                <span class="badge bg-warning">
+                                    <i class='bx bx-pin'></i> Pinned
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if can_moderate or user == post.author %}
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                <i class='bx bx-dots-vertical-rounded'></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% if user == post.author %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'forum:post_update' post.pk %}">
+                                        <i class='bx bx-edit'></i> Edit Post
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="{% url 'forum:post_delete' post.pk %}">
+                                        <i class='bx bx-trash'></i> Delete Post
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'forum:flag_post' post.pk %}">
+                                        <i class='bx bx-flag'></i> Report
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Author Info -->
+                    <div class="author-info mb-4">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle me-3">
+                                {% if post.author.profile.profile_picture %}
+                                <img src="{{ post.author.profile.profile_picture.url }}" alt="Avatar">
+                                {% else %}
+                                <i class='bx bx-user'></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <strong>{{ post.author.display_name }}</strong>
+                                <small class="text-muted d-block">
+                                    {{ post.created_at|timesince }} ago
+                                    {% if post.updated_at != post.created_at %}
+                                    • Edited {{ post.updated_at|timesince }} ago
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Post Content -->
+                    <div class="post-content mb-4">
+                        {{ post.content|linebreaks }}
+                    </div>
+
+                    <!-- Tags -->
+                    {% if post.tags.exists or post.programming_languages %}
+                    <div class="post-tags mb-4">
+                        {% for tag in post.tags.all %}
+                        <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+                        {% endfor %}
+                        
+                        {% if post.programming_languages %}
+                        <div class="mt-2">
+                            <small class="text-muted">Technologies:</small>
+                            {% for lang in post.languages_list %}
+                            <span class="badge bg-primary me-1">
+                                <i class='bx bx-code-alt'></i> {{ lang }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Post Actions -->
+                    <div class="post-actions d-flex justify-content-between align-items-center">
+                        <div class="d-flex gap-3">
+                            <!-- Upvote Button -->
+                            <button class="btn btn-sm {% if user_has_upvoted %}btn-primary{% else %}btn-outline-primary{% endif %} upvote-btn"
+                                    data-post-id="{{ post.pk }}"
+                                    data-upvoted="{{ user_has_upvoted|yesno:'true,false' }}">
+                                <i class='bx bx-up-arrow-alt'></i>
+                                <span class="upvote-count">{{ post.upvote_count }}</span>
+                            </button>
+
+                            <!-- Reply Count -->
+                            <div class="text-muted">
+                                <i class='bx bx-comment'></i> {{ post.reply_count }} replies
+                            </div>
+
+                            <!-- Views -->
+                            <div class="text-muted">
+                                <i class='bx bx-show'></i> {{ post.views }} views
+                            </div>
+                        </div>
+
+                        <!-- Follow Button -->
+                        <button class="btn btn-sm {% if user_is_following %}btn-success{% else %}btn-outline-secondary{% endif %} follow-btn"
+                                data-post-id="{{ post.pk }}"
+                                data-following="{{ user_is_following|yesno:'true,false' }}">
+                            <i class='bx {% if user_is_following %}bx-check{% else %}bx-bell{% endif %}'></i>
+                            {% if user_is_following %}Following{% else %}Follow{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Replies Section -->
+            <div class="card modern-card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class='bx bx-comment-detail'></i> 
+                        {{ replies.count }} {% if replies.count == 1 %}Reply{% else %}Replies{% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if replies %}
+                    {% for reply in replies %}
+                    <div class="reply-item {% if reply.is_accepted %}accepted-reply{% endif %}" id="reply-{{ reply.pk }}">
+                        <div class="d-flex">
+                            <!-- Upvote Column -->
+                            <div class="reply-votes me-3">
+                                <button class="btn btn-sm {% if reply.pk in reply_upvotes and reply_upvotes|get_item:reply.pk %}btn-primary{% else %}btn-outline-primary{% endif %} reply-upvote-btn"
+                                        data-reply-id="{{ reply.pk }}">
+                                    <i class='bx bx-up-arrow-alt'></i>
+                                    <span class="reply-upvote-count">{{ reply.upvote_count }}</span>
+                                </button>
+                            </div>
+
+                            <!-- Reply Content -->
+                            <div class="flex-grow-1">
+                                <!-- Author Info -->
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="avatar-circle-sm me-2">
+                                        {% if reply.author.profile.profile_picture %}
+                                        <img src="{{ reply.author.profile.profile_picture.url }}" alt="Avatar">
+                                        {% else %}
+                                        <i class='bx bx-user'></i>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <strong>{{ reply.author.display_name }}</strong>
+                                        {% if reply.author == post.author %}
+                                        <span class="badge bg-info badge-sm ms-1">Author</span>
+                                        {% endif %}
+                                        {% if reply.is_accepted %}
+                                        <span class="badge bg-success badge-sm ms-1">
+                                            <i class='bx bx-check'></i> Accepted Answer
+                                        </span>
+                                        {% endif %}
+                                        <small class="text-muted d-block">
+                                            {{ reply.created_at|timesince }} ago
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Reply Content -->
+                                <div class="reply-content mb-3">
+                                    {{ reply.content|linebreaks }}
+                                </div>
+
+                                <!-- Reply Actions -->
+                                <div class="reply-actions">
+                                    {% if can_mark_solved and not post.is_solved %}
+                                    <a href="{% url 'forum:mark_solved' post.pk reply.pk %}" 
+                                       class="btn btn-sm btn-outline-success">
+                                        <i class='bx bx-check-circle'></i> Mark as Solution
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if not forloop.last %}
+                    <hr>
+                    {% endif %}
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class='bx bx-comment-x' style="font-size: 3rem; color: #ccc;"></i>
+                        <p class="text-muted mt-3">No replies yet. Be the first to respond!</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Reply Form -->
+            {% if user.is_authenticated %}
+            <div class="card modern-card mt-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class='bx bx-reply'></i> Add Your Reply
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="reply-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="reply_submit" value="1">
+                        
+                        <div class="mb-3">
+                            {{ reply_form.content }}
+                            {% if reply_form.content.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ reply_form.content.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class='bx bx-info-circle'></i> 
+                                Be respectful and constructive in your replies
+                            </small>
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-send'></i> Post Reply
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="card modern-card mt-4">
+                <div class="card-body text-center">
+                    <p class="mb-0">
+                        <a href="{% url 'accounts:login' %}?next={{ request.path }}">Log in</a> 
+                        to reply to this post
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- About Post -->
+            <div class="card modern-card mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">About This Post</h6>
+                </div>
+                <div class="card-body">
+                    <div class="info-item">
+                        <small class="text-muted">Category</small>
+                        <p class="mb-2">{{ post.category.name }}</p>
+                    </div>
+                    <div class="info-item">
+                        <small class="text-muted">Status</small>
+                        <p class="mb-2">
+                            <span class="badge bg-{{ post.status }}">
+                                {{ post.get_status_display }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="info-item">
+                        <small class="text-muted">Last Activity</small>
+                        <p class="mb-0">{{ post.last_activity|timesince }} ago</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Related Posts -->
+            <div class="card modern-card">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">Related Discussions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="related-posts">
+                        <div class="text-muted text-center py-3">
+                            <small>No related posts found</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    overflow: hidden;
+}
+
+.avatar-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-circle-sm {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 16px;
+    overflow: hidden;
+}
+
+.avatar-circle-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.post-content {
+    font-size: 16px;
+    line-height: 1.8;
+}
+
+.reply-item {
+    padding: 20px 0;
+}
+
+.reply-item.accepted-reply {
+    background: rgba(16, 185, 129, 0.05);
+    border-left: 4px solid var(--success);
+    padding-left: 16px;
+    margin-left: -20px;
+    padding-right: 16px;
+    margin-right: -20px;
+    border-radius: 8px;
+}
+
+.reply-votes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.badge-question { background: #3B82F6; }
+.badge-discussion { background: #10B981; }
+.badge-help { background: #F59E0B; }
+.badge-announcement { background: #EF4444; }
+.badge-tutorial { background: #8B5CF6; }
+.badge-showcase { background: #EC4899; }
+
+.info-item {
+    margin-bottom: 15px;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Upvote post
+    document.querySelectorAll('.upvote-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const postId = this.dataset.postId;
+            const isUpvoted = this.dataset.upvoted === 'true';
+            
+            fetch(`/forum/post/${postId}/upvote/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.dataset.upvoted = data.upvoted;
+                this.querySelector('.upvote-count').textContent = data.upvote_count;
+                
+                if (data.upvoted) {
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-primary');
+                } else {
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-outline-primary');
+                }
+            });
+        });
+    });
+
+    // Follow post
+    document.querySelectorAll('.follow-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const postId = this.dataset.postId;
+            const isFollowing = this.dataset.following === 'true';
+            
+            fetch(`/forum/post/${postId}/follow/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.dataset.following = data.following;
+                const icon = this.querySelector('i');
+                const text = this.querySelector('span') || this;
+                
+                if (data.following) {
+                    icon.className = 'bx bx-check';
+                    this.classList.remove('btn-outline-secondary');
+                    this.classList.add('btn-success');
+                    text.textContent = 'Following';
+                } else {
+                    icon.className = 'bx bx-bell';
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-secondary');
+                    text.textContent = 'Follow';
+                }
+            });
+        });
+    });
+
+    // Upvote reply
+    document.querySelectorAll('.reply-upvote-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const replyId = this.dataset.replyId;
+            
+            fetch(`/forum/reply/${replyId}/upvote/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.querySelector('.reply-upvote-count').textContent = data.upvote_count;
+                
+                if (data.upvoted) {
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-primary');
+                } else {
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-outline-primary');
+                }
+            });
+        });
+    });
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

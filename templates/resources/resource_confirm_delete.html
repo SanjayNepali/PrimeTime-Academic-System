@@ -1,0 +1,92 @@
+<!-- File: templates/resources/resource_confirm_delete.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delete Resource - {{ resource.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-error-circle'></i> Confirm Resource Deletion
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <i class='bx bx-error'></i>
+                        <strong>Warning:</strong> This action cannot be undone!
+                    </div>
+
+                    <p>Are you sure you want to permanently delete the following resource?</p>
+
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            {% if resource.thumbnail %}
+                            <img src="{{ resource.thumbnail.url }}" alt="{{ resource.title }}"
+                                 class="img-fluid mb-3" style="max-height: 200px; border-radius: 8px;">
+                            {% endif %}
+
+                            <h5 class="mb-2">{{ resource.title }}</h5>
+                            
+                            <p class="mb-2">
+                                <span class="badge bg-primary">
+                                    {{ resource.get_resource_type_display }}
+                                </span>
+                                {% if resource.category %}
+                                <span class="badge" style="background: {{ resource.category.color }};">
+                                    {{ resource.category.name }}
+                                </span>
+                                {% endif %}
+                            </p>
+
+                            <p class="text-muted mb-2">
+                                {{ resource.description|truncatechars:150 }}
+                            </p>
+
+                            <hr>
+
+                            <small class="text-muted">
+                                <i class='bx bx-user'></i> Created by {{ resource.author.display_name }}
+                                <br>
+                                <i class='bx bx-calendar'></i> {{ resource.created_at|date:"M d, Y" }}
+                                <br>
+                                <i class='bx bx-show'></i> {{ resource.views }} views
+                                <i class='bx bx-heart'></i> {{ resource.like_count }} likes
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-danger mb-4">
+                        <strong>This will:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Permanently delete the resource</li>
+                            <li>Remove all ratings and reviews</li>
+                            <li>Delete all user likes and bookmarks</li>
+                            {% if resource.file %}
+                            <li>Delete the uploaded file</li>
+                            {% endif %}
+                            <li>Cannot be recovered</li>
+                        </ul>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'resources:resource_detail' resource.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class='bx bx-trash'></i> Yes, Delete Resource
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

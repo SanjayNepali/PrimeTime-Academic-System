@@ -1,0 +1,245 @@
+<!-- File: templates/events/calendar_detail.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ calendar.name }} - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2>
+                        <i class='bx bx-calendar-event'></i> {{ calendar.name }}
+                        {% if calendar.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                        {% if calendar.is_current %}
+                        <span class="badge bg-primary">Current</span>
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">Batch {{ calendar.batch_year }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'events:calendar_list' %}" class="btn btn-outline-secondary">
+                        <i class='bx bx-arrow-back'></i> Back to Calendars
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Information -->
+        <div class="col-lg-8">
+            <!-- Academic Period -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class='bx bx-calendar'></i> Academic Period</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-2">START DATE</small>
+                                <h4 class="mb-0 text-primary">
+                                    {{ calendar.start_date|date:"M d, Y" }}
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted d-block mb-2">END DATE</small>
+                                <h4 class="mb-0 text-danger">
+                                    {{ calendar.end_date|date:"M d, Y" }}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Duration -->
+                    <div class="text-center mt-3">
+                        <span class="badge bg-info">
+                            Duration: {{ calendar.end_date|timesince:calendar.start_date }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class='bx bx-time'></i> Academic Timeline</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <!-- Proposal Deadline -->
+                        {% if calendar.proposal_deadline %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Proposal Deadline</h6>
+                                <p class="mb-0 text-muted">
+                                    <i class='bx bx-calendar'></i> 
+                                    {{ calendar.proposal_deadline|date:"F d, Y" }}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Mid Defense -->
+                        {% if calendar.mid_defense_start %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Mid Defense Period</h6>
+                                <p class="mb-0 text-muted">
+                                    <i class='bx bx-calendar'></i> 
+                                    {{ calendar.mid_defense_start|date:"M d" }} - 
+                                    {{ calendar.mid_defense_end|date:"M d, Y" }}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Pre Defense -->
+                        {% if calendar.pre_defense_start %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Pre Defense Period</h6>
+                                <p class="mb-0 text-muted">
+                                    <i class='bx bx-calendar'></i> 
+                                    {{ calendar.pre_defense_start|date:"M d" }} - 
+                                    {{ calendar.pre_defense_end|date:"M d, Y" }}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Final Defense -->
+                        {% if calendar.final_defense_start %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-danger"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Final Defense Period</h6>
+                                <p class="mb-0 text-muted">
+                                    <i class='bx bx-calendar'></i> 
+                                    {{ calendar.final_defense_start|date:"M d" }} - 
+                                    {{ calendar.final_defense_end|date:"M d, Y" }}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Stats -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class='bx bx-bar-chart'></i> Quick Stats</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted d-block">BATCH YEAR</small>
+                        <h4 class="mb-0 text-primary">{{ calendar.batch_year }}</h4>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-3">
+                        <small class="text-muted d-block">STATUS</small>
+                        <h6 class="mb-0">
+                            {% if calendar.is_current %}
+                            <span class="badge bg-primary">Active Period</span>
+                            {% elif calendar.start_date > today %}
+                            <span class="badge bg-info">Upcoming</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Completed</span>
+                            {% endif %}
+                        </h6>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-2">
+                        <small class="text-muted d-block">CREATED BY</small>
+                        <p class="mb-0">{{ calendar.created_by.display_name }}</p>
+                    </div>
+
+                    <div class="mb-2">
+                        <small class="text-muted d-block">CREATED ON</small>
+                        <p class="mb-0">{{ calendar.created_at|date:"M d, Y" }}</p>
+                    </div>
+
+                    <div>
+                        <small class="text-muted d-block">LAST UPDATED</small>
+                        <p class="mb-0">{{ calendar.updated_at|date:"M d, Y" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class='bx bx-cog'></i> Actions</h6>
+                </div>
+                <div class="card-body">
+                    <a href="#" class="btn btn-outline-primary w-100 mb-2">
+                        <i class='bx bx-edit'></i> Edit Calendar
+                    </a>
+                    <a href="{% url 'events:calendar_list' %}" class="btn btn-outline-secondary w-100">
+                        <i class='bx bx-list-ul'></i> View All Calendars
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 40px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e5e7eb;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -32px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 0 0 2px #e5e7eb;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

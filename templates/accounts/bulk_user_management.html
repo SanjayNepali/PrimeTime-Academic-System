@@ -1,0 +1,390 @@
+<!-- File: Desktop/Prime/templates/accounts/bulk_user_management.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Bulk User Management - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-group'></i> Bulk User Management</h2>
+            <p class="text-muted">Import multiple users from CSV or manage users in bulk</p>
+        </div>
+        <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">
+            <i class='bx bx-arrow-back'></i> Back to User List
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- CSV Import Section -->
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-upload'></i> Import Users from CSV</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Instructions -->
+                    <div class="alert alert-info">
+                        <h6><i class='bx bx-info-circle'></i> CSV Format Requirements</h6>
+                        <p class="mb-2">Your CSV file must include the following columns:</p>
+                        <ul class="mb-2">
+                            <li><strong>user_id</strong>: University ID (unique)</li>
+                            <li><strong>email</strong>: Email address (unique)</li>
+                            <li><strong>full_name</strong>: Complete name</li>
+                            <li><strong>role</strong>: student, supervisor, or admin</li>
+                            <li><strong>department</strong>: Department name</li>
+                            <li><strong>batch_year</strong>: Year (2079-2089)</li>
+                            <li><strong>phone</strong>: Phone number (optional)</li>
+                        </ul>
+                        <small class="text-muted">
+                            <i class='bx bx-download'></i> 
+                            <a href="#" onclick="downloadSampleCSV()">Download sample CSV template</a>
+                        </small>
+                    </div>
+
+                    <!-- Upload Form -->
+                    <form method="post" enctype="multipart/form-data" id="csvUploadForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label">Select CSV File</label>
+                            <input type="file" 
+                                   name="csv_file" 
+                                   class="form-control" 
+                                   accept=".csv"
+                                   required
+                                   id="csvFileInput">
+                            <small class="text-muted">Maximum file size: 5MB</small>
+                        </div>
+
+                        <!-- Preview Section -->
+                        <div id="csvPreview" class="mb-4" style="display: none;">
+                            <h6>CSV Preview (First 5 rows)</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered" id="previewTable">
+                                    <thead id="previewTableHead"></thead>
+                                    <tbody id="previewTableBody"></tbody>
+                                </table>
+                            </div>
+                            <div id="csvStats" class="alert alert-secondary"></div>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="mb-4">
+                            <h6>Import Options</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="skipDuplicates" name="skip_duplicates" checked>
+                                <label class="form-check-label" for="skipDuplicates">
+                                    Skip duplicate users (by email or user_id)
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="sendNotifications" name="send_notifications">
+                                <label class="form-check-label" for="sendNotifications">
+                                    Send email notifications to newly created users
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="generatePasswords" name="generate_passwords" checked>
+                                <label class="form-check-label" for="generatePasswords">
+                                    Auto-generate secure passwords
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>
+                            <i class='bx bx-upload'></i> Import Users
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                            <i class='bx bx-reset'></i> Reset
+                        </button>
+                    </form>
+
+                    <!-- Import Results -->
+                    <div id="importResults" class="mt-4" style="display: none;">
+                        <h6>Import Results</h6>
+                        <div class="alert alert-success" id="successResults"></div>
+                        <div class="alert alert-warning" id="warningResults" style="display: none;"></div>
+                        <div class="alert alert-danger" id="errorResults" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Stats -->
+        <div class="col-md-4">
+            <!-- Quick Stats -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h6><i class='bx bx-stats'></i> Current Statistics</h6>
+                </div>
+                <div class="card-body">
+                    <div class="stat-item">
+                        <i class='bx bx-user text-primary'></i>
+                        <div>
+                            <small class="text-muted">Total Users</small>
+                            <div class="fw-bold">{{ total_users|default:0 }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i class='bx bx-user-check text-success'></i>
+                        <div>
+                            <small class="text-muted">Active Users</small>
+                            <div class="fw-bold">{{ active_users|default:0 }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i class='bx bx-user-x text-danger'></i>
+                        <div>
+                            <small class="text-muted">Disabled Users</small>
+                            <div class="fw-bold">{{ disabled_users|default:0 }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i class='bx bx-lock text-warning'></i>
+                        <div>
+                            <small class="text-muted">Pending Password Change</small>
+                            <div class="fw-bold">{{ pending_password|default:0 }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h6><i class='bx bx-zap'></i> Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'accounts:create_user' %}" class="btn btn-sm btn-outline-primary">
+                            <i class='bx bx-user-plus'></i> Create Single User
+                        </a>
+                        <a href="#" onclick="downloadSampleCSV()" class="btn btn-sm btn-outline-secondary">
+                            <i class='bx bx-download'></i> Download CSV Template
+                        </a>
+                        <a href="{% url 'accounts:user_list' %}" class="btn btn-sm btn-outline-info">
+                            <i class='bx bx-list-ul'></i> View All Users
+                        </a>
+                        <button onclick="exportUsers()" class="btn btn-sm btn-outline-success">
+                            <i class='bx bx-export'></i> Export Users to CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Imports -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h6><i class='bx bx-history'></i> Recent Imports</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_imports %}
+                    <div class="import-history">
+                        {% for import in recent_imports %}
+                        <div class="import-item">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">{{ import.date|date:"M d, H:i" }}</small>
+                                <span class="badge bg-success">{{ import.count }} users</span>
+                            </div>
+                            <small>by {{ import.admin.display_name }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">No recent imports</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+    
+    .stat-item i {
+        font-size: 24px;
+    }
+    
+    .import-item {
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+    
+    .import-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    #previewTable {
+        font-size: 12px;
+    }
+    
+    #previewTable th {
+        background: var(--primary);
+        color: white;
+        font-weight: 600;
+    }
+</style>
+
+<script>
+// CSV Preview functionality
+document.getElementById('csvFileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const csv = event.target.result;
+            previewCSV(csv);
+            document.getElementById('uploadBtn').disabled = false;
+        };
+        reader.readAsText(file);
+    }
+});
+
+function previewCSV(csv) {
+    const lines = csv.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+        alert('CSV file is empty or invalid');
+        return;
+    }
+    
+    const headers = lines[0].split(',').map(h => h.trim());
+    const previewRows = lines.slice(1, 6); // First 5 rows
+    
+    // Build table header
+    let tableHead = '<tr>';
+    headers.forEach(header => {
+        tableHead += `<th>${header}</th>`;
+    });
+    tableHead += '</tr>';
+    document.getElementById('previewTableHead').innerHTML = tableHead;
+    
+    // Build table body
+    let tableBody = '';
+    previewRows.forEach(row => {
+        const cells = row.split(',').map(c => c.trim());
+        tableBody += '<tr>';
+        cells.forEach(cell => {
+            tableBody += `<td>${cell}</td>`;
+        });
+        tableBody += '</tr>';
+    });
+    document.getElementById('previewTableBody').innerHTML = tableBody;
+    
+    // Show stats
+    const totalRows = lines.length - 1; // Exclude header
+    document.getElementById('csvStats').innerHTML = `
+        <strong>CSV Statistics:</strong><br>
+        Total rows: <strong>${totalRows}</strong><br>
+        Columns: <strong>${headers.length}</strong> (${headers.join(', ')})
+    `;
+    
+    document.getElementById('csvPreview').style.display = 'block';
+}
+
+function resetForm() {
+    document.getElementById('csvUploadForm').reset();
+    document.getElementById('csvPreview').style.display = 'none';
+    document.getElementById('uploadBtn').disabled = true;
+}
+
+function downloadSampleCSV() {
+    const sample = `user_id,email,full_name,role,department,batch_year,phone
+STU2025001,john.doe@example.com,John Doe,student,Computer Science,2081,9841234567
+STU2025002,jane.smith@example.com,Jane Smith,student,Computer Science,2081,9841234568
+SUP2025001,prof.johnson@example.com,Prof. Johnson,supervisor,Computer Science,,9841234569`;
+    
+    const blob = new Blob([sample], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'user_import_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function exportUsers() {
+    window.location.href = '/accounts/users/export/csv/';
+}
+
+// Form submission with progress
+document.getElementById('csvUploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const uploadBtn = document.getElementById('uploadBtn');
+    const originalText = uploadBtn.innerHTML;
+    
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Importing...';
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayResults(data);
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = originalText;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Import failed. Please try again.');
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = originalText;
+    });
+});
+
+function displayResults(data) {
+    const resultsDiv = document.getElementById('importResults');
+    resultsDiv.style.display = 'block';
+    
+    if (data.success_count > 0) {
+        document.getElementById('successResults').innerHTML = `
+            <i class='bx bx-check-circle'></i>
+            <strong>${data.success_count}</strong> users imported successfully
+        `;
+    }
+    
+    if (data.skipped_count > 0) {
+        document.getElementById('warningResults').innerHTML = `
+            <i class='bx bx-error-circle'></i>
+            <strong>${data.skipped_count}</strong> users skipped (duplicates)
+        `;
+        document.getElementById('warningResults').style.display = 'block';
+    }
+    
+    if (data.error_count > 0) {
+        document.getElementById('errorResults').innerHTML = `
+            <i class='bx bx-x-circle'></i>
+            <strong>${data.error_count}</strong> users failed:<br>
+            <ul>${data.errors.map(e => `<li>${e}</li>`).join('')}</ul>
+        `;
+        document.getElementById('errorResults').style.display = 'block';
+    }
+    
+    // Scroll to results
+    resultsDiv.scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+
+{% endblock %}

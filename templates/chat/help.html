@@ -1,0 +1,622 @@
+<!-- File: Desktop/Prime/templates/chat/help.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chat Help & Guide - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .help-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .help-header {
+        text-align: center;
+        margin-bottom: 48px;
+    }
+
+    .help-title {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 16px;
+    }
+
+    .help-subtitle {
+        font-size: 18px;
+        color: var(--text-secondary);
+    }
+
+    .help-sections {
+        display: grid;
+        gap: 32px;
+    }
+
+    .help-section {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .section-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin-bottom: 20px;
+    }
+
+    .icon-blue {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3B82F6;
+    }
+
+    .icon-green {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+    }
+
+    .icon-purple {
+        background: rgba(139, 92, 246, 0.1);
+        color: #8B5CF6;
+    }
+
+    .icon-orange {
+        background: rgba(245, 158, 11, 0.1);
+        color: #F59E0B;
+    }
+
+    .icon-pink {
+        background: rgba(236, 72, 153, 0.1);
+        color: #EC4899;
+    }
+
+    .section-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 16px;
+    }
+
+    .section-description {
+        color: var(--text-secondary);
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 24px;
+    }
+
+    .feature-list {
+        display: grid;
+        gap: 20px;
+    }
+
+    .feature-item {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        background: var(--secondary);
+        border-radius: 12px;
+    }
+
+    .feature-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: var(--primary);
+        flex-shrink: 0;
+    }
+
+    .feature-content {
+        flex: 1;
+    }
+
+    .feature-title {
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .feature-description {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .tips-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+    }
+
+    .tip-card {
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(85, 104, 254, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+        border-radius: 12px;
+        border-left: 4px solid var(--primary);
+    }
+
+    .tip-icon {
+        font-size: 32px;
+        color: var(--primary);
+        margin-bottom: 12px;
+    }
+
+    .tip-title {
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .tip-text {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .faq-section {
+        margin-top: 48px;
+    }
+
+    .faq-title {
+        font-size: 28px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .faq-list {
+        display: grid;
+        gap: 16px;
+    }
+
+    .faq-item {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .faq-question {
+        padding: 20px 24px;
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--text-primary);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s;
+    }
+
+    .faq-question:hover {
+        background: var(--secondary);
+    }
+
+    .faq-icon {
+        font-size: 20px;
+        transition: transform 0.3s;
+    }
+
+    .faq-item.active .faq-icon {
+        transform: rotate(180deg);
+    }
+
+    .faq-answer {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s;
+    }
+
+    .faq-item.active .faq-answer {
+        max-height: 500px;
+    }
+
+    .faq-answer-content {
+        padding: 0 24px 20px 24px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .cta-section {
+        margin-top: 48px;
+        background: linear-gradient(135deg, var(--primary) 0%, #8B5CF6 100%);
+        border-radius: 20px;
+        padding: 48px;
+        text-align: center;
+        color: white;
+    }
+
+    .cta-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 16px;
+    }
+
+    .cta-text {
+        font-size: 16px;
+        margin-bottom: 24px;
+        opacity: 0.9;
+    }
+
+    .cta-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 32px;
+        background: white;
+        color: var(--primary);
+        border-radius: 10px;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .cta-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="help-container">
+    <!-- Header -->
+    <div class="help-header">
+        <h1 class="help-title">Chat Features & Guide</h1>
+        <p class="help-subtitle">Everything you need to know about using PrimeTime Chat effectively</p>
+    </div>
+
+    <!-- Main Sections -->
+    <div class="help-sections">
+        <!-- Getting Started -->
+        <div class="help-section">
+            <div class="section-icon icon-blue">
+                <i class='bx bx-rocket'></i>
+            </div>
+            <h2 class="section-title">Getting Started</h2>
+            <p class="section-description">
+                PrimeTime Chat provides real-time communication for your academic projects with built-in sentiment analysis and wellbeing monitoring.
+            </p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-user-plus'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Join a Room</div>
+                        <div class="feature-description">Your supervisor will add you to relevant chat rooms. Check your notifications for new room invitations.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-message'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Send Messages</div>
+                        <div class="feature-description">Type your message in the input box and press Enter or click Send. Messages are delivered instantly to all participants.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-bell'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Stay Updated</div>
+                        <div class="feature-description">Enable notifications to get alerts for new messages, mentions, and replies even when you're not actively using the app.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Features -->
+        <div class="help-section">
+            <div class="section-icon icon-purple">
+                <i class='bx bx-brain'></i>
+            </div>
+            <h2 class="section-title">Smart Features</h2>
+            <p class="section-description">
+                Our AI-powered features help monitor communication health and student wellbeing automatically.
+            </p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-happy'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Sentiment Analysis</div>
+                        <div class="feature-description">Every message is analyzed for sentiment. Positive messages show 😊 while negative ones show 😟 to help supervisors identify students who may need support.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-heart'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Stress Detection</div>
+                        <div class="feature-description">The system monitors communication patterns, word choices, and frequency to calculate stress levels and alert supervisors to at-risk students.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-shield'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Content Moderation</div>
+                        <div class="feature-description">Inappropriate or concerning content is automatically flagged for review, ensuring a safe and professional communication environment.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Room Types -->
+        <div class="help-section">
+            <div class="section-icon icon-green">
+                <i class='bx bx-folder-open'></i>
+            </div>
+            <h2 class="section-title">Room Types</h2>
+            <p class="section-description">
+                Different types of chat rooms serve different purposes in your academic journey.
+            </p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-group'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Group Chat</div>
+                        <div class="feature-description">Connect with all members of your project group. Perfect for team discussions, updates, and collaboration.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-user'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Direct Messages</div>
+                        <div class="feature-description">One-on-one conversations with supervisors or team members for private discussions and personalized guidance.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-lock'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Scheduled Rooms</div>
+                        <div class="feature-description">Frozen rooms that can only be accessed during specific hours set by your supervisor, ensuring focused communication times.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Actions -->
+        <div class="help-section">
+            <div class="section-icon icon-orange">
+                <i class='bx bx-message-square-dots'></i>
+            </div>
+            <h2 class="section-title">Message Interactions</h2>
+            <p class="section-description">
+                Engage with messages in multiple ways to enhance communication.
+            </p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-reply'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Reply to Messages</div>
+                        <div class="feature-description">Click the reply button to respond to specific messages. This maintains context and makes conversations easier to follow.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-like'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">React with Emojis</div>
+                        <div class="feature-description">Quick reactions like 👍 acknowledge messages without cluttering the conversation with short replies.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-trash'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Delete Messages</div>
+                        <div class="feature-description">Remove your own messages if needed. Admins can delete any message to maintain room quality.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- For Supervisors -->
+        {% if user.is_supervisor or user.is_admin %}
+        <div class="help-section">
+            <div class="section-icon icon-pink">
+                <i class='bx bx-bar-chart-alt-2'></i>
+            </div>
+            <h2 class="section-title">Supervisor Analytics</h2>
+            <p class="section-description">
+                Access powerful analytics to monitor student engagement and wellbeing.
+            </p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-trending-up'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Sentiment Trends</div>
+                        <div class="feature-description">Track how group sentiment changes over time to identify periods of high stress or positive momentum.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-user-check'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">At-Risk Students</div>
+                        <div class="feature-description">Receive alerts when students show signs of high stress, low engagement, or concerning communication patterns.</div>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class='bx bx-calendar'></i>
+                    </div>
+                    <div class="feature-content">
+                        <div class="feature-title">Room Scheduling</div>
+                        <div class="feature-description">Create frozen rooms with specific access hours to manage when students can communicate, preventing off-hours stress.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Best Practices -->
+    <div class="help-section" style="margin-top: 32px;">
+        <h2 class="section-title">Best Practices & Tips</h2>
+        <div class="tips-grid">
+            <div class="tip-card">
+                <div class="tip-icon">💬</div>
+                <div class="tip-title">Be Clear & Concise</div>
+                <div class="tip-text">Write messages that are easy to understand. Break complex topics into multiple shorter messages.</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">🤝</div>
+                <div class="tip-title">Stay Professional</div>
+                <div class="tip-text">Maintain respectful communication. Remember all messages may be reviewed by supervisors and admins.</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">⏰</div>
+                <div class="tip-title">Respect Boundaries</div>
+                <div class="tip-text">Be mindful of scheduled room hours and avoid messaging during off-hours unless urgent.</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">🔔</div>
+                <div class="tip-title">Use Notifications Wisely</div>
+                <div class="tip-text">Enable notifications for important rooms but mute less critical ones to avoid distraction.</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">📝</div>
+                <div class="tip-title">Document Important Decisions</div>
+                <div class="tip-text">For critical decisions or agreements, follow up in your project documentation as chat history may not be permanent.</div>
+            </div>
+            <div class="tip-card">
+                <div class="tip-icon">💪</div>
+                <div class="tip-title">Ask for Help</div>
+                <div class="tip-text">If you're feeling stressed or overwhelmed, reach out to your supervisor. The system is designed to support you!</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="faq-section">
+        <h2 class="faq-title">Frequently Asked Questions</h2>
+        <div class="faq-list">
+            <div class="faq-item">
+                <div class="faq-question">
+                    Why are my messages being analyzed?
+                    <i class='bx bx-chevron-down faq-icon'></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        Sentiment analysis helps supervisors identify students who may need additional support. It's a wellbeing feature, not a surveillance tool. Your privacy is respected, and analysis is used only to ensure student success and mental health.
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question">
+                    What happens if my message is flagged?
+                    <i class='bx bx-chevron-down faq-icon'></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        Flagged messages are reviewed by supervisors or admins to ensure appropriate communication. Most flags are automatic and precautionary. If there's a concern, you'll be contacted directly by your supervisor for a constructive conversation.
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question">
+                    Can I delete messages after sending them?
+                    <i class='bx bx-chevron-down faq-icon'></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        Yes, you can delete your own messages. Deleted messages show as "[Message deleted]" to other users. However, keep in mind that supervisors and admins can see deletion history for accountability purposes.
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question">
+                    Why can't I access a frozen room?
+                    <i class='bx bx-chevron-down faq-icon'></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        Frozen rooms have specific access hours set by your supervisor. This helps maintain work-life balance and ensures communication happens during appropriate times. Check the room's schedule on the chat home page.
+                    </div>
+                </div>
+            </div>
+            <div class="faq-item">
+                <div class="faq-question">
+                    How do I enable browser notifications?
+                    <i class='bx bx-chevron-down faq-icon'></i>
+                </div>
+                <div class="faq-answer">
+                    <div class="faq-answer-content">
+                        When you first visit a chat room, your browser will ask for notification permission. Click "Allow". If you missed this, go to your browser settings > Site settings > Notifications and enable them for PrimeTime.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="cta-section">
+        <h2 class="cta-title">Ready to Start Chatting?</h2>
+        <p class="cta-text">Join your team's chat rooms and start collaborating effectively!</p>
+        <a href="{% url 'chat:chat_home' %}" class="cta-button">
+            <i class='bx bx-message-dots'></i>
+            Go to Chat
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// FAQ Accordion
+document.addEventListener('DOMContentLoaded', function() {
+    const faqItems = document.querySelectorAll('.faq-item');
+    
+    faqItems.forEach(item => {
+        const question = item.querySelector('.faq-question');
+        
+        question.addEventListener('click', function() {
+            // Close other items
+            faqItems.forEach(otherItem => {
+                if (otherItem !== item && otherItem.classList.contains('active')) {
+                    otherItem.classList.remove('active');
+                }
+            });
+            
+            // Toggle current item
+            item.classList.toggle('active');
+        });
+    });
+});
+</script>
+{% endblock %}

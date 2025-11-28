@@ -1,227 +1,841 @@
-<!-- File: Desktop/Prime/templates/projects/my_project.html -->
+<!-- File: templates/projects/my_project_enhanced.html -->
 
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}My Project - PrimeTime{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <!-- Project Header -->
-    <div class="project-header mb-4">
-        <div class="d-flex justify-content-between align-items-center">
-            <h2><i class='bx bx-folder'></i> My Project</h2>
-            {% if project %}
-                <span class="badge badge-status badge-{{ project.status }}">
-                    {{ project.get_status_display }}
-                </span>
-            {% endif %}
+    <!-- Project Header with AI Insights -->
+    <div class="project-header-enhanced mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2><i class='bx bx-folder'></i> My Project</h2>
+                {% if project %}
+                    <h3 class="project-title">{{ project.title }}</h3>
+                    <div class="project-meta">
+                        <span class="badge badge-{{ project.status }}">{{ project.get_status_display }}</span>
+                        <span class="meta-item"><i class='bx bx-calendar'></i> Started {{ project.created_at|timesince }} ago</span>
+                        {% if project.supervisor %}
+                        <span class="meta-item"><i class='bx bx-user-check'></i> {{ project.supervisor.display_name }}</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="col-md-4 text-end">
+                {% if not project %}
+                <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-lg">
+                    <i class='bx bx-plus'></i> Create Project
+                </a>
+                {% elif project.status == 'rejected' %}
+                <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-warning btn-lg">
+                    <i class='bx bx-edit'></i> Revise & Resubmit
+                </a>
+                {% endif %}
+            </div>
         </div>
     </div>
-    
-    <!-- Tabs Navigation -->
-    <ul class="nav nav-tabs modern-tabs mb-4">
-        <li class="nav-item">
-            <a class="nav-link {% if tab == 'overview' %}active{% endif %}" 
-               href="?tab=overview">
-                <i class='bx bx-info-circle'></i> Overview
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if tab == 'resources' %}active{% endif %}" 
-               href="?tab=resources">
-                <i class='bx bx-book'></i> Resources
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if tab == 'forum' %}active{% endif %}" 
-               href="?tab=forum">
-                <i class='bx bx-conversation'></i> Forum
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if tab == 'progress' %}active{% endif %}" 
-               href="?tab=progress">
-                <i class='bx bx-chart'></i> Progress & Analytics
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link {% if tab == 'help' %}active{% endif %}" 
-               href="?tab=help">
-                <i class='bx bx-help-circle'></i> Help
-            </a>
-        </li>
-    </ul>
-    
-    <!-- Tab Content -->
-    <div class="tab-content">
-        {% if tab == 'overview' %}
-            {% if project %}
-                <div class="card modern-card">
-                    <div class="card-body">
-                        <h4>{{ project.title }}</h4>
-                        
-                        {% if project.status == 'rejected' %}
-                            <div class="alert alert-danger">
-                                <i class='bx bx-x-circle'></i> <strong>Project Rejected</strong>
-                                <p>{{ project.rejection_reason }}</p>
-                                <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-primary">
-                                    <i class='bx bx-edit'></i> Edit & Resubmit
-                                </a>
-                            </div>
-                        {% endif %}
-                        
-                        <p>{{ project.description }}</p>
-                        
-                        <div class="technologies mb-3">
-                            {% for lang in project.languages_list %}
-                                <span class="badge bg-primary me-1">{{ lang }}</span>
-                            {% endfor %}
-                        </div>
-                        
-                        {% if can_edit %}
-                            <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-primary">
-                                <i class='bx bx-edit'></i> Edit Project
-                            </a>
-                        {% endif %}
-                    </div>
+
+    {% if project %}
+    <!-- AI-Powered Dashboard Cards -->
+    <div class="row mb-4">
+        <!-- Progress Card with ML Prediction -->
+        <div class="col-md-3">
+            <div class="smart-card progress-card">
+                <div class="card-icon">
+                    <i class='bx bx-trending-up'></i>
                 </div>
-            {% else %}
-                <div class="text-center py-5">
-                    <i class='bx bx-folder-plus' style="font-size: 4rem; color: var(--text-secondary);"></i>
-                    <h3 class="mt-3">No Project Yet</h3>
-                    <p>Start your academic journey by creating a project proposal</p>
-                    <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
-                        <i class='bx bx-plus'></i> Create Project Proposal
+                <div class="card-content">
+                    <h6>Overall Progress</h6>
+                    <div class="progress-display">
+                        <span class="progress-value">{{ progress_percentage }}%</span>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar" style="width: {{ progress_percentage }}%"></div>
+                        </div>
+                    </div>
+                    {% if progress_prediction %}
+                    <div class="prediction">
+                        <i class='bx bx-brain'></i> 
+                        <small>Expected completion: {{ progress_prediction.expected_date|date:"M d, Y" }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Stress Level Indicator -->
+        <div class="col-md-3">
+            <div class="smart-card stress-card">
+                <div class="card-icon stress-level-{{ stress_level }}">
+                    <i class='bx bx-heart'></i>
+                </div>
+                <div class="card-content">
+                    <h6>Stress Level</h6>
+                    <div class="stress-meter">
+                        <div class="stress-value stress-{{ stress_level }}">
+                            {{ stress_score }}/100
+                        </div>
+                        <div class="stress-label">{{ stress_label }}</div>
+                    </div>
+                    <a href="#stressAnalysis" class="card-link">View Analysis</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deliverables Status -->
+        <div class="col-md-3">
+            <div class="smart-card deliverables-card">
+                <div class="card-icon">
+                    <i class='bx bx-file'></i>
+                </div>
+                <div class="card-content">
+                    <h6>Deliverables</h6>
+                    <div class="deliverable-stats">
+                        <span class="stat-large">{{ completed_deliverables }}/{{ total_deliverables }}</span>
+                        <span class="stat-label">Completed</span>
+                    </div>
+                    {% if next_deliverable %}
+                    <div class="next-item">
+                        <small>Next: {{ next_deliverable.get_stage_display }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Score -->
+        <div class="col-md-3">
+            <div class="smart-card performance-card">
+                <div class="card-icon">
+                    <i class='bx bx-star'></i>
+                </div>
+                <div class="card-content">
+                    <h6>Performance</h6>
+                    <div class="performance-display">
+                        <span class="grade-letter">{{ performance_grade }}</span>
+                        <span class="grade-score">{{ performance_score|floatformat:1 }}/100</span>
+                    </div>
+                    <a href="{% url 'projects:project_analytics' project.pk %}" class="card-link">
+                        View Analytics
                     </a>
                 </div>
-            {% endif %}
-        {% endif %}
-        
-        {% if tab == 'resources' %}
-            <div class="card modern-card">
-                <div class="card-header">
-                    <h5><i class='bx bx-book'></i> Recommended Resources</h5>
-                </div>
-                <div class="card-body">
-                    {% if resources %}
-                        <div class="resources-grid">
-                            {% for resource in resources %}
-                                <div class="resource-card">
-                                    <h6>{{ resource.title }}</h6>
-                                    <p>{{ resource.description|truncatechars:100 }}</p>
-                                    <a href="{{ resource.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                                        View Resource
-                                    </a>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="text-muted">No resources available yet. Complete your project details to get recommendations.</p>
-                    {% endif %}
-                </div>
             </div>
-        {% endif %}
-        
-        {% if tab == 'forum' %}
-            <div class="card modern-card">
-                <div class="card-header d-flex justify-content-between">
-                    <h5><i class='bx bx-conversation'></i> Forum Discussions</h5>
-                    <button class="btn btn-primary btn-sm">
-                        <i class='bx bx-plus'></i> Ask Question
-                    </button>
-                </div>
-                <div class="card-body">
-                    {% if forum_posts %}
-                        {% for post in forum_posts %}
-                            <div class="forum-post mb-3">
-                                <h6>{{ post.title }}</h6>
-                                <p class="text-muted small">
-                                    by {{ post.author.display_name }} • {{ post.created_at|timesince }} ago
-                                </p>
-                                <p>{{ post.content|truncatechars:200 }}</p>
-                                <a href="#" class="btn btn-sm btn-outline-secondary">View Discussion</a>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted">No forum discussions yet. Be the first to ask a question!</p>
-                    {% endif %}
-                </div>
-            </div>
-        {% endif %}
-        
-        {% if tab == 'progress' %}
+        </div>
+    </div>
+
+    <!-- Smart Tabs Navigation -->
+    <div class="smart-tabs mb-4">
+        <div class="tabs-wrapper">
+            <button class="tab-btn active" data-tab="overview">
+                <i class='bx bx-info-circle'></i> Overview
+            </button>
+            <button class="tab-btn" data-tab="resources">
+                <i class='bx bx-book'></i> Resources
+                {% if recommended_resources_count %}
+                <span class="tab-badge">{{ recommended_resources_count }}</span>
+                {% endif %}
+            </button>
+            <button class="tab-btn" data-tab="analytics">
+                <i class='bx bx-chart'></i> Analytics
+            </button>
+            <button class="tab-btn" data-tab="stress">
+                <i class='bx bx-heart-circle'></i> Wellness
+            </button>
+            <button class="tab-btn" data-tab="collaboration">
+                <i class='bx bx-group'></i> Team
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content-wrapper">
+        <!-- Overview Tab -->
+        <div class="tab-pane active" id="overview">
             <div class="row">
                 <div class="col-md-8">
-                    <div class="card modern-card">
+                    <!-- Project Details -->
+                    <div class="card modern-card mb-4">
                         <div class="card-header">
-                            <h5><i class='bx bx-chart'></i> Progress Analytics</h5>
+                            <h5><i class='bx bx-detail'></i> Project Details</h5>
+                            {% if can_edit %}
+                            <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class='bx bx-edit'></i> Edit
+                            </a>
+                            {% endif %}
                         </div>
                         <div class="card-body">
-                            <canvas id="progressChart"></canvas>
+                            {% if project.status == 'rejected' %}
+                            <div class="alert alert-warning">
+                                <h6><i class='bx bx-error'></i> Project Needs Revision</h6>
+                                <p class="mb-2">{{ project.rejection_reason }}</p>
+                                <a href="{% url 'projects:project_edit' project.pk %}" class="btn btn-sm btn-warning">
+                                    Revise Now
+                                </a>
+                            </div>
+                            {% endif %}
+
+                            <div class="project-description">
+                                <h6>Description</h6>
+                                <p>{{ project.description|linebreaks }}</p>
+                            </div>
+
+                            <div class="project-technologies">
+                                <h6>Technologies & Tools</h6>
+                                <div class="tech-tags">
+                                    {% for lang in project.languages_list %}
+                                    <span class="tech-tag">
+                                        <i class='bx bx-code-alt'></i> {{ lang }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            {% if project.supervisor %}
+                            <div class="project-supervisor">
+                                <h6>Supervisor</h6>
+                                <div class="supervisor-info">
+                                    <div class="avatar">
+                                        {% if project.supervisor.profile.profile_picture %}
+                                        <img src="{{ project.supervisor.profile.profile_picture.url }}" alt="Supervisor">
+                                        {% else %}
+                                        <i class='bx bx-user'></i>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <strong>{{ project.supervisor.display_name }}</strong>
+                                        <p class="text-muted mb-0">{{ project.supervisor.department }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- AI Recommendations -->
+                    <div class="card modern-card mb-4">
+                        <div class="card-header">
+                            <h5><i class='bx bx-brain'></i> AI Recommendations</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for recommendation in ai_recommendations %}
+                            <div class="recommendation-item priority-{{ recommendation.priority }}">
+                                <div class="recommendation-icon">
+                                    <i class='bx {{ recommendation.icon }}'></i>
+                                </div>
+                                <div class="recommendation-content">
+                                    <h6>{{ recommendation.title }}</h6>
+                                    <p>{{ recommendation.description }}</p>
+                                    {% if recommendation.action_url %}
+                                    <a href="{{ recommendation.action_url }}" class="btn btn-sm btn-primary">
+                                        {{ recommendation.action_text }}
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center py-4">
+                                <i class='bx bx-check-circle' style="font-size: 3rem; color: var(--success);"></i>
+                                <p class="text-muted">Great job! No urgent recommendations at the moment.</p>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
+
                 <div class="col-md-4">
-                    <div class="card modern-card">
-                        <div class="card-body text-center">
-                            <h5>Overall Progress</h5>
-                            <div class="progress-circle">
-                                <span class="progress-value">{{ project.progress_percentage|default:0 }}%</span>
+                    <!-- Quick Actions -->
+                    <div class="card modern-card mb-4">
+                        <div class="card-header">
+                            <h5><i class='bx bx-zap'></i> Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="quick-actions">
+                                <a href="{% url 'projects:deliverable_submit' project.pk %}" class="action-btn">
+                                    <i class='bx bx-upload'></i>
+                                    <span>Submit Deliverable</span>
+                                </a>
+                                <a href="{% url 'projects:project_recommendations' project.pk %}" class="action-btn">
+                                    <i class='bx bx-book-bookmark'></i>
+                                    <span>Find Resources</span>
+                                </a>
+                                <a href="{% url 'chat:supervisor_chat' project.supervisor.id %}" class="action-btn">
+                                    <i class='bx bx-message-dots'></i>
+                                    <span>Message Supervisor</span>
+                                </a>
+                                <a href="{% url 'forum:project_forum' project.pk %}" class="action-btn">
+                                    <i class='bx bx-conversation'></i>
+                                    <span>Join Discussion</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Timeline -->
+                    <div class="card modern-card mb-4">
+                        <div class="card-header">
+                            <h5><i class='bx bx-history'></i> Recent Activity</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                {% for activity in recent_activities %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker {{ activity.action }}"></div>
+                                    <div class="timeline-content">
+                                        <h6>{{ activity.get_action_display }}</h6>
+                                        {% if activity.details %}
+                                        <p class="mb-1">{{ activity.details }}</p>
+                                        {% endif %}
+                                        <small class="text-muted">{{ activity.timestamp|timesince }} ago</small>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <p class="text-muted text-center">No recent activity</p>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        {% endif %}
-        
-        {% if tab == 'help' %}
-            <div class="card modern-card">
-                <div class="card-header">
-                    <h5><i class='bx bx-help-circle'></i> Help & Support</h5>
+        </div>
+
+        <!-- Resources Tab with ML Recommendations -->
+        <div class="tab-pane" id="resources">
+            <div class="resources-header mb-4">
+                <h4><i class='bx bx-book-bookmark'></i> Recommended Resources</h4>
+                <p class="text-muted">AI-powered recommendations based on your project</p>
+            </div>
+
+            {% if recommended_resources %}
+            <div class="row">
+                {% for resource in recommended_resources %}
+                <div class="col-md-4 mb-4">
+                    <div class="resource-card-compact">
+                        <div class="resource-badge">
+                            <span class="match-score">{{ resource.match_score }}% Match</span>
+                        </div>
+                        <div class="resource-header">
+                            <div class="resource-icon {{ resource.category }}">
+                                <i class='bx {{ resource.icon }}'></i>
+                            </div>
+                            <span class="resource-type">{{ resource.get_category_display }}</span>
+                        </div>
+                        <h5>{{ resource.title }}</h5>
+                        <p>{{ resource.description|truncatechars:100 }}</p>
+                        <div class="resource-meta">
+                            <span><i class='bx bx-star'></i> {{ resource.average_rating|floatformat:1 }}</span>
+                            <span><i class='bx bx-show'></i> {{ resource.views }}</span>
+                        </div>
+                        <div class="resource-actions">
+                            <a href="{{ resource.url }}" class="btn btn-primary btn-sm" target="_blank">
+                                View Resource
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="accordion" id="helpAccordion">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#help1">
-                                    How to submit a project proposal?
-                                </button>
-                            </h2>
-                            <div id="help1" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
-                                <div class="accordion-body">
-                                    Click on "Create Project Proposal" button and fill in all required details...
+                {% endfor %}
+            </div>
+            <div class="text-center mt-4">
+                <a href="{% url 'projects:project_recommendations' project.pk %}" class="btn btn-outline-primary">
+                    View All Recommendations
+                </a>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class='bx bx-book-open'></i>
+                <h4>No recommendations yet</h4>
+                <p>Complete your project details to get personalized resource recommendations</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Analytics Tab -->
+        <div class="tab-pane" id="analytics">
+            <div class="analytics-preview">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card modern-card">
+                            <div class="card-header">
+                                <h5>Progress Trend</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="progressMiniChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card modern-card">
+                            <div class="card-header">
+                                <h5>Performance Breakdown</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="performanceMiniChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <a href="{% url 'projects:project_analytics' project.pk %}" class="btn btn-primary">
+                        <i class='bx bx-line-chart'></i> View Full Analytics
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stress/Wellness Tab -->
+        <div class="tab-pane" id="stress">
+            <div class="stress-analysis-container" id="stressAnalysis">
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <div class="card modern-card">
+                            <div class="card-header">
+                                <h5><i class='bx bx-heart-circle'></i> Stress Analysis</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="stress-gauge-wrapper">
+                                    <canvas id="stressGauge"></canvas>
+                                    <div class="stress-reading">
+                                        <span class="stress-number">{{ stress_score }}</span>
+                                        <span class="stress-max">/100</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="stress-factors mt-4">
+                                    <h6>Contributing Factors</h6>
+                                    {% for factor in stress_factors %}
+                                    <div class="factor-item">
+                                        <div class="factor-header">
+                                            <span>{{ factor.name }}</span>
+                                            <strong>{{ factor.score }}/100</strong>
+                                        </div>
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar bg-{{ factor.level }}" 
+                                                 style="width: {{ factor.score }}%"></div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <div class="col-md-4">
+                        <div class="card modern-card mb-4">
+                            <div class="card-header">
+                                <h5><i class='bx bx-bulb'></i> Wellness Tips</h5>
+                            </div>
+                            <div class="card-body">
+                                {% for tip in wellness_tips %}
+                                <div class="wellness-tip">
+                                    <i class='bx {{ tip.icon }}'></i>
+                                    <p>{{ tip.text }}</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        {% if high_stress %}
+                        <div class="alert alert-warning">
+                            <h6><i class='bx bx-info-circle'></i> Need Support?</h6>
+                            <p class="small mb-2">Your stress levels are elevated. Consider reaching out:</p>
+                            <a href="{% url 'chat:supervisor_chat' project.supervisor.id %}" class="btn btn-sm btn-warning">
+                                Talk to Supervisor
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-        {% endif %}
+        </div>
+
+        <!-- Collaboration Tab -->
+        <div class="tab-pane" id="collaboration">
+            <div class="collaboration-section">
+                <h4><i class='bx bx-group'></i> Collaboration & Communication</h4>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card modern-card">
+                            <div class="card-header">
+                                <h5>Team Members</h5>
+                            </div>
+                            <div class="card-body">
+                                {% if group_members %}
+                                    {% for member in group_members %}
+                                    <div class="member-item">
+                                        <div class="member-avatar">
+                                            {% if member.profile.profile_picture %}
+                                            <img src="{{ member.profile.profile_picture.url }}" alt="{{ member.display_name }}">
+                                            {% else %}
+                                            <i class='bx bx-user'></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="member-info">
+                                            <strong>{{ member.display_name }}</strong>
+                                            <p class="text-muted mb-0">{{ member.department }}</p>
+                                        </div>
+                                        <a href="{% url 'chat:user_chat' member.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class='bx bx-message'></i>
+                                        </a>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <p class="text-muted text-center">No team members yet</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card modern-card">
+                            <div class="card-header">
+                                <h5>Recent Discussions</h5>
+                            </div>
+                            <div class="card-body">
+                                {% if forum_discussions %}
+                                    {% for discussion in forum_discussions %}
+                                    <div class="discussion-item">
+                                        <h6>{{ discussion.title }}</h6>
+                                        <p class="text-muted small">
+                                            by {{ discussion.author.display_name }} • 
+                                            {{ discussion.created_at|timesince }} ago
+                                        </p>
+                                        <a href="{% url 'forum:discussion_detail' discussion.id %}" class="btn btn-sm btn-outline-primary">
+                                            View Discussion
+                                        </a>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                <p class="text-muted text-center">No discussions yet</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    {% else %}
+    <!-- No Project State -->
+    <div class="empty-project-state">
+        <div class="empty-icon">
+            <i class='bx bx-folder-plus'></i>
+        </div>
+        <h3>No Project Yet</h3>
+        <p>Start your academic journey by creating a project proposal</p>
+        <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-lg">
+            <i class='bx bx-plus'></i> Create Project Proposal
+        </a>
+    </div>
+    {% endif %}
 </div>
 
 <style>
-.modern-tabs .nav-link {
-    color: var(--text-secondary);
-    border: none;
-    padding: 12px 20px;
-    font-weight: 500;
-}
-
-.modern-tabs .nav-link.active {
-    color: var(--primary);
+/* Smart Cards */
+.smart-card {
     background: white;
-    border-bottom: 3px solid var(--primary);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    display: flex;
+    gap: 16px;
+    align-items: start;
+    transition: all 0.3s ease;
 }
 
-.badge-status {
-    padding: 6px 12px;
-    font-weight: 500;
-    border-radius: 20px;
+.smart-card:hover {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
 }
 
-.badge-rejected { background: var(--danger); color: white; }
-.badge-approved { background: var(--success); color: white; }
-.badge-pending { background: var(--warning); color: white; }
+.smart-card .card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.smart-card .card-content {
+    flex: 1;
+}
+
+.smart-card h6 {
+    margin-bottom: 8px;
+    color: #6B7280;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.progress-display {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.progress-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.progress-bar-wrapper {
+    width: 100%;
+    height: 8px;
+    background: #E5E7EB;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #10B981, #059669);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.prediction {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(85, 104, 254, 0.1);
+    border-radius: 8px;
+}
+
+.prediction i {
+    color: #5568FE;
+}
+
+.stress-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stress-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stress-value.stress-low { color: #10B981; }
+.stress-value.stress-medium { color: #F59E0B; }
+.stress-value.stress-high { color: #EF4444; }
+
+.stress-label {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.card-link {
+    display: inline-block;
+    margin-top: 8px;
+    color: #5568FE;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.card-link:hover {
+    text-decoration: underline;
+}
+
+/* Smart Tabs */
+.smart-tabs {
+    background: white;
+    border-radius: 16px;
+    padding: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.tabs-wrapper {
+    display: flex;
+    gap: 4px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #6B7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.tab-btn:hover {
+    background: #F6F8FB;
+}
+
+.tab-btn.active {
+    background: #5568FE;
+    color: white;
+}
+
+.tab-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: #EF4444;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Quick Actions */
+.quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #F6F8FB;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    color: #1A1D26;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background: white;
+    border-color: #5568FE;
+    color: #5568FE;
+    transform: translateX(4px);
+}
+
+.action-btn i {
+    font-size: 20px;
+}
+
+/* Timeline */
+.timeline {
+    position: relative;
+    padding-left: 32px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #E5E7EB;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -28px;
+    top: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #5568FE;
+    border: 3px solid white;
+    box-shadow: 0 0 0 2px #E5E7EB;
+}
+
+/* Recommendation Items */
+.recommendation-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    background: #F6F8FB;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    border-left: 4px solid #5568FE;
+}
+
+.recommendation-item.priority-high {
+    border-left-color: #EF4444;
+}
+
+.recommendation-item.priority-medium {
+    border-left-color: #F59E0B;
+}
+
+.recommendation-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #5568FE;
+    flex-shrink: 0;
+}
+
+.recommendation-content h6 {
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.recommendation-content p {
+    color: #6B7280;
+    margin-bottom: 12px;
+}
+
+/* Empty States */
+.empty-project-state,
+.empty-state {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.empty-icon {
+    font-size: 120px;
+    color: #E5E7EB;
+    margin-bottom: 24px;
+}
+
+.empty-state i {
+    font-size: 64px;
+    color: #E5E7EB;
+    margin-bottom: 16px;
+}
 </style>
 {% endblock %}

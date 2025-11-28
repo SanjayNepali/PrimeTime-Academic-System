@@ -1,0 +1,296 @@
+<!-- File: Desktop/Prime/templates/accounts/user_detail.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}{{ viewed_user.display_name }} - User Details - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'accounts:user_list' %}">Users</a></li>
+            <li class="breadcrumb-item active">{{ viewed_user.display_name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Left Column - Profile Card -->
+        <div class="col-md-4">
+            <div class="card modern-card">
+                <div class="card-body text-center">
+                    <!-- Profile Picture -->
+                    <div class="profile-avatar-large mb-3">
+                        {% if viewed_user.profile.profile_picture %}
+                            <img src="{{ viewed_user.profile.profile_picture.url }}" 
+                                 alt="{{ viewed_user.display_name }}" 
+                                 class="rounded-circle" 
+                                 style="width: 150px; height: 150px; object-fit: cover; border: 4px solid var(--primary);">
+                        {% else %}
+                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center mx-auto" 
+                                 style="width: 150px; height: 150px; border: 4px solid var(--primary-dark);">
+                                <i class='bx bx-user text-white' style="font-size: 5rem;"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- User Name & Role -->
+                    <h4>{{ viewed_user.display_name }}</h4>
+                    <p class="text-muted mb-2">@{{ viewed_user.username }}</p>
+                    <p>
+                        <span class="badge 
+                            {% if viewed_user.role == 'admin' %}bg-warning
+                            {% elif viewed_user.role == 'supervisor' %}bg-info
+                            {% else %}bg-success{% endif %}">
+                            {{ viewed_user.get_role_display }}
+                        </span>
+                    </p>
+
+                    <!-- Status Badges -->
+                    <div class="d-flex justify-content-center gap-2 mb-3">
+                        {% if viewed_user.is_enabled %}
+                            <span class="badge bg-success"><i class='bx bx-check'></i> Active</span>
+                        {% else %}
+                            <span class="badge bg-danger"><i class='bx bx-x'></i> Disabled</span>
+                        {% endif %}
+                        
+                        {% if viewed_user.password_changed %}
+                            <span class="badge bg-success"><i class='bx bx-lock-open'></i> Password Changed</span>
+                        {% else %}
+                            <span class="badge bg-warning"><i class='bx bx-lock'></i> Initial Password</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Action Buttons -->
+                    {% if user.is_admin %}
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{% url 'accounts:user_update' viewed_user.pk %}" class="btn btn-primary btn-sm">
+                            <i class='bx bx-edit'></i> Edit User
+                        </a>
+                        <a href="{% url 'accounts:user_reset_password' viewed_user.pk %}" 
+                           class="btn btn-warning btn-sm"
+                           onclick="return confirm('Reset password for {{ viewed_user.display_name }}?')">
+                            <i class='bx bx-refresh'></i> Reset Password
+                        </a>
+                        <a href="{% url 'accounts:user_toggle_status' viewed_user.pk %}" 
+                           class="btn btn-{% if viewed_user.is_enabled %}danger{% else %}success{% endif %} btn-sm"
+                           onclick="return confirm('{% if viewed_user.is_enabled %}Disable{% else %}Enable{% endif %} this account?')">
+                            <i class='bx bx-power-off'></i> 
+                            {% if viewed_user.is_enabled %}Disable{% else %}Enable{% endif %} Account
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h6><i class='bx bx-stats'></i> Quick Stats</h6>
+                </div>
+                <div class="card-body">
+                    <div class="stat-item">
+                        <i class='bx bx-calendar-check text-success'></i>
+                        <div>
+                            <small class="text-muted">Member Since</small>
+                            <div class="fw-bold">{{ viewed_user.created_at|date:"M d, Y" }}</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <i class='bx bx-time text-info'></i>
+                        <div>
+                            <small class="text-muted">Last Login</small>
+                            <div class="fw-bold">{{ viewed_user.last_login_at|date:"M d, Y H:i"|default:"Never" }}</div>
+                        </div>
+                    </div>
+                    {% if viewed_user.is_student %}
+                    <div class="stat-item">
+                        <i class='bx bx-folder text-warning'></i>
+                        <div>
+                            <small class="text-muted">Projects</small>
+                            <div class="fw-bold">{{ project_count|default:0 }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Details -->
+        <div class="col-md-8">
+            <!-- Basic Information -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-info-circle'></i> Basic Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Full Name</label>
+                            <div class="fw-bold">{{ viewed_user.full_name|default:"-" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Email</label>
+                            <div class="fw-bold">{{ viewed_user.email }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Phone</label>
+                            <div class="fw-bold">{{ viewed_user.phone|default:"-" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">User ID</label>
+                            <div class="fw-bold"><code>{{ viewed_user.user_id|default:"-" }}</code></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Academic Information -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-graduation'></i> Academic Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Department</label>
+                            <div class="fw-bold">{{ viewed_user.department|default:"-" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Batch Year</label>
+                            <div class="fw-bold">{{ viewed_user.batch_year|default:"-" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Enrollment Year</label>
+                            <div class="fw-bold">{{ viewed_user.enrollment_year|default:"-" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Role</label>
+                            <div class="fw-bold">{{ viewed_user.get_role_display }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Information -->
+            {% if viewed_user.profile.bio %}
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-user'></i> Profile</h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ viewed_user.profile.bio }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Student-Specific Info -->
+            {% if viewed_user.is_student and viewed_user.profile.student_id %}
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-id-card'></i> Student Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Student ID</label>
+                            <div class="fw-bold"><code>{{ viewed_user.profile.student_id }}</code></div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Enrollment Date</label>
+                            <div class="fw-bold">{{ viewed_user.profile.enrollment_date|date:"M d, Y"|default:"-" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Supervisor-Specific Info -->
+            {% if viewed_user.is_supervisor %}
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-briefcase'></i> Supervisor Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Specialization</label>
+                            <div class="fw-bold">{{ viewed_user.profile.specialization|default:"-" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Maximum Groups</label>
+                            <div class="fw-bold">{{ viewed_user.profile.max_groups|default:3 }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Account Activity -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-history'></i> Account Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Account Created</label>
+                            <div class="fw-bold">{{ viewed_user.created_at|date:"M d, Y H:i" }}</div>
+                            <small class="text-muted">
+                                {% if viewed_user.created_by %}
+                                    by {{ viewed_user.created_by.display_name }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Last Updated</label>
+                            <div class="fw-bold">{{ viewed_user.updated_at|date:"M d, Y H:i" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Last Login</label>
+                            <div class="fw-bold">{{ viewed_user.last_login_at|date:"M d, Y H:i"|default:"Never" }}</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Password Changed</label>
+                            <div class="fw-bold">
+                                {% if viewed_user.password_changed_at %}
+                                    {{ viewed_user.password_changed_at|date:"M d, Y H:i" }}
+                                {% else %}
+                                    <span class="badge bg-warning">Not Changed</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+    
+    .stat-item i {
+        font-size: 24px;
+    }
+    
+    .breadcrumb {
+        background: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+</style>
+
+{% endblock %}

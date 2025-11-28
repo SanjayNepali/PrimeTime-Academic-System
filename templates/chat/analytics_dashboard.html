@@ -1,0 +1,768 @@
+<!-- File: Desktop/Prime/templates/chat/analytics_dashboard.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chat Analytics - {{ block.super }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        margin-bottom: 32px;
+    }
+
+    .page-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .page-subtitle {
+        color: var(--text-secondary);
+        font-size: 16px;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 32px;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+
+    .stat-card.positive::before { background: #10B981; }
+    .stat-card.negative::before { background: #EF4444; }
+    .stat-card.neutral::before { background: #6B7280; }
+    .stat-card.info::before { background: #3B82F6; }
+
+    .stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+
+    .stat-label {
+        font-size: 14px;
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+
+    .icon-positive {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10B981;
+    }
+
+    .icon-negative {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+    }
+
+    .icon-neutral {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6B7280;
+    }
+
+    .icon-info {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3B82F6;
+    }
+
+    .stat-value {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .stat-change {
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .stat-change.positive { color: #10B981; }
+    .stat-change.negative { color: #EF4444; }
+
+    .charts-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+
+    .chart-card {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .chart-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chart-filter {
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 13px;
+        background: white;
+        cursor: pointer;
+    }
+
+    .chart-container {
+        height: 300px;
+        position: relative;
+    }
+
+    .alerts-section {
+        margin-bottom: 32px;
+    }
+
+    .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alerts-grid {
+        display: grid;
+        gap: 16px;
+    }
+
+    .alert-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        display: flex;
+        gap: 16px;
+        border-left: 4px solid transparent;
+    }
+
+    .alert-card.high { border-left-color: #EF4444; }
+    .alert-card.medium { border-left-color: #F59E0B; }
+    .alert-card.low { border-left-color: #3B82F6; }
+
+    .alert-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+
+    .alert-card.high .alert-icon {
+        background: rgba(239, 68, 68, 0.1);
+        color: #EF4444;
+    }
+
+    .alert-card.medium .alert-icon {
+        background: rgba(245, 158, 11, 0.1);
+        color: #F59E0B;
+    }
+
+    .alert-card.low .alert-icon {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3B82F6;
+    }
+
+    .alert-content {
+        flex: 1;
+    }
+
+    .alert-title {
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .alert-description {
+        color: var(--text-secondary);
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+
+    .alert-meta {
+        display: flex;
+        gap: 16px;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    .alert-action {
+        padding: 8px 16px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .alert-action:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+    }
+
+    .students-at-risk {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .risk-list {
+        display: grid;
+        gap: 16px;
+    }
+
+    .risk-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: var(--secondary);
+        border-radius: 12px;
+        transition: all 0.2s;
+    }
+
+    .risk-item:hover {
+        background: var(--border);
+    }
+
+    .risk-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 18px;
+    }
+
+    .risk-info {
+        flex: 1;
+    }
+
+    .risk-name {
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .risk-details {
+        font-size: 13px;
+        color: var(--text-secondary);
+        display: flex;
+        gap: 16px;
+    }
+
+    .risk-indicator {
+        padding: 6px 14px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .risk-high {
+        background: rgba(239, 68, 68, 0.1);
+        color: #DC2626;
+    }
+
+    .risk-medium {
+        background: rgba(245, 158, 11, 0.1);
+        color: #D97706;
+    }
+
+    .sentiment-breakdown {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .sentiment-bar {
+        flex: 1;
+        height: 8px;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .sentiment-bar::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: var(--percentage);
+        transition: width 0.3s;
+    }
+
+    .bar-positive {
+        background: rgba(16, 185, 129, 0.2);
+    }
+
+    .bar-positive::after {
+        background: #10B981;
+    }
+
+    .bar-neutral {
+        background: rgba(107, 114, 128, 0.2);
+    }
+
+    .bar-neutral::after {
+        background: #6B7280;
+    }
+
+    .bar-negative {
+        background: rgba(239, 68, 68, 0.2);
+    }
+
+    .bar-negative::after {
+        background: #EF4444;
+    }
+
+    .sentiment-legend {
+        display: flex;
+        gap: 20px;
+        margin-top: 12px;
+        font-size: 13px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .dot-positive { background: #10B981; }
+    .dot-neutral { background: #6B7280; }
+    .dot-negative { background: #EF4444; }
+
+    @media (max-width: 1024px) {
+        .charts-section {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class='bx bx-bar-chart-alt-2'></i>
+            Chat Analytics Dashboard
+        </h1>
+        <p class="page-subtitle">Monitor communication patterns, sentiment, and student wellbeing</p>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="stats-grid">
+        <div class="stat-card positive">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">Average Sentiment</div>
+                    <div class="stat-value">{{ avg_sentiment|floatformat:1 }}%</div>
+                    <div class="stat-change positive">
+                        <i class='bx bx-trending-up'></i>
+                        +5.2% from last week
+                    </div>
+                </div>
+                <div class="stat-icon icon-positive">
+                    <i class='bx bx-happy'></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card negative">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">High Stress Students</div>
+                    <div class="stat-value">{{ high_stress_count|default:0 }}</div>
+                    <div class="stat-change negative">
+                        <i class='bx bx-trending-down'></i>
+                        Needs attention
+                    </div>
+                </div>
+                <div class="stat-icon icon-negative">
+                    <i class='bx bx-sad'></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card info">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">Total Messages</div>
+                    <div class="stat-value">{{ total_messages|default:0 }}</div>
+                    <div class="stat-change positive">
+                        <i class='bx bx-trending-up'></i>
+                        +12% this week
+                    </div>
+                </div>
+                <div class="stat-icon icon-info">
+                    <i class='bx bx-message-dots'></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card neutral">
+            <div class="stat-header">
+                <div>
+                    <div class="stat-label">Flagged Content</div>
+                    <div class="stat-value">{{ flagged_count|default:0 }}</div>
+                    <div class="stat-change">
+                        <i class='bx bx-flag'></i>
+                        Requires review
+                    </div>
+                </div>
+                <div class="stat-icon icon-neutral">
+                    <i class='bx bx-error'></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+        <!-- Sentiment Trend Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class='bx bx-line-chart'></i>
+                    Sentiment Trend
+                </h3>
+                <select class="chart-filter">
+                    <option>Last 7 days</option>
+                    <option>Last 30 days</option>
+                    <option>Last 3 months</option>
+                </select>
+            </div>
+            <div class="chart-container">
+                <canvas id="sentimentChart"></canvas>
+            </div>
+            <div class="sentiment-legend">
+                <div class="legend-item">
+                    <span class="legend-dot dot-positive"></span>
+                    Positive: {{ positive_percent|default:0 }}%
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot dot-neutral"></span>
+                    Neutral: {{ neutral_percent|default:0 }}%
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot dot-negative"></span>
+                    Negative: {{ negative_percent|default:0 }}%
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class='bx bx-pulse'></i>
+                    Message Activity
+                </h3>
+                <select class="chart-filter">
+                    <option>Last 7 days</option>
+                    <option>Last 30 days</option>
+                </select>
+            </div>
+            <div class="chart-container">
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Stress Levels Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class='bx bx-heart'></i>
+                    Stress Levels Distribution
+                </h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="stressChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Room Activity -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class='bx bx-chart-bar'></i>
+                    Most Active Rooms
+                </h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="roomsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts Section -->
+    <div class="alerts-section">
+        <h2 class="section-title">
+            <i class='bx bx-bell'></i>
+            Attention Required
+        </h2>
+        <div class="alerts-grid">
+            <div class="alert-card high">
+                <div class="alert-icon">
+                    <i class='bx bx-error-circle'></i>
+                </div>
+                <div class="alert-content">
+                    <div class="alert-title">3 Students with High Stress Indicators</div>
+                    <div class="alert-description">
+                        These students show consistent negative sentiment and high stress levels in recent communications.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class='bx bx-time'></i> Detected 2 hours ago</span>
+                        <span><i class='bx bx-group'></i> Multiple rooms</span>
+                    </div>
+                </div>
+                <button class="alert-action">View Details</button>
+            </div>
+
+            <div class="alert-card medium">
+                <div class="alert-icon">
+                    <i class='bx bx-flag'></i>
+                </div>
+                <div class="alert-content">
+                    <div class="alert-title">5 Messages Flagged for Review</div>
+                    <div class="alert-description">
+                        Automatic sentiment analysis has flagged potentially concerning messages for review.
+                    </div>
+                    <div class="alert-meta">
+                        <span><i class='bx bx-time'></i> Last flagged 30 mins ago</span>
+                    </div>
+                </div>
+                <button class="alert-action">Review</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Students at Risk -->
+    <div class="students-at-risk">
+        <h2 class="section-title">
+            <i class='bx bx-user-check'></i>
+            Students Requiring Attention
+        </h2>
+        <div class="risk-list">
+            {% if high_stress_students %}
+                {% for student in high_stress_students %}
+                <div class="risk-item">
+                    <div class="risk-avatar">
+                        {{ student.student.display_name|first|upper }}
+                    </div>
+                    <div class="risk-info">
+                        <div class="risk-name">{{ student.student.display_name }}</div>
+                        <div class="risk-details">
+                            <span>Stress Level: {{ student.level|floatformat:0 }}%</span>
+                            <span>Last checked: {{ student.calculated_at|timesince }} ago</span>
+                        </div>
+                    </div>
+                    <span class="risk-indicator {% if student.level >= 80 %}risk-high{% else %}risk-medium{% endif %}">
+                        {% if student.level >= 80 %}High Risk{% else %}Medium Risk{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <i class='bx bx-check-circle' style="font-size: 48px; color: #10B981;"></i>
+                    <div style="margin-top: 12px; font-size: 16px;">
+                        All students are doing well! No high-stress indicators detected.
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Sentiment Trend Chart
+const sentimentCtx = document.getElementById('sentimentChart');
+if (sentimentCtx) {
+    new Chart(sentimentCtx, {
+        type: 'line',
+        data: {
+            labels: {{ sentiment_dates|safe }},
+            datasets: [{
+                label: 'Positive',
+                data: {{ positive_data|safe }},
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Negative',
+                data: {{ negative_data|safe }},
+                borderColor: '#EF4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+// Activity Chart
+const activityCtx = document.getElementById('activityChart');
+if (activityCtx) {
+    new Chart(activityCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ activity_labels|safe }},
+            datasets: [{
+                label: 'Messages',
+                data: {{ activity_data|safe }},
+                backgroundColor: '#5568FE',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+// Stress Levels Chart
+const stressCtx = document.getElementById('stressChart');
+if (stressCtx) {
+    new Chart(stressCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Low Stress', 'Medium Stress', 'High Stress'],
+            datasets: [{
+                data: {{ stress_distribution|safe }},
+                backgroundColor: ['#10B981', '#F59E0B', '#EF4444']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+}
+
+// Rooms Activity Chart
+const roomsCtx = document.getElementById('roomsChart');
+if (roomsCtx) {
+    new Chart(roomsCtx, {
+        type: 'horizontalBar',
+        data: {
+            labels: {{ room_names|safe }},
+            datasets: [{
+                label: 'Messages',
+                data: {{ room_activity|safe }},
+                backgroundColor: '#8B5CF6'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y'
+        }
+    });
+}
+</script>
+{% endblock %}

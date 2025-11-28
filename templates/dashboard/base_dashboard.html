@@ -1,0 +1,425 @@
+<!-- File: templates/dashboard/base_dashboard.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --dashboard-bg: #f8f9fa;
+        --card-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        --card-hover-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        --stat-card-height: 140px;
+    }
+
+    /* Dashboard Layout */
+    .dashboard-wrapper {
+        min-height: calc(100vh - 70px);
+        background: var(--dashboard-bg);
+    }
+
+    .dashboard-header {
+        padding: 24px 0;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 24px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .dashboard-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .dashboard-subtitle {
+        color: var(--text-secondary);
+        font-size: 14px;
+    }
+
+    /* Stat Cards */
+    .stat-card {
+        border: none;
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        height: var(--stat-card-height);
+        box-shadow: var(--card-shadow);
+        background: white;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, var(--primary), var(--primary-dark));
+    }
+
+    .stat-card.stat-success::before {
+        background: linear-gradient(180deg, var(--success), #059669);
+    }
+
+    .stat-card.stat-warning::before {
+        background: linear-gradient(180deg, var(--warning), #d97706);
+    }
+
+    .stat-card.stat-danger::before {
+        background: linear-gradient(180deg, var(--danger), #dc2626);
+    }
+
+    .stat-card.stat-info::before {
+        background: linear-gradient(180deg, var(--info), #2563eb);
+    }
+
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover .stat-icon {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .stat-icon.primary-icon {
+        background: rgba(85, 104, 254, 0.1);
+        color: var(--primary);
+    }
+
+    .stat-icon.success-icon {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .stat-icon.warning-icon {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .stat-icon.danger-icon {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    .stat-icon.info-icon {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--info);
+    }
+
+    .stat-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+
+    .stat-label {
+        font-size: 14px;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+
+    .stat-change {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-top: 8px;
+    }
+
+    .stat-change.positive {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .stat-change.negative {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    /* Modern Card */
+    .modern-card {
+        border: none;
+        border-radius: 16px;
+        box-shadow: var(--card-shadow);
+        transition: all 0.3s ease;
+        background: white;
+        margin-bottom: 24px;
+    }
+
+    .modern-card:hover {
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .modern-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid var(--border);
+        padding: 20px 24px;
+        font-weight: 600;
+        font-size: 18px;
+    }
+
+    .modern-card .card-body {
+        padding: 24px;
+    }
+
+    /* Progress Bars */
+    .progress-modern {
+        height: 8px;
+        border-radius: 10px;
+        background: var(--secondary);
+        overflow: hidden;
+    }
+
+    .progress-modern .progress-bar {
+        background: linear-gradient(90deg, var(--primary), #764ba2);
+        border-radius: 10px;
+        transition: width 1s ease;
+    }
+
+    .progress-modern.lg {
+        height: 12px;
+    }
+
+    /* Charts Container */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+    }
+
+    .chart-container.sm {
+        height: 200px;
+    }
+
+    .chart-container.lg {
+        height: 400px;
+    }
+
+    /* Activity Timeline */
+    .activity-timeline {
+        position: relative;
+        padding-left: 40px;
+    }
+
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+    }
+
+    .activity-item {
+        position: relative;
+        padding-bottom: 24px;
+    }
+
+    .activity-item:last-child {
+        padding-bottom: 0;
+    }
+
+    .activity-icon {
+        position: absolute;
+        left: -40px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        color: var(--primary);
+    }
+
+    .activity-content {
+        background: var(--secondary);
+        padding: 12px 16px;
+        border-radius: 8px;
+    }
+
+    .activity-time {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    /* Quick Actions Grid */
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .quick-action-btn {
+        padding: 20px;
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        text-align: center;
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .quick-action-btn:hover {
+        border-color: var(--primary);
+        background: rgba(85, 104, 254, 0.05);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(85, 104, 254, 0.2);
+    }
+
+    .quick-action-btn i {
+        font-size: 32px;
+        color: var(--primary);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .dashboard-title {
+            font-size: 24px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            font-size: 24px;
+        }
+
+        .modern-card .card-header,
+        .modern-card .card-body {
+            padding: 16px;
+        }
+    }
+
+    /* Loading States */
+    .skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+        border-radius: 8px;
+    }
+
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+
+    /* Empty States */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state i {
+        font-size: 64px;
+        color: var(--text-secondary);
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .empty-state h5 {
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .empty-state p {
+        color: var(--text-secondary);
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% block dashboard_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltips.forEach(el => new bootstrap.Tooltip(el));
+    });
+
+    // Animate progress bars on scroll
+    function animateProgressBars() {
+        const progressBars = document.querySelectorAll('.progress-modern .progress-bar');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const bar = entry.target;
+                    const width = bar.getAttribute('aria-valuenow');
+                    bar.style.width = width + '%';
+                    observer.unobserve(bar);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        progressBars.forEach(bar => {
+            bar.style.width = '0%';
+            observer.observe(bar);
+        });
+    }
+
+    // Animate stat cards on load
+    function animateStatCards() {
+        const cards = document.querySelectorAll('.stat-card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        animateProgressBars();
+        animateStatCards();
+    });
+
+    // Auto-refresh data (optional)
+    function refreshDashboardData() {
+        // Implement AJAX refresh logic here
+        console.log('Refreshing dashboard data...');
+    }
+
+    // Refresh every 5 minutes (optional)
+    // setInterval(refreshDashboardData, 300000);
+</script>
+{% endblock %}

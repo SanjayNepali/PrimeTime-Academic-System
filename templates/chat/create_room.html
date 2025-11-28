@@ -1,48 +1,505 @@
+<!-- File: Desktop/Prime/templates/chat/create_room.html -->
+
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
+{% load static %}
 
 {% block title %}Create Chat Room - {{ block.super }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .create-room-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        margin-bottom: 32px;
+    }
+
+    .page-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .page-subtitle {
+        color: var(--text-secondary);
+        font-size: 16px;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .form-section {
+        margin-bottom: 32px;
+    }
+
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .form-group {
+        margin-bottom: 24px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .form-label .required {
+        color: #EF4444;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        font-size: 14px;
+        transition: all 0.2s;
+        font-family: inherit;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(85, 104, 254, 0.1);
+    }
+
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7280'%3E%3Cpath d='M12 15.0006L7.75732 10.758L9.17154 9.34375L12 12.1722L14.8284 9.34375L16.2426 10.758L12 15.0006Z'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 20px;
+        padding-right: 40px;
+    }
+
+    .form-help {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-top: 6px;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: var(--secondary);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .checkbox-group:hover {
+        background: var(--border);
+    }
+
+    .checkbox-input {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: var(--primary);
+    }
+
+    .checkbox-label {
+        flex: 1;
+        cursor: pointer;
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .schedule-section {
+        display: none;
+        background: rgba(245, 158, 11, 0.05);
+        border: 2px solid rgba(245, 158, 11, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 16px;
+    }
+
+    .schedule-section.active {
+        display: block;
+        animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .schedule-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #D97706;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
+
+    .time-inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .days-selector {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .day-btn {
+        padding: 8px 16px;
+        border: 2px solid var(--border);
+        background: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .day-btn.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    .info-box {
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 4px solid #3B82F6;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+    }
+
+    .info-title {
+        font-weight: 600;
+        color: #1E40AF;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .info-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .info-list li {
+        padding: 6px 0;
+        padding-left: 20px;
+        position: relative;
+        color: #1E40AF;
+        font-size: 14px;
+    }
+
+    .info-list li::before {
+        content: '•';
+        position: absolute;
+        left: 8px;
+        font-weight: 700;
+    }
+
+    .warning-box {
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 4px solid #F59E0B;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+        display: none;
+    }
+
+    .warning-box.active {
+        display: block;
+    }
+
+    .warning-title {
+        font-weight: 600;
+        color: #D97706;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .warning-text {
+        color: #92400E;
+        font-size: 14px;
+    }
+
+    .participants-selector {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        padding: 8px;
+    }
+
+    .participant-option {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .participant-option:hover {
+        background: var(--secondary);
+    }
+
+    .participant-checkbox {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+    }
+
+    .participant-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .participant-info {
+        flex: 1;
+    }
+
+    .participant-name {
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .participant-role {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(85, 104, 254, 0.3);
+    }
+
+    .btn-secondary {
+        background: var(--secondary);
+        color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+        background: var(--border);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0"><i class="fas fa-plus-circle"></i> Create Chat Room</h4>
+<div class="create-room-container">
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class='bx bx-plus-circle'></i>
+            Create Chat Room
+        </h1>
+        <p class="page-subtitle">Set up a new chat room for your team</p>
+    </div>
+
+    <div class="form-card">
+        <form method="post" id="createRoomForm">
+            {% csrf_token %}
+
+            <!-- Room Type Info -->
+            <div class="info-box">
+                <div class="info-title">
+                    <i class='bx bx-info-circle'></i>
+                    Room Types
                 </div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        {{ form|crispy }}
+                <ul class="info-list">
+                    <li><strong>Group:</strong> Chat room for student groups with all members</li>
+                    <li><strong>Direct:</strong> One-on-one conversation between two people</li>
+                    <li><strong>Supervisor:</strong> Monitored room with scheduling capabilities</li>
+                </ul>
+            </div>
 
-                        <div class="alert alert-info mt-3">
-                            <i class="fas fa-info-circle"></i>
-                            <strong>Room Types:</strong>
-                            <ul class="mb-0 mt-2">
-                                <li><strong>Group:</strong> Chat room for student groups</li>
-                                <li><strong>Direct:</strong> One-on-one conversation</li>
-                                <li><strong>Supervisor:</strong> Supervisor-monitored room with scheduling</li>
-                            </ul>
-                        </div>
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class='bx bx-info-circle'></i>
+                    Basic Information
+                </h3>
 
-                        <div class="alert alert-warning mt-3" id="frozenAlert" style="display: none;">
-                            <i class="fas fa-lock"></i>
-                            <strong>Frozen Room:</strong> When a room is frozen, it can only be accessed during specified hours. Configure the schedule below.
-                        </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        Room Name <span class="required">*</span>
+                    </label>
+                    {{ form.name }}
+                    <div class="form-help">Choose a descriptive name for your chat room</div>
+                </div>
 
-                        <div class="form-group mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-check"></i> Create Room
-                            </button>
-                            <a href="{% url 'chat:chat_home' %}" class="btn btn-secondary btn-lg">
-                                <i class="fas fa-times"></i> Cancel
-                            </a>
-                        </div>
-                    </form>
+                <div class="form-group">
+                    <label class="form-label">
+                        Room Type <span class="required">*</span>
+                    </label>
+                    {{ form.room_type }}
+                    <div class="form-help">Select the type of chat room you want to create</div>
                 </div>
             </div>
-        </div>
+
+            <!-- Participants -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class='bx bx-group'></i>
+                    Participants
+                </h3>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Select Participants <span class="required">*</span>
+                    </label>
+                    {{ form.participants }}
+                    <div class="form-help">Choose who can access this chat room</div>
+                </div>
+            </div>
+
+            <!-- Access Control -->
+            <div class="form-section">
+                <h3 class="section-title">
+                    <i class='bx bx-shield'></i>
+                    Access Control
+                </h3>
+
+                <div class="form-group">
+                    <div class="checkbox-group" onclick="toggleSchedule()">
+                        {{ form.is_frozen }}
+                        <label class="checkbox-label">
+                            Enable scheduled access (Freeze room outside specific hours)
+                        </label>
+                    </div>
+                    <div class="form-help">When enabled, the room can only be accessed during specified hours</div>
+                </div>
+
+                <!-- Warning Box -->
+                <div class="warning-box" id="frozenWarning">
+                    <div class="warning-title">
+                        <i class='bx bx-lock'></i>
+                        Frozen Room
+                    </div>
+                    <div class="warning-text">
+                        When a room is frozen, participants can only access it during the scheduled time periods you define below.
+                    </div>
+                </div>
+
+                <!-- Schedule Settings -->
+                <div class="schedule-section" id="scheduleSection">
+                    <div class="schedule-header">
+                        <i class='bx bx-calendar'></i>
+                        Schedule Configuration
+                    </div>
+
+                    <div class="time-inputs">
+                        <div class="form-group">
+                            <label class="form-label">Start Time</label>
+                            {{ form.schedule_start_time }}
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">End Time</label>
+                            {{ form.schedule_end_time }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Available Days</label>
+                        {{ form.schedule_days }}
+                        <div class="form-help">Enter days as comma-separated (e.g., Mon,Tue,Wed,Thu,Fri)</div>
+                    </div>
+
+                    <!-- Day Selector (Optional Enhancement) -->
+                    <div class="days-selector">
+                        <button type="button" class="day-btn" data-day="Mon">Monday</button>
+                        <button type="button" class="day-btn" data-day="Tue">Tuesday</button>
+                        <button type="button" class="day-btn" data-day="Wed">Wednesday</button>
+                        <button type="button" class="day-btn" data-day="Thu">Thursday</button>
+                        <button type="button" class="day-btn" data-day="Fri">Friday</button>
+                        <button type="button" class="day-btn" data-day="Sat">Saturday</button>
+                        <button type="button" class="day-btn" data-day="Sun">Sunday</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class='bx bx-check'></i>
+                    Create Room
+                </button>
+                <a href="{% url 'chat:chat_home' %}" class="btn btn-secondary">
+                    <i class='bx bx-x'></i>
+                    Cancel
+                </a>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -51,22 +508,76 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const frozenCheckbox = document.querySelector('input[name="is_frozen"]');
+    const scheduleSection = document.getElementById('scheduleSection');
+    const frozenWarning = document.getElementById('frozenWarning');
     const scheduleFields = document.querySelectorAll('input[name="schedule_start_time"], input[name="schedule_end_time"], input[name="schedule_days"]');
-    const frozenAlert = document.getElementById('frozenAlert');
 
-    function toggleScheduleFields() {
+    function toggleSchedule() {
         const isFrozen = frozenCheckbox.checked;
-        frozenAlert.style.display = isFrozen ? 'block' : 'none';
+        
+        if (isFrozen) {
+            scheduleSection.classList.add('active');
+            frozenWarning.classList.add('active');
+            scheduleFields.forEach(field => field.required = true);
+        } else {
+            scheduleSection.classList.remove('active');
+            frozenWarning.classList.remove('active');
+            scheduleFields.forEach(field => field.required = false);
+        }
+    }
 
-        scheduleFields.forEach(field => {
-            field.closest('.form-group').style.display = isFrozen ? 'block' : 'none';
+    // Initialize state
+    toggleSchedule();
+
+    // Day selector buttons
+    const dayButtons = document.querySelectorAll('.day-btn');
+    const daysInput = document.querySelector('input[name="schedule_days"]');
+
+    dayButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            this.classList.toggle('active');
+            
+            // Update the input value
+            const selectedDays = Array.from(document.querySelectorAll('.day-btn.active'))
+                .map(btn => btn.dataset.day);
+            daysInput.value = selectedDays.join(',');
+        });
+    });
+
+    // Initialize day buttons from existing value
+    if (daysInput.value) {
+        const days = daysInput.value.split(',').map(d => d.trim());
+        dayButtons.forEach(btn => {
+            if (days.includes(btn.dataset.day)) {
+                btn.classList.add('active');
+            }
         });
     }
 
-    if (frozenCheckbox) {
-        frozenCheckbox.addEventListener('change', toggleScheduleFields);
-        toggleScheduleFields(); // Initial state
-    }
+    // Form validation
+    document.getElementById('createRoomForm').addEventListener('submit', function(e) {
+        const isFrozen = frozenCheckbox.checked;
+        
+        if (isFrozen) {
+            const startTime = document.querySelector('input[name="schedule_start_time"]').value;
+            const endTime = document.querySelector('input[name="schedule_end_time"]').value;
+            const days = daysInput.value;
+
+            if (!startTime || !endTime || !days) {
+                e.preventDefault();
+                alert('Please fill in all schedule fields for frozen rooms');
+                return false;
+            }
+        }
+    });
 });
+
+// Make checkbox group clickable
+function toggleSchedule() {
+    const checkbox = document.querySelector('input[name="is_frozen"]');
+    checkbox.checked = !checkbox.checked;
+    checkbox.dispatchEvent(new Event('change'));
+}
 </script>
 {% endblock %}

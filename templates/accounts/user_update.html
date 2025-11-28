@@ -1,0 +1,220 @@
+<!-- File: Desktop/Prime/templates/accounts/user_update.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Update User - {{ user.display_name }} - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:user_list' %}">Users</a></li>
+                    <li class="breadcrumb-item active">Update {{ user.display_name }}</li>
+                </ol>
+            </nav>
+
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h4>
+                        <i class='bx bx-edit'></i> Update User: {{ user.display_name }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- User Status Info -->
+                    <div class="alert alert-info mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong><i class='bx bx-info-circle'></i> Account Status:</strong>
+                                {% if user.is_enabled %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Disabled</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <strong><i class='bx bx-lock'></i> Password Status:</strong>
+                                {% if user.password_changed %}
+                                    <span class="badge bg-success">Changed</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Initial</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <strong><i class='bx bx-calendar'></i> Created:</strong> 
+                                {{ user.created_at|date:"M d, Y" }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong><i class='bx bx-time'></i> Last Login:</strong> 
+                                {{ user.last_login_at|date:"M d, Y H:i"|default:"Never" }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Basic Information -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Username <span class="text-danger">*</span></label>
+                                {{ form.username }}
+                                {% if form.username.errors %}
+                                    <div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email <span class="text-danger">*</span></label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Full Name</label>
+                                {{ form.full_name }}
+                                {% if form.full_name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.full_name.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">User ID</label>
+                                {{ form.user_id }}
+                                {% if form.user_id.errors %}
+                                    <div class="text-danger small mt-1">{{ form.user_id.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Role & Department -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Role <span class="text-danger">*</span></label>
+                                {{ form.role }}
+                                {% if form.role.errors %}
+                                    <div class="text-danger small mt-1">{{ form.role.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Department</label>
+                                {{ form.department }}
+                                {% if form.department.errors %}
+                                    <div class="text-danger small mt-1">{{ form.department.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Academic Info -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Batch Year</label>
+                                {{ form.batch_year }}
+                                {% if form.batch_year.errors %}
+                                    <div class="text-danger small mt-1">{{ form.batch_year.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Phone</label>
+                                {{ form.phone }}
+                                {% if form.phone.errors %}
+                                    <div class="text-danger small mt-1">{{ form.phone.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Account Status -->
+                            <div class="col-12 mb-3">
+                                <div class="form-check">
+                                    {{ form.is_enabled }}
+                                    <label class="form-check-label" for="{{ form.is_enabled.id_for_label }}">
+                                        Account Enabled
+                                    </label>
+                                </div>
+                                <small class="text-muted">Uncheck to disable this user's account</small>
+                                {% if form.is_enabled.errors %}
+                                    <div class="text-danger small mt-1">{{ form.is_enabled.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors.0 }}
+                            </div>
+                        {% endif %}
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> Save Changes
+                            </button>
+                            <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <a href="{% url 'accounts:user_reset_password' user.pk %}" class="btn btn-warning ms-auto">
+                                <i class='bx bx-refresh'></i> Reset Password
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Additional Actions -->
+            <div class="card modern-card mt-3">
+                <div class="card-header">
+                    <h5><i class='bx bx-cog'></i> Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'accounts:user_toggle_status' user.pk %}" 
+                           class="btn btn-sm {% if user.is_enabled %}btn-warning{% else %}btn-success{% endif %}"
+                           onclick="return confirm('Are you sure you want to {% if user.is_enabled %}disable{% else %}enable{% endif %} this user?')">
+                            <i class='bx bx-power-off'></i> 
+                            {% if user.is_enabled %}Disable Account{% else %}Enable Account{% endif %}
+                        </a>
+                        
+                        <a href="{% url 'accounts:user_reset_password' user.pk %}" 
+                           class="btn btn-sm btn-outline-danger"
+                           onclick="return confirm('Are you sure you want to reset this user\'s password?')">
+                            <i class='bx bx-key'></i> Reset Password
+                        </a>
+                        
+                        {% if user.is_student %}
+                        <a href="#" class="btn btn-sm btn-outline-info">
+                            <i class='bx bx-line-chart'></i> View Analytics
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .breadcrumb {
+        background: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: '›';
+        color: #6B7280;
+    }
+    
+    .breadcrumb-item a {
+        color: var(--primary);
+        text-decoration: none;
+    }
+    
+    .breadcrumb-item.active {
+        color: #6B7280;
+    }
+</style>
+{% endblock %}

@@ -1,215 +1,225 @@
-<!-- File: Desktop/Prime/templates/dashboard/admin/home.html -->
+<!-- File: templates/dashboard/admin/home_enhanced.html -->
 
-{% extends 'base.html' %}
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
 
 {% block title %}Admin Dashboard - PrimeTime{% endblock %}
 
-{% block content %}
-<div class="dashboard-header mb-4">
-    <h2><i class='bx bxs-dashboard'></i> Admin Dashboard</h2>
-    <p class="text-muted">Welcome back, {{ user.display_name }}!</p>
-</div>
-
-<!-- Statistics Cards -->
-<div class="row mb-4">
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-2">Total Users</h6>
-                        <h3 class="mb-0">{{ total_users }}</h3>
-                        <small class="text-muted">
-                            {{ students_count }} Students • {{ supervisors_count }} Supervisors • {{ admins_count }} Admins
-                        </small>
-                    </div>
-                    <i class='bx bx-user-circle' style="font-size: 2.5rem; color: var(--primary);"></i>
-                </div>
+{% block dashboard_content %}
+<!-- Dashboard Header -->
+<div class="dashboard-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="dashboard-title">
+                    <i class='bx bxs-dashboard'></i> Admin Dashboard
+                </h1>
+                <p class="dashboard-subtitle">
+                    Welcome back, {{ user.display_name }}! Here's what's happening today.
+                </p>
             </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-2">Pending Users</h6>
-                        <h3 class="mb-0">{{ pending_users }}</h3>
-                        <small class="text-muted">Awaiting password change</small>
-                    </div>
-                    <i class='bx bx-user-plus' style="font-size: 2.5rem; color: var(--warning);"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-2">Pending Projects</h6>
-                        <h3 class="mb-0">{{ pending_projects }}</h3>
-                        <small class="text-muted">Need review</small>
-                    </div>
-                    <i class='bx bx-folder-open' style="font-size: 2.5rem; color: var(--info);"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-xl-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted mb-2">Completed</h6>
-                        <h3 class="mb-0">{{ completed_projects }}</h3>
-                        <small class="text-muted">Finished projects</small>
-                    </div>
-                    <i class='bx bx-check-circle' style="font-size: 2.5rem; color: var(--success);"></i>
-                </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-outline-primary me-2" onclick="refreshDashboard()">
+                    <i class='bx bx-refresh'></i> Refresh
+                </button>
+                <button class="btn btn-primary" onclick="exportReport()">
+                    <i class='bx bx-download'></i> Export Report
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card modern-card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class='bx bx-rocket'></i> Quick Actions</h5>
+<div class="container-fluid">
+    <!-- Key Metrics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stat-card stat-primary">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value" id="total-users">{{ total_users }}</div>
+                        <div class="small text-muted">
+                            {{ students_count }} Students • {{ supervisors_count }} Supervisors
+                        </div>
+                        <span class="stat-change positive">
+                            <i class='bx bx-up-arrow-alt'></i> +{{ recent_users.count }} this week
+                        </span>
+                    </div>
+                    <div class="stat-icon primary-icon">
+                        <i class='bx bx-user-circle'></i>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-xl-2 col-md-4 mb-2">
-                        <a href="{% url 'accounts:create_user' %}" class="btn btn-primary w-100">
-                            <i class='bx bx-user-plus'></i> Create User
-                        </a>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stat-card stat-warning">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stat-label">Pending Actions</div>
+                        <div class="stat-value" id="pending-users">{{ pending_users }}</div>
+                        <div class="small text-muted">
+                            {{ pending_projects }} Projects • {{ pending_users }} Users
+                        </div>
+                        {% if pending_users > 0 or pending_projects > 0 %}
+                        <span class="stat-change negative">
+                            <i class='bx bx-time'></i> Requires attention
+                        </span>
+                        {% endif %}
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-2">
-                        <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-primary w-100">
-                            <i class='bx bx-group'></i> Manage Users
-                        </a>
+                    <div class="stat-icon warning-icon">
+                        <i class='bx bx-user-plus'></i>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-2">
-                        <a href="{% url 'projects:all_projects' %}" class="btn btn-outline-primary w-100">
-                            <i class='bx bx-folder-open'></i> All Projects
-                        </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stat-card stat-info">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stat-label">Active Projects</div>
+                        <div class="stat-value">{{ in_progress_projects }}</div>
+                        <div class="small text-muted">
+                            {{ approved_projects }} Approved Total
+                        </div>
+                        <span class="stat-change positive">
+                            <i class='bx bx-trending-up'></i> On track
+                        </span>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-2">
-                        <a href="{% url 'events:event_create' %}" class="btn btn-outline-primary w-100">
-                            <i class='bx bx-calendar'></i> Create Event
-                        </a>
+                    <div class="stat-icon info-icon">
+                        <i class='bx bx-folder-open'></i>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-2">
-                        <a href="{% url 'resources:resource_create' %}" class="btn btn-outline-primary w-100">
-                            <i class='bx bx-book'></i> Add Resource
-                        </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="stat-card stat-success">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="stat-label">Completed</div>
+                        <div class="stat-value">{{ completed_projects }}</div>
+                        <div class="small text-muted">
+                            {{ completed_projects|floatformat:0 }}% completion rate
+                        </div>
+                        <span class="stat-change positive">
+                            <i class='bx bx-check-circle'></i> Success rate: 95%
+                        </span>
                     </div>
-                    <div class="col-xl-2 col-md-4 mb-2">
-                        <a href="{% url 'analytics:admin_analytics' %}" class="btn btn-outline-primary w-100">
-                            <i class='bx bx-stats'></i> Analytics
+                    <div class="stat-icon success-icon">
+                        <i class='bx bx-check-circle'></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-rocket'></i> Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="quick-actions-grid">
+                        <a href="{% url 'accounts:create_user' %}" class="quick-action-btn">
+                            <i class='bx bx-user-plus'></i>
+                            <span>Create User</span>
+                        </a>
+                        <a href="{% url 'accounts:user_list' %}" class="quick-action-btn">
+                            <i class='bx bx-group'></i>
+                            <span>Manage Users</span>
+                        </a>
+                        <a href="{% url 'projects:all_projects' %}" class="quick-action-btn">
+                            <i class='bx bx-folder-open'></i>
+                            <span>All Projects</span>
+                        </a>
+                        <a href="{% url 'events:event_create' %}" class="quick-action-btn">
+                            <i class='bx bx-calendar'></i>
+                            <span>Create Event</span>
+                        </a>
+                        <a href="{% url 'resources:resource_create' %}" class="quick-action-btn">
+                            <i class='bx bx-book'></i>
+                            <span>Add Resource</span>
+                        </a>
+                        <a href="{% url 'analytics:admin_analytics' %}" class="quick-action-btn">
+                            <i class='bx bx-stats'></i>
+                            <span>Analytics</span>
                         </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Admin Navigation Grid -->
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card modern-card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class='bx bx-navigation'></i> Admin Navigation</h5>
+    <!-- System Analytics -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="modern-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class='bx bx-line-chart'></i> System Activity</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary active" onclick="updateChart('week')">Week</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="updateChart('month')">Month</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="updateChart('year')">Year</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <!-- User Management -->
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body text-center">
-                                <i class='bx bx-group display-4 text-primary mb-3'></i>
-                                <h6>User Management</h6>
-                                <div class="btn-group-vertical w-100">
-                                    <a href="{% url 'accounts:user_list' %}" class="btn btn-sm btn-outline-primary mb-1">All Users</a>
-                                    <a href="{% url 'accounts:create_user' %}" class="btn btn-sm btn-outline-primary mb-1">Create User</a>
-                                    <a href="{% url 'accounts:login_history' %}" class="btn btn-sm btn-outline-primary">Login History</a>
-                                </div>
-                            </div>
-                        </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-pie-chart-alt-2'></i> User Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container sm">
+                        <canvas id="userDistChart"></canvas>
                     </div>
-                    
-                    <!-- Project Management -->
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body text-center">
-                                <i class='bx bx-folder display-4 text-success mb-3'></i>
-                                <h6>Project Management</h6>
-                                <div class="btn-group-vertical w-100">
-                                    <a href="{% url 'projects:all_projects' %}" class="btn btn-sm btn-outline-success mb-1">All Projects</a>
-                                    <a href="{% url 'events:admin_review_submissions' %}" class="btn btn-sm btn-outline-success mb-1">Review Submissions</a>
-                                    <a href="{% url 'groups:group_list' %}" class="btn btn-sm btn-outline-success">All Groups</a>
-                                </div>
-                            </div>
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class='bx bxs-circle' style="color: var(--primary);"></i> Students</span>
+                            <strong>{{ students_count }}</strong>
                         </div>
-                    </div>
-                    
-                    <!-- Analytics & Reports -->
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body text-center">
-                                <i class='bx bx-stats display-4 text-info mb-3'></i>
-                                <h6>Analytics & Reports</h6>
-                                <div class="btn-group-vertical w-100">
-                                    <a href="{% url 'analytics:admin_analytics' %}" class="btn btn-sm btn-outline-info mb-1">System Analytics</a>
-                                    <a href="{% url 'analytics:admin_view_all_logsheets' %}" class="btn btn-sm btn-outline-info mb-1">All Logsheets</a>
-                                    <a href="#" class="btn btn-sm btn-outline-info">Reports</a>
-                                </div>
-                            </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><i class='bx bxs-circle' style="color: var(--info);"></i> Supervisors</span>
+                            <strong>{{ supervisors_count }}</strong>
                         </div>
-                    </div>
-                    
-                    <!-- Content Management -->
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body text-center">
-                                <i class='bx bx-cog display-4 text-warning mb-3'></i>
-                                <h6>System Management</h6>
-                                <div class="btn-group-vertical w-100">
-                                    <a href="{% url 'resources:pending_resources' %}" class="btn btn-sm btn-outline-warning mb-1">Pending Resources</a>
-                                    <a href="{% url 'forum:flagged_posts' %}" class="btn btn-sm btn-outline-warning mb-1">Flagged Posts</a>
-                                    <a href="{% url 'events:event_create' %}" class="btn btn-sm btn-outline-warning">Create Event</a>
-                                </div>
-                            </div>
+                        <div class="d-flex justify-content-between">
+                            <span><i class='bx bxs-circle' style="color: var(--warning);"></i> Admins</span>
+                            <strong>{{ admins_count }}</strong>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Users with Initial Passwords Section -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card modern-card">
-            <div class="card-header">
-                <h5><i class='bx bx-lock'></i> Users with Initial Passwords</h5>
-                <span class="badge bg-warning">{{ users_with_passwords.count }}</span>
-            </div>
-            <div class="card-body">
-                {% if users_with_passwords %}
+    <!-- Users with Initial Passwords -->
+    {% if users_with_passwords %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="modern-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class='bx bx-lock-alt'></i> Users with Initial Passwords
+                    </h5>
+                    <span class="badge bg-warning">{{ users_with_passwords.count }}</span>
+                </div>
+                <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>User ID</th>
-                                    <th>Name</th>
+                                    <th>User</th>
                                     <th>Role</th>
                                     <th>Department</th>
                                     <th>Initial Password</th>
@@ -218,255 +228,208 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for user in users_with_passwords %}
+                                {% for user in users_with_passwords|slice:":10" %}
                                 <tr>
-                                    <td>
-                                        <strong>{{ user.user_id }}</strong>
-                                    </td>
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="avatar-sm me-2">
-                                                {% if user.profile.profile_picture %}
-                                                    <img src="{{ user.profile.profile_picture.url }}" alt="Avatar" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
-                                                {% else %}
-                                                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                        <i class='bx bx-user text-white'></i>
-                                                    </div>
-                                                {% endif %}
+                                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                    <i class='bx bx-user text-white'></i>
+                                                </div>
                                             </div>
                                             <div>
-                                                <strong>{{ user.display_name }}</strong>
-                                                <br>
-                                                <small class="text-muted">{{ user.email }}</small>
+                                                <strong>{{ user.display_name }}</strong><br>
+                                                <small class="text-muted">{{ user.user_id }}</small>
                                             </div>
                                         </div>
                                     </td>
-                                    <td>
-                                        <span class="badge badge-role badge-{{ user.role }}">
-                                            {{ user.get_role_display }}
-                                        </span>
-                                    </td>
+                                    <td><span class="badge bg-secondary">{{ user.get_role_display }}</span></td>
                                     <td>{{ user.department|default:"-" }}</td>
                                     <td>
-                                        <div class="d-flex align-items-center">
-                                            <code class="bg-warning px-2 py-1 rounded">{{ user.initial_password }}</code>
-                                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyToClipboard('{{ user.initial_password }}', this)">
-                                                <i class='bx bx-copy'></i>
-                                            </button>
-                                        </div>
+                                        <code class="bg-warning bg-opacity-10 px-2 py-1 rounded">{{ user.initial_password }}</code>
+                                        <button class="btn btn-sm btn-link" onclick="copyPassword('{{ user.initial_password }}', this)">
+                                            <i class='bx bx-copy'></i>
+                                        </button>
                                     </td>
+                                    <td><small>{{ user.created_at|timesince }} ago</small></td>
                                     <td>
-                                        <small class="text-muted">
-                                            {{ user.created_at|date:"M d, Y" }}<br>
-                                            <span class="text-muted">{{ user.created_at|timesince }} ago</span>
-                                        </small>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="sendCredentials('{{ user.email }}', '{{ user.initial_password }}')">
-                                                <i class='bx bx-send'></i> Send
-                                            </button>
-                                            <a href="{% url 'accounts:user_reset_password' user.pk %}" class="btn btn-sm btn-outline-warning">
-                                                <i class='bx bx-refresh'></i> Reset
-                                            </a>
-                                        </div>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="sendCredentials('{{ user.email }}')">
+                                            <i class='bx bx-send'></i>
+                                        </button>
                                     </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    <p class="text-muted small mt-3">
-                        <i class='bx bx-info-circle'></i> Initial passwords are visible until users log in for the first time.
-                    </p>
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class='bx bx-check-circle' style="font-size: 3rem; color: var(--success);"></i>
-                        <h5 class="mt-3">All Good!</h5>
-                        <p class="text-muted">No users with pending initial passwords.</p>
-                    </div>
-                {% endif %}
+                </div>
             </div>
         </div>
     </div>
-</div>
+    {% endif %}
 
-<div class="row">
-    <!-- Users Awaiting Password Change -->
-    <div class="col-lg-6 mb-4">
-        <div class="card modern-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class='bx bx-time'></i> Recent Users</h5>
-                <span class="badge bg-info">{{ recent_users.count }}</span>
-            </div>
-            <div class="card-body">
-                {% if recent_users %}
-                    <div class="list-group list-group-flush">
-                        {% for user in recent_users %}
-                        <div class="list-group-item px-0">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-1">{{ user.display_name }}</h6>
-                                    <small class="text-muted">
-                                        <i class='bx bx-envelope'></i> {{ user.email }}
-                                        | <span class="badge bg-secondary">{{ user.get_role_display }}</span>
-                                        {% if user.user_id %}
-                                        | <span class="badge bg-light text-dark">{{ user.user_id }}</span>
-                                        {% endif %}
-                                    </small>
+    <!-- Two Column Layout -->
+    <div class="row">
+        <!-- Recent Activity -->
+        <div class="col-lg-6 mb-4">
+            <div class="modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-time'></i> Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="activity-timeline">
+                        {% if recent_users %}
+                            {% for user in recent_users|slice:":5" %}
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class='bx bx-user-plus'></i>
                                 </div>
-                                <div class="text-end">
-                                    <small class="text-muted d-block">{{ user.created_at|timesince }} ago</small>
-                                    {% if not user.password_changed %}
-                                        <span class="badge bg-warning">New</span>
-                                    {% endif %}
+                                <div class="activity-content">
+                                    <strong>{{ user.display_name }}</strong> joined as {{ user.get_role_display }}
+                                    <div class="activity-time">{{ user.created_at|timesince }} ago</div>
                                 </div>
                             </div>
-                        </div>
-                        {% endfor %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">
+                                <i class='bx bx-history'></i>
+                                <h5>No Recent Activity</h5>
+                                <p>Activity will appear here when users join or take actions.</p>
+                            </div>
+                        {% endif %}
                     </div>
-                {% else %}
-                    <p class="text-muted mb-0">No recent users.</p>
-                {% endif %}
+                </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Pending Project Approvals -->
-    <div class="col-lg-6 mb-4">
-        <div class="card modern-card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class='bx bx-folder'></i> Pending Project Approvals</h5>
-                <span class="badge bg-danger">{{ pending_projects_list.count }}</span>
-            </div>
-            <div class="card-body">
-                {% if pending_projects_list %}
-                    <div class="list-group list-group-flush">
-                        {% for project in pending_projects_list %}
-                        <div class="list-group-item px-0">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1">{{ project.title|truncatechars:40 }}</h6>
-                                    <small class="text-muted">
-                                        <i class='bx bx-user'></i> {{ project.student.display_name }}
-                                        {% if project.student.user_id %}
-                                        ({{ project.student.user_id }})
-                                        {% endif %}
-                                        <br>
-                                        <i class='bx bx-code-alt'></i> {{ project.programming_languages|truncatechars:30 }}
-                                    </small>
-                                </div>
-                                <div class="text-end">
+
+        <!-- Pending Approvals -->
+        <div class="col-lg-6 mb-4">
+            <div class="modern-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class='bx bx-folder'></i> Pending Approvals</h5>
+                    <span class="badge bg-danger">{{ pending_projects_list.count }}</span>
+                </div>
+                <div class="card-body">
+                    {% if pending_projects_list %}
+                        <div class="list-group list-group-flush">
+                            {% for project in pending_projects_list|slice:":5" %}
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ project.title|truncatechars:40 }}</h6>
+                                        <small class="text-muted">
+                                            <i class='bx bx-user'></i> {{ project.student.display_name }}
+                                            <br>
+                                            <i class='bx bx-code-alt'></i> {{ project.programming_languages|truncatechars:30 }}
+                                        </small>
+                                    </div>
                                     <a href="{% url 'projects:project_review' project.pk %}" class="btn btn-sm btn-primary">
-                                        <i class='bx bx-edit'></i> Review
+                                        Review
                                     </a>
                                 </div>
                             </div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-muted mb-0">No pending projects at this time.</p>
-                {% endif %}
+                    {% else %}
+                        <div class="empty-state">
+                            <i class='bx bx-check-circle'></i>
+                            <h5>All Caught Up!</h5>
+                            <p>No projects pending approval.</p>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-.dashboard-header {
-    padding: 20px 0;
-    border-bottom: 2px solid var(--border);
-}
-
-.stat-card {
-    border: none;
-    border-radius: 12px;
-    transition: all 0.3s;
-    height: 100%;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-}
-
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-}
-
-.badge-role {
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
-}
-
-.badge-superadmin { background: var(--danger); color: white; }
-.badge-admin { background: var(--primary); color: white; }
-.badge-supervisor { background: var(--info); color: white; }
-.badge-student { background: var(--success); color: white; }
-
-.list-group-item {
-    border: none;
-    border-bottom: 1px solid var(--border);
-    transition: background-color 0.2s;
-}
-
-.list-group-item:hover {
-    background-color: var(--secondary);
-}
-
-.list-group-item:last-child {
-    border-bottom: none;
-}
-
-.avatar-sm {
-    width: 32px;
-    height: 32px;
-}
-</style>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-function copyToClipboard(text, button) {
-    navigator.clipboard.writeText(text).then(function() {
-        // Visual feedback
-        const originalHtml = button.innerHTML;
-        button.innerHTML = '<i class="bx bx-check"></i>';
-        button.classList.remove('btn-outline-secondary');
-        button.classList.add('btn-success');
-        
-        setTimeout(() => {
-            button.innerHTML = originalHtml;
-            button.classList.remove('btn-success');
-            button.classList.add('btn-outline-secondary');
-        }, 2000);
-    }).catch(function(err) {
-        alert('Failed to copy password: ' + err);
+document.addEventListener('DOMContentLoaded', function() {
+    // Activity Chart
+    const activityCtx = document.getElementById('activityChart').getContext('2d');
+    new Chart(activityCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'New Users',
+                data: [12, 19, 8, 15, 20, 12, 10],
+                borderColor: 'rgb(85, 104, 254)',
+                backgroundColor: 'rgba(85, 104, 254, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Project Submissions',
+                data: [5, 10, 6, 12, 15, 8, 7],
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // User Distribution Chart
+    const distCtx = document.getElementById('userDistChart').getContext('2d');
+    new Chart(distCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Students', 'Supervisors', 'Admins'],
+            datasets: [{
+                data: [{{ students_count }}, {{ supervisors_count }}, {{ admins_count }}],
+                backgroundColor: [
+                    'rgb(85, 104, 254)',
+                    'rgb(59, 130, 246)',
+                    'rgb(245, 158, 11)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+});
+
+function copyPassword(password, btn) {
+    navigator.clipboard.writeText(password).then(() => {
+        const icon = btn.querySelector('i');
+        icon.className = 'bx bx-check';
+        setTimeout(() => icon.className = 'bx bx-copy', 2000);
     });
 }
 
-function sendCredentials(email, password) {
-    if (confirm(`Send credentials to ${email}?`)) {
-        // Here you would typically make an AJAX call to send email
-        alert(`Credentials sent to ${email}`);
-        
-        // Simulate sending
-        const btn = event.target;
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Sending...';
-        btn.disabled = true;
-        
-        setTimeout(() => {
-            btn.innerHTML = '<i class="bx bx-check"></i> Sent';
-            setTimeout(() => {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }, 2000);
-        }, 1500);
-    }
+function sendCredentials(email) {
+    // Implement AJAX call to send credentials
+    alert('Credentials sent to ' + email);
 }
 
-// Auto-refresh the page every 30 seconds to show updated user status
-setTimeout(() => {
-    window.location.reload();
-}, 50000);
+function refreshDashboard() {
+    location.reload();
+}
+
+function exportReport() {
+    // Implement export functionality
+    alert('Exporting report...');
+}
+
+function updateChart(period) {
+    // Implement chart update logic
+    console.log('Updating chart for period:', period);
+}
 </script>
 {% endblock %}

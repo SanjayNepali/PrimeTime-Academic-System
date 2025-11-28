@@ -13,14 +13,19 @@ urlpatterns = [
     path('<int:pk>/submit/', views.project_submit, name='project_submit'),
     path('<int:pk>/', views.project_detail, name='project_detail'),
     
+    # Analytics and recommendations routes
+    path('<int:pk>/analytics/', views.project_analytics, name='project_analytics'),
+    path('<int:pk>/recommendations/', views.project_recommendations, name='project_recommendations'),
+    
+    # Deliverable routes
+    path('<int:pk>/deliverable/submit/', views.deliverable_submit, name='deliverable_submit'),
+    
     # Project list (role-based)
     path('', views.project_list, name='project_list'),
     
-    # Superadmin/Admin routes
+    # Admin routes
     path('all-projects/', views.all_projects, name='all_projects'),
     path('<int:pk>/review/', views.project_review, name='project_review'),
-    
-    # Add this missing route
     path('<int:pk>/assign-supervisor/', views.project_assign_supervisor, name='project_assign_supervisor'),
     
     # Supervisor routes

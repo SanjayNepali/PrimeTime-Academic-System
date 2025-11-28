@@ -17,7 +17,7 @@ from .forms import (
 
 @login_required
 def my_project(request):
-    """Student's own project view with resources, forum, and help - UPDATED"""
+    """Student's own project view with resources, forum, and help"""
     
     if not request.user.is_student:
         messages.error(request, 'This page is for students only.')
@@ -33,40 +33,34 @@ def my_project(request):
     except Project.DoesNotExist:
         project = None
     
-    # Get project resources and recommendations
-    resources = []
-    if project:
-        # Get resources based on project languages
-        # This will be enhanced with recommendation engine
-        # Note: You'll need to import Resource model if it exists
-        # resources = Resource.objects.filter(
-        #     tags__name__in=project.languages_list
-        # ).distinct()[:10]
-        pass
-    
-    # Get forum posts related to student's technologies
-    forum_posts = []
-    if project:
-        # Note: You'll need to import ForumPost model if it exists
-        # forum_posts = ForumPost.objects.filter(
-        #     Q(tags__name__in=project.languages_list) |
-        #     Q(author=request.user)
-        # ).distinct().order_by('-created_at')[:10]
-        pass
-    
+    # Add required context for the enhanced template
     context = {
         'title': 'My Project - PrimeTime',
         'project': project,
-        'resources': resources,
-        'forum_posts': forum_posts,
         'can_edit': project and project.status in ['draft', 'rejected'],
         'show_resubmit': project and project.status == 'rejected',
-        'tab': request.GET.get('tab', 'overview'),  # For tab navigation
+        'tab': request.GET.get('tab', 'overview'),
         
-        # Student info from new User model - UPDATED
+        # Student info
         'student_id': request.user.user_id,
         'department': request.user.department,
         'batch_year': request.user.batch_year,
+        
+        # Enhanced dashboard data (placeholders)
+        'progress_percentage': project.progress_percentage if project else 0,
+        'completed_deliverables': project.deliverables.filter(is_approved=True).count() if project else 0,
+        'total_deliverables': 5,  # Total possible deliverables
+        'stress_score': 35,
+        'stress_level': 'low',
+        'stress_label': 'Low Stress',
+        'performance_grade': 'A',
+        'performance_score': 88.5,
+        'ai_recommendations': [],
+        'recent_activities': project.activities.all()[:5] if project else [],
+        'recommended_resources': [],
+        'recommended_resources_count': 0,
+        'group_members': [],
+        'forum_discussions': [],
     }
     
     return render(request, 'projects/my_project.html', context)
@@ -138,7 +132,7 @@ def all_projects(request):
         'statuses': Project.STATUS_CHOICES,
         'batches': range(2079, 2090),
         'is_supervisor': request.user.is_supervisor,
-        'is_admin': request.user.is_admin,  # only admin now
+        'is_admin': request.user.is_admin,
     }
     
     return render(request, 'projects/all_projects.html', context)
@@ -249,14 +243,13 @@ def project_detail(request, pk):
     
     # Check permissions - UPDATED with new role properties
     can_edit = request.user == project.student and project.is_editable
-    can_review = (request.user.is_superadmin or request.user.is_admin) and project.status == 'pending'
+    can_review = request.user.is_admin and project.status == 'pending'
     can_manage_deliverables = request.user == project.supervisor
     
     # Check if user has access to view this project
     has_access = (
         request.user == project.student or
         request.user == project.supervisor or
-        request.user.is_superadmin or
         request.user.is_admin
     )
     
@@ -283,7 +276,6 @@ def project_detail(request, pk):
         'is_student': request.user.is_student,
         'is_supervisor': request.user.is_supervisor,
         'is_admin': request.user.is_admin,
-        'is_superadmin': request.user.is_superadmin,
         
         # Student info from new User model - UPDATED
         'student_id': project.student.user_id if project.student else None,
@@ -291,6 +283,172 @@ def project_detail(request, pk):
     }
     return render(request, 'projects/project_detail.html', context)
 
+# Add these to the existing views.py file
+
+@login_required
+def project_analytics(request, pk):
+    """Project analytics dashboard"""
+    project = get_object_or_404(Project, pk=pk)
+    
+    # Check permissions
+    if request.user != project.student and not request.user.is_admin and request.user != project.supervisor:
+        messages.error(request, 'You do not have permission to view these analytics.')
+        return redirect('projects:project_detail', pk=project.pk)
+    
+    # Calculate analytics data
+    deliverables = project.deliverables.all()
+    completed_deliverables = deliverables.filter(is_approved=True).count()
+    total_deliverables = 5  # Total possible deliverables
+    
+    # Calculate average marks
+    approved_deliverables = deliverables.filter(is_approved=True, marks__isnull=False)
+    if approved_deliverables.exists():
+        average_marks = sum(d.marks for d in approved_deliverables) / approved_deliverables.count()
+    else:
+        average_marks = 0
+    
+    # Placeholder data for charts
+    context = {
+        'project': project,
+        'title': f'Analytics - {project.title}',
+        'progress_percentage': project.progress_percentage,
+        'completed_deliverables': completed_deliverables,
+        'total_deliverables': total_deliverables,
+        'completion_rate': int((completed_deliverables / total_deliverables) * 100) if total_deliverables > 0 else 0,
+        'average_marks': average_marks,
+        'days_remaining': 30,  # Placeholder
+        
+        # Chart data (placeholders)
+        'progress_timeline_labels': ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current'],
+        'progress_timeline_data': [10, 25, 45, 70, project.progress_percentage],
+        'expected_progress_data': [20, 40, 60, 80, 100],
+        'deliverable_progress': min(100, int((completed_deliverables / total_deliverables) * 100)),
+        'marks_progress': min(100, int(average_marks)),
+        'activity_progress': min(100, project.progress_percentage),
+        'deliverable_labels': ['Proposal', 'Mid Defense', 'Pre Defense', 'Final Defense', 'Documentation'],
+        'deliverable_marks': [85, 78, 92, 0, 0],  # Placeholder
+        'activity_heatmap_data': [],  # Placeholder
+        
+        # Insights and recommendations
+        'performance_insights': [
+            {
+                'type': 'success',
+                'icon': 'bx-trending-up',
+                'title': 'Good Progress',
+                'description': 'You are maintaining steady progress on your project.'
+            }
+        ],
+        'recommendations': [
+            {
+                'priority': 'medium',
+                'priority_label': 'Medium',
+                'title': 'Focus on Final Deliverables',
+                'description': 'Consider starting work on your final defense materials.',
+                'action_url': '#',
+                'action_label': 'View Resources'
+            }
+        ]
+    }
+    
+    return render(request, 'projects/project_analytics.html', context)
+
+@login_required
+def project_recommendations(request, pk):
+    """AI-powered project recommendations"""
+    project = get_object_or_404(Project, pk=pk)
+    
+    # Check permissions
+    if request.user != project.student:
+        messages.error(request, 'Access denied.')
+        return redirect('projects:project_detail', pk=project.pk)
+    
+    # Placeholder recommendation data
+    context = {
+        'project': project,
+        'title': f'Recommendations - {project.title}',
+        'total_recommendations': 12,
+        'match_score': 85,
+        'trending_count': 5,
+        'high_rated_count': 8,
+        'categories': [
+            ('tutorial', 'Tutorials'),
+            ('documentation', 'Documentation'),
+            ('video', 'Videos'),
+            ('article', 'Articles'),
+            ('tool', 'Tools')
+        ],
+        
+        # Placeholder recommendations
+        'tech_recommendations': [
+            {
+                'id': 1,
+                'category': 'tutorial',
+                'category_icon': 'bx-video',
+                'title': f'{project.languages_list[0]} Best Practices Tutorial',
+                'description': 'Learn advanced techniques and best practices for your project.',
+                'match_percentage': 92,
+                'programming_languages': project.programming_languages,
+                'tech_list': project.languages_list[:3],
+                'average_rating': 4.5,
+                'views': 1250,
+                'like_count': 89,
+                'recommendation_reason': 'Matches your technology stack perfectly',
+                'url': '#'
+            }
+        ] if project.languages_list else [],
+        
+        'collaborative_recommendations': [
+            {
+                'id': 2,
+                'category': 'documentation',
+                'category_icon': 'bx-book',
+                'title': 'Project Documentation Guide',
+                'description': 'Comprehensive guide to writing effective project documentation.',
+                'match_percentage': 78,
+                'programming_languages': 'General',
+                'tech_list': ['Documentation', 'Writing'],
+                'average_rating': 4.2,
+                'views': 890,
+                'like_count': 45,
+                'recommendation_reason': 'Popular among similar projects',
+                'url': '#'
+            }
+        ],
+        
+        'trending_recommendations': [
+            {
+                'id': 3,
+                'category': 'article',
+                'category_icon': 'bx-news',
+                'title': 'Latest Trends in Web Development',
+                'description': 'Stay updated with the latest trends and technologies.',
+                'match_percentage': 85,
+                'programming_languages': 'Web, JavaScript',
+                'tech_list': ['Web', 'JavaScript', 'Trends'],
+                'average_rating': 4.7,
+                'views': 2100,
+                'like_count': 156,
+                'recommendation_reason': 'Trending this week in your field',
+                'url': '#'
+            }
+        ]
+    }
+    
+    return render(request, 'projects/project_recommendations.html', context)
+
+@login_required
+def deliverable_submit(request, pk):
+    """Submit project deliverable"""
+    project = get_object_or_404(Project, pk=pk)
+    
+    # Check permissions
+    if request.user != project.student:
+        messages.error(request, 'Only the project student can submit deliverables.')
+        return redirect('projects:project_detail', pk=project.pk)
+    
+    # For now, redirect to project detail with message
+    messages.info(request, 'Deliverable submission feature will be implemented soon.')
+    return redirect('projects:project_detail', pk=project.pk)
 
 @login_required
 def project_submit(request, pk):
@@ -338,9 +496,9 @@ def project_submit(request, pk):
 
 @login_required
 def project_review(request, pk):
-    """Review project (admin/superadmin only) - UPDATED"""
+    """Review project (admin only) - UPDATED"""
     
-    if not (request.user.is_admin or request.user.is_superadmin):
+    if not request.user.is_admin:
         messages.error(request, 'Only admins can review projects.')
         return redirect('dashboard:home')
     
@@ -414,7 +572,7 @@ def project_list(request):
         projects = projects.filter(student=request.user)
     elif request.user.is_supervisor:
         projects = projects.filter(supervisor=request.user)
-    # superadmin and admin can see all projects
+    # admin can see all projects
     
     if status_filter:
         projects = projects.filter(status=status_filter)
@@ -425,8 +583,8 @@ def project_list(request):
             Q(title__icontains=search_query) |
             Q(description__icontains=search_query) |
             Q(programming_languages__icontains=search_query) |
-            Q(student__full_name__icontains=search_query) |  # UPDATED: full_name
-            Q(student__user_id__icontains=search_query)      # UPDATED: user_id
+            Q(student__full_name__icontains=search_query) |
+            Q(student__user_id__icontains=search_query)
         )
     
     # Add pagination
@@ -447,16 +605,15 @@ def project_list(request):
         'is_student': request.user.is_student,
         'is_supervisor': request.user.is_supervisor,
         'is_admin': request.user.is_admin,
-        'is_superadmin': request.user.is_superadmin,
     }
     return render(request, 'projects/project_list.html', context)
 
 
 @login_required
 def project_assign_supervisor(request, pk):
-    """Assign supervisor to project (admin/superadmin only) - NEW"""
+    """Assign supervisor to project (admin only) - NEW"""
     
-    if not (request.user.is_admin or request.user.is_superadmin):
+    if not request.user.is_admin:
         messages.error(request, 'Only admins can assign supervisors.')
         return redirect('dashboard:home')
     
@@ -505,8 +662,8 @@ def supervisor_projects(request):
     if search_query:
         projects = projects.filter(
             Q(title__icontains=search_query) |
-            Q(student__full_name__icontains=search_query) |  # UPDATED: full_name
-            Q(student__user_id__icontains=search_query)      # UPDATED: user_id
+            Q(student__full_name__icontains=search_query) |
+            Q(student__user_id__icontains=search_query)
         )
     
     context = {

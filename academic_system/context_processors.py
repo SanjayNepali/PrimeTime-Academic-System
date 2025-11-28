@@ -14,9 +14,9 @@ def user_permissions(request):
     
     # Comprehensive admin check - superusers are always admins
     is_admin_user = any([
-        user.is_superuser,  # Superusers are always admins
-        getattr(user, 'is_admin', False),  # Custom is_admin property
-        getattr(user, 'role', None) in ['admin', 'superadmin']  # Role-based admin
+        user.is_superuser,
+        getattr(user, 'is_admin', False),
+        getattr(user, 'role', None) == 'admin'
     ])
     
     return {

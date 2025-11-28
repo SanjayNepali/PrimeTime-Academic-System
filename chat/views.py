@@ -158,7 +158,7 @@ def chat_room(request, room_id):
 def create_room(request):
     """Create a new chat room (admin/supervisor only)"""
     
-    if request.user.role not in ['admin', 'supervisor', 'superadmin']:
+    if request.user.role not in ['admin', 'supervisor']:
         messages.error(request, 'Only admins and supervisors can create chat rooms')
         return redirect('chat:chat_home')
     
@@ -248,7 +248,7 @@ def analytics_dashboard(request):
     """Analytics dashboard for supervisors/admins"""
     
     # Only supervisors and admins can access
-    if request.user.role not in ['admin', 'supervisor', 'superadmin']:
+    if request.user.role not in ['admin', 'supervisor']:
         messages.error(request, 'Access denied')
         return redirect('chat:chat_home')
     
@@ -467,7 +467,7 @@ def analyze_student_stress(request, student_id):
     """Analyze and return stress data for a specific student (AJAX)"""
     
     # Only supervisors and admins
-    if request.user.role not in ['admin', 'supervisor', 'superadmin']:
+    if request.user.role not in ['admin', 'supervisor']:
         return JsonResponse({'error': 'Access denied'}, status=403)
     
     student = get_object_or_404(User, pk=student_id, role='student')

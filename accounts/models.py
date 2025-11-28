@@ -120,7 +120,6 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
 
 
-# Keep UserProfile, LoginHistory, and UniversityDatabase models the same as before
 class UserProfile(models.Model):
     """Extended profile for users"""
     

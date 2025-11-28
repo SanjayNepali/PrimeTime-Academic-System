@@ -1,4 +1,4 @@
-# File: Desktop/Prime/dashboard/views.py
+# File: dashboard/views.py
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -9,6 +9,7 @@ from datetime import timedelta
 from accounts.models import User, UserProfile
 from projects.models import Project, ProjectDeliverable, ProjectActivity
 from groups.models import Group, GroupMembership
+from analytics.models import StressLevel
 
 
 @login_required
@@ -19,10 +20,8 @@ def dashboard_home(request):
     # Check active role from session or user model
     active_role = request.session.get('active_role') or user.role
     
-    # Superusers are treated as superadmins
-    if user.is_superuser or active_role == 'superadmin':
-        return redirect('dashboard:admin_dashboard')
-    elif active_role == 'admin':
+    # Superusers are treated as admins
+    if user.is_superuser or active_role == 'admin':
         return redirect('dashboard:admin_dashboard')
     elif active_role == 'supervisor':
         return redirect('dashboard:supervisor_dashboard')
@@ -35,16 +34,16 @@ def dashboard_home(request):
 
 @login_required
 def admin_dashboard(request):
-    """Superadmin/Admin dashboard - UPDATED for new User model"""
+    """Admin dashboard - UPDATED for new User model"""
     
     user = request.user
     
-    # Check permissions - allow superusers, superadmin, and admin roles
+    # Check permissions - allow superusers and admin roles
     if not (user.is_superuser or user.is_admin):
         messages.error(request, 'Access denied. Admin privileges required.')
         return redirect('dashboard:home')
     
-    # Get users with visible initial passwords (NEW FEATURE)
+    # Get users with visible initial passwords
     users_with_passwords = User.objects.filter(
         initial_password_visible=True,
         is_superuser=False
@@ -54,7 +53,7 @@ def admin_dashboard(request):
     total_users = User.objects.exclude(is_superuser=True).count()
     students_count = User.objects.filter(role='student').count()
     supervisors_count = User.objects.filter(role='supervisor').count()
-    admins_count = User.objects.filter(role__in=['superadmin', 'admin']).count()
+    admins_count = User.objects.filter(role='admin').count()
     
     # Recent activity - users created in last 7 days
     recent_users = User.objects.filter(
@@ -78,7 +77,7 @@ def admin_dashboard(request):
         'in_progress_projects': Project.objects.filter(status='in_progress').count(),
         
         # User management - UPDATED
-        'users_with_passwords': users_with_passwords,  # Show initial passwords
+        'users_with_passwords': users_with_passwords,
         'recent_users': recent_users,
         'pending_projects_list': Project.objects.filter(
             status='pending'
@@ -100,7 +99,7 @@ def admin_dashboard(request):
 
 @login_required
 def student_dashboard(request):
-    """Student dashboard with project status and progress - UPDATED"""
+    """Student dashboard with project status and progress - UPDATED with strict stress validation"""
     
     if not request.user.is_student:
         messages.error(request, 'Access denied. Students only.')
@@ -128,14 +127,26 @@ def student_dashboard(request):
     except GroupMembership.DoesNotExist:
         group = None
     
-    # Calculate progress and stress (simplified for now)
+    # STRICT STRESS LEVEL CALCULATION - Only show if meaningful data exists
+    stress_level = 0
+    has_stress_data = False
+    
+    # Get latest stress level
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
+    if latest_stress and latest_stress.level > 10:
+        stress_level = latest_stress.level
+        has_stress_data = True
+    else:
+        # No meaningful stress data available
+        stress_level = 0
+        has_stress_data = False
+    
+    # Calculate progress
     progress = project.progress_percentage if project else 0
-    stress_level = 30  # Placeholder - will be calculated from sentiment analysis
     
     # Get upcoming deadlines
     upcoming_deadlines = []
     if project and project.status in ['approved', 'in_progress']:
-        # This will come from events app later
         upcoming_deadlines = [
             {'name': 'Mid Defense', 'date': timezone.now() + timedelta(days=14)},
             {'name': 'Pre Defense', 'date': timezone.now() + timedelta(days=30)},
@@ -155,6 +166,7 @@ def student_dashboard(request):
         'group': group,
         'progress': progress,
         'stress_level': stress_level,
+        'has_stress_data': has_stress_data,
         'upcoming_deadlines': upcoming_deadlines,
         'recent_activities': recent_activities,
         
@@ -172,6 +184,9 @@ def student_dashboard(request):
         'department': student.department,
         'enrollment_year': student.enrollment_year,
         'batch_year': student.batch_year,
+        
+        # Feedback count (placeholder)
+        'feedback_count': 0,
     }
     
     return render(request, 'dashboard/student/home.html', context)
@@ -219,7 +234,7 @@ def supervisor_dashboard(request):
     ).aggregate(Avg('progress_percentage'))['progress_percentage__avg'] or 0
     
     # Students with high stress (placeholder)
-    high_stress_students = []  # Will be populated from analytics
+    high_stress_students = []
     
     # Recent submissions
     recent_submissions = ProjectDeliverable.objects.filter(
@@ -255,7 +270,7 @@ def supervisor_dashboard(request):
         'supervisor_profile': supervisor_profile,
         'max_groups': max_groups,
         'specialization': specialization,
-        'department': supervisor.department,  # From new User model
+        'department': supervisor.department,
     }
     
     return render(request, 'dashboard/supervisor/home.html', context)
@@ -269,7 +284,7 @@ def switch_role(request):
         new_role = request.POST.get('role')
         user = request.user
 
-        valid_roles = ['admin', 'supervisor', 'student']  # no 'superadmin'
+        valid_roles = ['admin', 'supervisor', 'student']
 
         if new_role not in valid_roles:
             messages.error(request, 'Invalid role selected')
@@ -331,4 +346,3 @@ def user_profile(request):
     }
     
     return render(request, 'accounts/profile.html', context)
-

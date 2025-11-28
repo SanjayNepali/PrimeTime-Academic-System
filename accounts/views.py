@@ -94,7 +94,7 @@ def change_password(request):
     print(f"DEBUG: change_password view called - user: {request.user.username}")
     print(f"DEBUG: User must_change_password (before): {request.user.must_change_password}")
 
-    is_forced = request.user.must_change_password  # detect forced password change
+    is_forced = request.user.must_change_password
 
     if request.method == "POST":
         # ✅ Pass the forced flag into the form
@@ -396,8 +396,6 @@ def login_history(request):
     return render(request, 'accounts/login_history.html', context)
 
 
-# ============ NEW VIEWS ADDED BELOW ============
-
 @login_required
 def user_detail(request, pk):
     """View detailed user information"""
@@ -411,8 +409,6 @@ def user_detail(request, pk):
     # Get project count if user is a student
     project_count = 0
     if viewed_user.is_student:
-        # Assuming you have a Project model with student foreign key
-        # project_count = Project.objects.filter(student=viewed_user).count()
         pass
     
     context = {
@@ -655,7 +651,7 @@ def bulk_user_import(request):
                     'success_count': success_count,
                     'error_count': error_count,
                     'skipped_count': skipped_count,
-                    'errors': errors[:10]  # Limit to first 10 errors
+                    'errors': errors[:10]
                 })
             
             # Regular response

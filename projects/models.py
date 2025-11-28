@@ -46,7 +46,7 @@ class Project(models.Model):
         null=True,
         blank=True,
         related_name='reviewed_projects',
-        limit_choices_to={'role__in': ['admin', 'superadmin']}  # UPDATED
+        limit_choices_to={'role': 'admin'}
     )
     review_date = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True)
@@ -78,7 +78,7 @@ class Project(models.Model):
     
     class Meta:
         ordering = ['-created_at']
-        unique_together = ['student', 'batch_year']  # One project per student per batch
+        unique_together = ['student', 'batch_year']
         indexes = [
             models.Index(fields=['status']),
             models.Index(fields=['batch_year']),
@@ -132,116 +132,6 @@ class Project(models.Model):
     def display_info(self):
         """Display project info for admin"""
         return f"{self.title} ({self.student.display_name} - {self.batch_year})"
-    """Student project submissions"""
-    
-    STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('pending', 'Pending Review'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
-        ('in_progress', 'In Progress'),
-        ('completed', 'Completed'),
-    ]
-    
-    # Core fields
-    student = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='projects',
-        limit_choices_to={'role': 'student'}
-    )
-    title = models.CharField(max_length=200)
-    description = models.TextField()
-    programming_languages = models.CharField(
-        max_length=200,
-        help_text="Comma-separated list (e.g., Python, Django, JavaScript)"
-    )
-    
-    # Status tracking
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='draft'
-    )
-    
-    # Review process
-    reviewed_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='reviewed_projects',
-        limit_choices_to={'role': 'admin'}
-    )
-    review_date = models.DateTimeField(null=True, blank=True)
-    rejection_reason = models.TextField(blank=True)
-    
-    # Supervisor assignment
-    supervisor = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='supervised_projects',
-        limit_choices_to={'role': 'supervisor'}
-    )
-    
-    # Progress tracking
-    progress_percentage = models.IntegerField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    submitted_at = models.DateTimeField(null=True, blank=True)
-    
-    # Batch year
-    batch_year = models.IntegerField()
-    
-    class Meta:
-        ordering = ['-created_at']
-        unique_together = ['student', 'batch_year']  # One project per student per batch
-        indexes = [
-            models.Index(fields=['status']),
-            models.Index(fields=['batch_year']),
-        ]
-    
-    def __str__(self):
-        return f"{self.title} - {self.student.username}"
-    
-    def submit_for_review(self):
-        """Submit project for admin review"""
-        self.status = 'pending'
-        self.submitted_at = timezone.now()
-        self.save()
-    
-    def approve(self, admin_user):
-        """Approve the project"""
-        self.status = 'approved'
-        self.reviewed_by = admin_user
-        self.review_date = timezone.now()
-        self.rejection_reason = ''
-        self.save()
-    
-    def reject(self, admin_user, reason):
-        """Reject the project with reason"""
-        self.status = 'rejected'
-        self.reviewed_by = admin_user
-        self.review_date = timezone.now()
-        self.rejection_reason = reason
-        self.save()
-    
-    @property
-    def is_editable(self):
-        """Check if project can be edited"""
-        return self.status in ['draft', 'rejected']
-    
-    @property
-    def languages_list(self):
-        """Get list of programming languages"""
-        return [lang.strip() for lang in self.programming_languages.split(',')]
 
 
 class ProjectDeliverable(models.Model):

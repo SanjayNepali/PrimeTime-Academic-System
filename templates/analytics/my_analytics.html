@@ -13,7 +13,25 @@
         <p class="text-muted">Track your stress levels, progress, and performance</p>
     </div>
 
-    <!-- Stress Alert -->
+    {% if not has_data %}
+    <!-- NO DATA STATE - Clear and actionable -->
+    <div class="card modern-card">
+        <div class="card-body text-center py-5">
+            <i class='bx bx-line-chart' style="font-size: 4rem; color: #ccc; margin-bottom: 1rem;"></i>
+            <h4 class="text-muted">No Analytics Data Yet</h4>
+            <p class="text-muted mb-4">We need to analyze your activity to generate insights.</p>
+            <button class="btn btn-primary btn-lg" onclick="runInitialAnalysis()">
+                <i class='bx bx-analyse'></i> Run Initial Analysis
+            </button>
+            <div class="mt-3">
+                <small class="text-muted">This will analyze your project progress, chat activity, and deadlines</small>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- ACTUAL DATA STATE - Only show if real analysis exists -->
+
+    <!-- Stress Alert - Only if we have stress data -->
     {% if latest_stress and latest_stress.level >= 70 %}
     <div class="alert alert-warning alert-dismissible fade show" role="alert">
         <div class="d-flex align-items-center">
@@ -29,27 +47,21 @@
     {% endif %}
 
     <div class="row">
-        <!-- Stress Level Card -->
+        <!-- Stress Level Card - Only if we have stress data -->
+        {% if latest_stress %}
         <div class="col-md-6 col-lg-3 mb-4">
             <div class="card modern-card h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
                             <h6 class="text-muted mb-1">Current Stress Level</h6>
-                            <h2 class="mb-0 stress-level-value">
-                                {% if latest_stress %}
-                                    {{ latest_stress.level|floatformat:1 }}%
-                                {% else %}
-                                    N/A
-                                {% endif %}
-                            </h2>
+                            <h2 class="mb-0">{{ latest_stress.level|floatformat:1 }}%</h2>
                         </div>
                         <div class="stat-icon bg-{% if latest_stress.level >= 70 %}danger{% elif latest_stress.level >= 40 %}warning{% else %}success{% endif %}-light">
                             <i class='bx bx-heart-circle'></i>
                         </div>
                     </div>
                     
-                    {% if latest_stress %}
                     <div class="stress-indicator mb-3">
                         <div class="progress" style="height: 8px;">
                             <div class="progress-bar bg-{% if latest_stress.level >= 70 %}danger{% elif latest_stress.level >= 40 %}warning{% else %}success{% endif %}"
@@ -62,9 +74,9 @@
                             {{ latest_stress.stress_category }}
                         </span>
                         <span class="badge bg-secondary ms-1">
-                            {% if stress_trend.trend == 'increasing' %}
+                            {% if stress_trend and stress_trend.trend == 'increasing' %}
                                 <i class='bx bx-trending-up'></i> Increasing
-                            {% elif stress_trend.trend == 'decreasing' %}
+                            {% elif stress_trend and stress_trend.trend == 'decreasing' %}
                                 <i class='bx bx-trending-down'></i> Decreasing
                             {% else %}
                                 <i class='bx bx-minus'></i> Stable
@@ -75,14 +87,13 @@
                     <small class="text-muted d-block mt-2">
                         Last updated: {{ latest_stress.timestamp|timesince }} ago
                     </small>
-                    {% else %}
-                    <p class="text-muted mb-0">No stress data available yet</p>
-                    {% endif %}
                 </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Performance Score Card -->
+        <!-- Performance Card - Only if we have performance data -->
+        {% if performance %}
         <div class="col-md-6 col-lg-3 mb-4">
             <div class="card modern-card h-100">
                 <div class="card-body">
@@ -113,8 +124,10 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Progress Card -->
+        <!-- Progress Card - Only if we have performance data -->
+        {% if performance %}
         <div class="col-md-6 col-lg-3 mb-4">
             <div class="card modern-card h-100">
                 <div class="card-body">
@@ -145,8 +158,10 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
-        <!-- Consistency Card -->
+        <!-- Consistency Card - Only if we have performance data -->
+        {% if performance %}
         <div class="col-md-6 col-lg-3 mb-4">
             <div class="card modern-card h-100">
                 <div class="card-body">
@@ -171,9 +186,11 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 
-    <!-- Detailed Analytics Row -->
+    <!-- Charts Section - Only if we have data -->
+    {% if stress_history %}
     <div class="row">
         <!-- Stress Trend Chart -->
         <div class="col-lg-8 mb-4">
@@ -189,11 +206,11 @@
                 <div class="card-body">
                     <canvas id="stressTrendChart" height="80"></canvas>
                     
-                    <!-- Stress Factors Breakdown -->
+                    <!-- Stress Factors Breakdown - Only if we have latest_stress -->
+                    {% if latest_stress %}
                     <div class="mt-4">
                         <h6>Contributing Factors</h6>
                         <div class="row">
-                            {% if latest_stress %}
                             <div class="col-md-3">
                                 <div class="factor-card">
                                     <small class="text-muted">Chat Sentiment</small>
@@ -230,14 +247,15 @@
                                     </div>
                                 </div>
                             </div>
-                            {% endif %}
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Performance Breakdown -->
+        <!-- Performance Breakdown - Only if we have performance data -->
+        {% if performance %}
         <div class="col-lg-4 mb-4">
             <div class="card modern-card h-100">
                 <div class="card-header bg-white">
@@ -296,9 +314,12 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
+    {% endif %}
 
-    <!-- Recent Stress History -->
+    <!-- Recent Stress History - Only if we have stress history -->
+    {% if stress_history %}
     <div class="row">
         <div class="col-12">
             <div class="card modern-card">
@@ -308,7 +329,6 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    {% if stress_history %}
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
@@ -350,19 +370,13 @@
                             </tbody>
                         </table>
                     </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class='bx bx-chart' style="font-size: 3rem; color: #ccc;"></i>
-                        <p class="text-muted mt-3">No stress measurements recorded yet</p>
-                        <button class="btn btn-primary" onclick="refreshStressAnalysis()">
-                            <i class='bx bx-refresh'></i> Run Initial Analysis
-                        </button>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    {% endif %} <!-- End of has_data condition -->
 </div>
 
 <style>
@@ -420,7 +434,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Stress Trend Chart
+// Stress Trend Chart - Only if we have stress history
 {% if stress_history %}
 const stressCtx = document.getElementById('stressTrendChart').getContext('2d');
 new Chart(stressCtx, {
@@ -460,7 +474,8 @@ new Chart(stressCtx, {
 });
 {% endif %}
 
-// Performance Breakdown Chart
+// Performance Breakdown Chart - Only if we have performance data
+{% if performance %}
 const perfCtx = document.getElementById('performanceChart').getContext('2d');
 new Chart(perfCtx, {
     type: 'doughnut',
@@ -491,6 +506,64 @@ new Chart(perfCtx, {
         }
     }
 });
+{% endif %}
+
+// Replace the existing refreshStressAnalysis function
+async function runInitialAnalysis() {
+    const btn = event.target;
+    const originalHTML = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Analyzing...';
+    
+    try {
+        const response = await fetch('/analytics/run-analysis/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show success message and reload to show real data
+            showAnalysisSuccess(data.message);
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            throw new Error(data.error || 'Analysis failed');
+        }
+    } catch (error) {
+        showAnalysisError(error.message);
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
+function showAnalysisSuccess(message) {
+    // Create success alert
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="bx bx-check-circle"></i> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.container-fluid').prepend(alert);
+}
+
+function showAnalysisError(message) {
+    // Create error alert
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-danger alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="bx bx-error-circle"></i> Analysis failed: ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.container-fluid').prepend(alert);
+}
 
 // Refresh stress analysis
 function refreshStressAnalysis() {

@@ -1,4 +1,4 @@
-# File: Desktop/Prime/analytics/sentiment.py
+# File: analytics/sentiment.py
 
 from textblob import TextBlob
 import re
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class AdvancedSentimentAnalyzer:
-    """Advanced sentiment analysis with multiple data sources"""
+    """Advanced sentiment analysis with multiple data sources - STRICTLY NO DEFAULTS"""
     
     def __init__(self, user):
         self.user = user
@@ -50,8 +50,37 @@ class AdvancedSentimentAnalyzer:
             return None
     
     def comprehensive_stress_analysis(self, days=7):
-        """Comprehensive stress analysis using multiple data sources"""
+        """Comprehensive stress analysis - return None if no REAL meaningful data"""
         
+        # STRICT CHECK: Must have a project to even start analysis
+        if not self.project:
+            logger.info(f"No project found for user {self.user} - returning None")
+            return None
+        
+        # STRICT CHECK: Project must have deliverables to be meaningful
+        has_deliverables = ProjectDeliverable.objects.filter(project=self.project).exists()
+        if not has_deliverables:
+            logger.info(f"Project {self.project} has no deliverables - returning None")
+            return None
+        
+        # STRICT CHECK: Check for recent activity in the project
+        has_recent_activity = ProjectDeliverable.objects.filter(
+            project=self.project,
+            submitted_at__gte=timezone.now() - timedelta(days=days)
+        ).exists()
+        
+        # STRICT CHECK: Check for chat activity
+        has_chat_activity = Message.objects.filter(
+            user=self.user,
+            timestamp__gte=timezone.now() - timedelta(days=days)
+        ).exists()
+        
+        # If no recent activity in either project or chat, return None
+        if not has_recent_activity and not has_chat_activity:
+            logger.info(f"No recent activity for user {self.user} - returning None")
+            return None
+        
+        # Only proceed with real analysis if we pass all checks
         stress_data = {
             'chat_sentiment': self._analyze_chat_sentiment(days),
             'project_progress': self._analyze_project_progress(),
@@ -63,19 +92,78 @@ class AdvancedSentimentAnalyzer:
         # Calculate overall stress level
         overall_stress = self._calculate_comprehensive_stress(stress_data)
         
-        # Save to database
+        # FINAL STRICT CHECK: Don't save if stress is too low (indicates no real data)
+        if overall_stress < 15:  # Increased threshold to 15%
+            logger.info(f"Stress level too low ({overall_stress}) - likely no real data, returning None")
+            return None
+        
+        # Save to database only if we have meaningful data
         return self._save_stress_analysis(stress_data, overall_stress)
     
     def _analyze_chat_sentiment(self, days):
-        """Temporary simplified chat sentiment analysis"""
-        # Return default values until chat system is properly set up
-        return {
-            'score': 50,  # Neutral default
-            'message_count': 0,
-            'avg_sentiment': 0,
-            'avg_keyword_score': 0,
-            'sentiment_breakdown': {'positive': 0, 'negative': 0, 'neutral': 0}
-        }
+        """Analyze chat sentiment - return neutral ONLY if no chat data"""
+        try:
+            # Get recent messages
+            recent_messages = Message.objects.filter(
+                user=self.user,
+                timestamp__gte=timezone.now() - timedelta(days=days)
+            )
+            
+            if not recent_messages.exists():
+                # Return 0 score for no data
+                return {
+                    'score': 0,
+                    'message_count': 0,
+                    'avg_sentiment': 0,
+                    'avg_keyword_score': 0,
+                    'sentiment_breakdown': {'positive': 0, 'negative': 0, 'neutral': 0}
+                }
+            
+            # Analyze each message
+            sentiments = []
+            keyword_scores = []
+            
+            for message in recent_messages:
+                analysis = self._analyze_single_message(message.content)
+                sentiments.append(analysis['polarity'])
+                keyword_scores.append(analysis['keyword_score'])
+            
+            # Calculate overall sentiment
+            if sentiments:
+                avg_sentiment = np.mean(sentiments)
+                avg_keyword_score = np.mean(keyword_scores)
+                
+                # Convert to stress score (0-100)
+                chat_stress = self._normalize_chat_stress(avg_sentiment, avg_keyword_score)
+                
+                # Get sentiment breakdown
+                sentiment_breakdown = self._get_sentiment_breakdown(sentiments)
+                
+                return {
+                    'score': chat_stress,
+                    'message_count': len(sentiments),
+                    'avg_sentiment': avg_sentiment,
+                    'avg_keyword_score': avg_keyword_score,
+                    'sentiment_breakdown': sentiment_breakdown
+                }
+            else:
+                return {
+                    'score': 0,
+                    'message_count': 0,
+                    'avg_sentiment': 0,
+                    'avg_keyword_score': 0,
+                    'sentiment_breakdown': {'positive': 0, 'negative': 0, 'neutral': 0}
+                }
+                
+        except Exception as e:
+            logger.error(f"Chat sentiment analysis error: {e}")
+            return {
+                'score': 0,
+                'message_count': 0,
+                'avg_sentiment': 0,
+                'avg_keyword_score': 0,
+                'sentiment_breakdown': {'positive': 0, 'negative': 0, 'neutral': 0}
+            }
     
     def _analyze_single_message(self, text):
         """Analyze a single message with enhanced features"""
@@ -164,9 +252,14 @@ class AdvancedSentimentAnalyzer:
         deadline_pressure = 0
         
         for deliverable in upcoming_deliverables:
-            # Simple deadline pressure calculation
-            days_until_deadline = 14  # Assume 2 weeks for each deliverable
-            pressure = max(0, (1 - (days_until_deadline / 14)) * 50)  # Max 50 per deliverable
+            # More realistic deadline pressure calculation
+            if deliverable.submitted_at:
+                # If submitted, no pressure
+                continue
+                
+            # Calculate days until deadline (simplified)
+            days_until_deadline = 7  # Assume 1 week average
+            pressure = max(0, (1 - (days_until_deadline / 14)) * 40)  # Max 40 per deliverable
             deadline_pressure += pressure
         
         # Cap the pressure
@@ -189,47 +282,90 @@ class AdvancedSentimentAnalyzer:
         if not self.project:
             return {'score': 0, 'complexity': 'unknown'}
         
-        # Estimate workload based on project factors
-        workload_score = 0
+        # Start with base workload
+        workload_score = 20  # Base workload for having a project
         
         # Project size (based on description length)
-        description_complexity = min(1.0, len(self.project.description) / 1000)
-        workload_score += description_complexity * 30
+        description_complexity = min(1.0, len(self.project.description) / 500)  # Reduced divisor
+        workload_score += description_complexity * 20  # Reduced multiplier
         
         # Technology stack complexity
-        tech_complexity = min(1.0, len(self.project.languages_list) / 5)
-        workload_score += tech_complexity * 40
+        tech_count = len(self.project.languages_list) if hasattr(self.project, 'languages_list') else 1
+        tech_complexity = min(1.0, tech_count / 3)  # Reduced divisor
+        workload_score += tech_complexity * 20  # Reduced multiplier
         
         # Progress pressure (being in the middle of project is most stressful)
         progress = self.project.progress_percentage
         if 20 <= progress <= 80:
-            workload_score += 30  # Middle phase is most intensive
+            workload_score += 20  # Reduced middle phase stress
         
         return {
             'score': min(100, workload_score),
-            'complexity': 'high' if workload_score > 60 else 'medium' if workload_score > 30 else 'low',
-            'technology_count': len(self.project.languages_list),
+            'complexity': 'high' if workload_score > 50 else 'medium' if workload_score > 25 else 'low',
+            'technology_count': tech_count,
             'description_length': len(self.project.description)
         }
     
     def _analyze_social_engagement(self, days):
-        """Temporary simplified social engagement"""
-        return {
-            'score': 50,  # Neutral default
-            'sent_messages': 0,
-            'received_messages': 0,
-            'total_interactions': 0,
-            'isolation_level': 'medium'
-        }
+        """Analyze social engagement from chat activity"""
+        try:
+            # Get sent and received messages
+            sent_messages = Message.objects.filter(
+                user=self.user,
+                timestamp__gte=timezone.now() - timedelta(days=days)
+            ).count()
+            
+            received_messages = Message.objects.filter(
+                Q(room__members=self.user) & ~Q(user=self.user),
+                timestamp__gte=timezone.now() - timedelta(days=days)
+            ).count()
+            
+            total_interactions = sent_messages + received_messages
+            
+            # Calculate isolation score (more interactions = lower isolation)
+            if total_interactions == 0:
+                isolation_score = 60  # Reduced from 80
+            elif total_interactions < 5:
+                isolation_score = 40  # Reduced from 60
+            elif total_interactions < 15:
+                isolation_score = 20  # Reduced from 40
+            else:
+                isolation_score = 10  # Reduced from 20
+            
+            # Determine isolation level
+            if isolation_score >= 50:
+                isolation_level = 'high'
+            elif isolation_score >= 25:
+                isolation_level = 'medium'
+            else:
+                isolation_level = 'low'
+            
+            return {
+                'score': isolation_score,
+                'sent_messages': sent_messages,
+                'received_messages': received_messages,
+                'total_interactions': total_interactions,
+                'isolation_level': isolation_level
+            }
+            
+        except Exception as e:
+            logger.error(f"Social engagement analysis error: {e}")
+            return {
+                'score': 30,  # Reduced neutral score
+                'sent_messages': 0,
+                'received_messages': 0,
+                'total_interactions': 0,
+                'isolation_level': 'medium'
+            }
     
     def _calculate_comprehensive_stress(self, stress_data):
         """Calculate comprehensive stress level using weighted factors"""
         weights = {
             'chat_sentiment': 0.25,
-            'project_progress': 0.25,
-            'deadline_pressure': 0.20,
-            'workload_assessment': 0.20,
-            'social_engagement': 0.10
+            'project_progress': 0.30,  # Increased weight
+            'deadline_pressure': 0.25,  # Increased weight
+            'workload_assessment': 0.15,  # Reduced weight
+            'social_engagement': 0.05   # Reduced weight
         }
         
         total_stress = 0
@@ -246,7 +382,7 @@ class AdvancedSentimentAnalyzer:
         sentiment_stress = (1 - ((sentiment + 1) / 2)) * 100
         
         # Keyword score: higher positive = more stress
-        keyword_stress = min(100, max(0, keyword_score * 10 + 50))
+        keyword_stress = min(100, max(0, keyword_score * 8 + 40))  # Reduced multipliers
         
         # Combine with 60-40 weighting
         return (sentiment_stress * 0.6) + (keyword_stress * 0.4)

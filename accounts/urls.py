@@ -16,7 +16,7 @@ urlpatterns = [
     path('profile/update/', views.profile_update, name='profile_update'),
     path('login-history/', views.login_history, name='login_history'),
     
-    # User Management (Admin/Superadmin only)
+    # User Management (Admin only)
     path('users/', views.user_list, name='user_list'),
     path('users/create/', views.create_user, name='create_user'),
     path('users/bulk-import/', views.bulk_user_import, name='bulk_user_import'),

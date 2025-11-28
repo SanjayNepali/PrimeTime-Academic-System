@@ -1,5 +1,4 @@
 <!-- File: Desktop/Prime/templates/accounts/create_user.html -->
-
 {% extends 'base.html' %}
 
 {% block title %}Create User - PrimeTime{% endblock %}
@@ -13,15 +12,25 @@
                     <h4><i class='bx bx-user-plus'></i> Create New User</h4>
                 </div>
                 <div class="card-body">
+                    <!-- Add Bulk Import Alert -->
+                    <div class="alert alert-info d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <i class='bx bx-info-circle'></i>
+                            <strong>Quick Options:</strong> Create single user or import multiple users
+                        </div>
+                        <a href="{% url 'accounts:bulk_user_import' %}" class="btn btn-outline-success btn-sm">
+                            <i class='bx bx-upload'></i> Bulk Import Users
+                        </a>
+                    </div>
+
                     <form method="post" id="user-creation-form">
                         {% csrf_token %}
                         
                         <!-- Manual Creation Option -->
                         <div class="alert alert-info mb-4">
                             <i class='bx bx-info-circle'></i>
-                            <strong>Two ways to create users:</strong><br>
-                            1. Use University ID lookup (recommended) - auto-fills user details<br>
-                            2. Or <a href="#" id="manual-toggle">fill details manually</a>
+                            <strong>Create users using University ID lookup:</strong><br>
+                            Enter the user's university ID to auto-fetch details from the university database
                         </div>
                         
                         <!-- University ID Lookup -->
@@ -75,23 +84,6 @@
                                     {{ form.role }}
                                     {% if form.role.errors %}
                                         <div class="text-danger small mt-1">{{ form.role.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <!-- Additional Fields for Manual Creation -->
-                                <div class="col-md-6 mb-3 manual-field" style="display: none;">
-                                    <label class="form-label">Phone Number</label>
-                                    {{ form.phone }}
-                                    {% if form.phone.errors %}
-                                        <div class="text-danger small mt-1">{{ form.phone.errors.0 }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="col-md-6 mb-3 manual-field" style="display: none;">
-                                    <label class="form-label">Batch Year</label>
-                                    {{ form.batch_year }}
-                                    {% if form.batch_year.errors %}
-                                        <div class="text-danger small mt-1">{{ form.batch_year.errors.0 }}</div>
                                     {% endif %}
                                 </div>
                             </div>
@@ -197,10 +189,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const lookupBtn = document.getElementById('lookup-btn');
-    const userIdInput = document.getElementById('user-id-input');
+    const userIdInput = document.getElementById('{{ form.user_id.id_for_label }}');
     const userDetails = document.getElementById('user-details');
-    const manualToggle = document.getElementById('manual-toggle');
-    const manualFields = document.querySelectorAll('.manual-field');
     const resetBtn = document.getElementById('reset-form');
 
     // University ID Lookup
@@ -221,20 +211,15 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     // Populate form fields
-                    document.querySelector('[name="full_name"]').value = data.data.full_name || '';
-                    document.querySelector('[name="email"]').value = data.data.email || '';
-                    document.querySelector('[name="department"]').value = data.data.department || '';
-                    document.querySelector('[name="role"]').value = data.data.role || '';
+                    document.getElementById('{{ form.full_name.id_for_label }}').value = data.data.full_name || '';
+                    document.getElementById('{{ form.email.id_for_label }}').value = data.data.email || '';
+                    document.getElementById('{{ form.department.id_for_label }}').value = data.data.department || '';
+                    document.getElementById('{{ form.role.id_for_label }}').value = data.data.role || '';
                     
                     // Show user details section
                     userDetails.style.display = 'block';
-                    
-                    // Hide manual fields
-                    manualFields.forEach(field => field.style.display = 'none');
                 } else {
                     alert(data.error || 'User not found in university database');
-                    // Show manual creation option
-                    manualToggle.click();
                 }
             })
             .catch(error => {
@@ -248,32 +233,17 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 
-    // Manual creation toggle
-    manualToggle.addEventListener('click', function(e) {
-        e.preventDefault();
-        userDetails.style.display = 'block';
-        manualFields.forEach(field => field.style.display = 'block');
-        
-        // Clear auto-filled data
-        document.querySelector('[name="full_name"]').value = '';
-        document.querySelector('[name="email"]').value = '';
-        document.querySelector('[name="department"]').value = '';
-        document.querySelector('[name="role"]').value = '';
-        
-        this.style.display = 'none';
-    });
-
     // Reset form
     resetBtn.addEventListener('click', function() {
         document.getElementById('user-creation-form').reset();
         userDetails.style.display = 'none';
-        manualFields.forEach(field => field.style.display = 'none');
-        manualToggle.style.display = 'inline';
         userIdInput.focus();
     });
 
     // Auto-focus on user ID input
-    userIdInput.focus();
+    if (userIdInput) {
+        userIdInput.focus();
+    }
 });
 
 function copyPassword() {

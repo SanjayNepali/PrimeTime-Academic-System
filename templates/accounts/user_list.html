@@ -4,11 +4,29 @@
 
 {% block content %}
 <div class="container-fluid">
+    <!-- Updated Header Section -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class='bx bx-group'></i> {{ title }}</h2>
-        <a href="{% url 'accounts:create_user' %}" class="btn btn-primary">
-            <i class='bx bx-user-plus'></i> Create User
-        </a>
+        <div>
+            <h2><i class='bx bx-group'></i> User Management</h2>
+            <p class="text-muted">
+                {% if batch_filter %}
+                    Showing {{ users.count }} users from Batch {{ batch_filter }}
+                    {% if show_default_batch %}
+                        <span class="badge bg-primary ms-2">Current Active Batch</span>
+                    {% endif %}
+                {% else %}
+                    Showing all {{ users.count }} users across all batches
+                {% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'accounts:bulk_user_import' %}" class="btn btn-success">
+                <i class='bx bx-upload'></i> Bulk Import
+            </a>
+            <a href="{% url 'accounts:create_user' %}" class="btn btn-primary">
+                <i class='bx bx-user-plus'></i> Create User
+            </a>
+        </div>
     </div>
 
     <!-- Filters -->
@@ -30,7 +48,11 @@
                     <select name="batch" class="form-control">
                         <option value="">All Batches</option>
                         {% for batch in batches %}
-                            <option value="{{ batch }}" {% if batch_filter == batch %}selected{% endif %}>{{ batch }}</option>
+                            <option value="{{ batch }}" 
+                                    {% if batch_filter == batch|stringformat:"s" %}selected{% endif %}>
+                                {{ batch }}
+                                {% if batch == current_active_batch %} ← Current{% endif %}
+                            </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -57,8 +79,8 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>User ID</th>
                             <th>Name</th>
+                            <th>User ID</th>
                             <th>Email</th>
                             <th>Role</th>
                             <th>Batch</th>
@@ -70,17 +92,46 @@
                     <tbody>
                         {% for user in users %}
                         <tr>
-                            <td><code>{{ user.user_id|default:"-" }}</code></td>
                             <td>
-                                <strong>{{ user.display_name }}</strong>
-                                <br>
-                                <small class="text-muted">@{{ user.username }}</small>
+                                <div class="d-flex align-items-center gap-3">
+                                    <!-- Profile Picture with Status Indicator -->
+                                    <div class="position-relative">
+                                        {% if user.profile.profile_picture %}
+                                            <img src="{{ user.profile.profile_picture.url }}" 
+                                                alt="{{ user.display_name }}"
+                                                class="rounded-circle"
+                                                style="width: 45px; height: 45px; object-fit: cover; border: 2px solid #dee2e6;">
+                                        {% else %}
+                                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                                                style="width: 45px; height: 45px; border: 2px solid #dee2e6;">
+                                                <i class='bx bx-user text-white' style="font-size: 1.2rem;"></i>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Online Status Indicator -->
+                                        {% if user.profile.is_online %}
+                                            <span class="position-absolute bottom-0 end-0 bg-success rounded-circle"
+                                                style="width: 12px; height: 12px; border: 2px solid white;"></span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- User Info -->
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold text-dark mb-1">{{ user.display_name }}</div>
+                                        <div class="text-muted small">
+                                            <i class='bx bx-at'></i> {{ user.username }}
+                                            {% if user.user_id %}
+                                                <br><i class='bx bx-id-card'></i> {{ user.user_id }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
+                            <td><code>{{ user.user_id|default:"-" }}</code></td>
                             <td>{{ user.email }}</td>
                             <td>
                                 <span class="badge 
-                                    {% if user.role == 'superadmin' %}bg-danger
-                                    {% elif user.role == 'admin' %}bg-warning
+                                    {% if user.role == 'admin' %}bg-warning
                                     {% elif user.role == 'supervisor' %}bg-info
                                     {% else %}bg-success{% endif %}">
                                     {{ user.get_role_display }}
@@ -99,17 +150,38 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="btn-group">
-                                    <a href="#" class="btn btn-sm btn-outline-primary" title="View">
+                                <div class="btn-group" role="group">
+                                    <!-- View Details -->
+                                    <a href="{% url 'accounts:user_detail' user.pk %}" 
+                                    class="btn btn-sm btn-outline-primary" 
+                                    data-bs-toggle="tooltip" 
+                                    title="View full details">
                                         <i class='bx bx-show'></i>
                                     </a>
-                                    <a href="{% url 'accounts:user_update' user.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    
+                                    <!-- Edit User -->
+                                    <a href="{% url 'accounts:user_update' user.pk %}" 
+                                    class="btn btn-sm btn-outline-secondary" 
+                                    data-bs-toggle="tooltip" 
+                                    title="Edit user information">
                                         <i class='bx bx-edit'></i>
                                     </a>
-                                    <a href="{% url 'accounts:user_toggle_status' user.pk %}" class="btn btn-sm btn-outline-warning" title="Toggle Status">
+                                    
+                                    <!-- Enable/Disable -->
+                                    <a href="{% url 'accounts:user_toggle_status' user.pk %}" 
+                                    class="btn btn-sm {% if user.is_enabled %}btn-outline-warning{% else %}btn-outline-success{% endif %}" 
+                                    data-bs-toggle="tooltip" 
+                                    title="{% if user.is_enabled %}Disable account{% else %}Enable account{% endif %}"
+                                    onclick="return confirm('{% if user.is_enabled %}Disable{% else %}Enable{% endif %} {{ user.display_name }}?')">
                                         <i class='bx bx-power-off'></i>
                                     </a>
-                                    <a href="{% url 'accounts:user_reset_password' user.pk %}" class="btn btn-sm btn-outline-danger" title="Reset Password">
+                                    
+                                    <!-- Reset Password -->
+                                    <a href="{% url 'accounts:user_reset_password' user.pk %}" 
+                                    class="btn btn-sm btn-outline-info" 
+                                    data-bs-toggle="tooltip" 
+                                    title="Reset user password"
+                                    onclick="return confirm('Reset password for {{ user.display_name }}?')">
                                         <i class='bx bx-refresh'></i>
                                     </a>
                                 </div>
@@ -129,4 +201,15 @@
         </div>
     </div>
 </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+// Enable Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+});
+</script>
 {% endblock %}

@@ -7,6 +7,9 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Q
+from django.db import transaction
+import csv
+from io import TextIOWrapper
 
 from .forms import (
     RoleBasedAuthenticationForm, PasswordChangeForm,
@@ -84,6 +87,7 @@ def custom_logout(request):
     messages.success(request, 'You have been logged out successfully.')
     return redirect('accounts:login')
 
+
 @login_required
 def change_password(request):
     """Password change view — final fixed version (supports forced mode)."""
@@ -118,7 +122,7 @@ def change_password(request):
     }
     return render(request, "accounts/change_password.html", context)
 
-# ... rest of your views.py remains the same ...
+
 @login_required
 def profile_view(request):
     """View user profile"""
@@ -181,13 +185,26 @@ def user_list(request):
     status_filter = request.GET.get('status', '')
     search_query = request.GET.get('q', '')
     
+    # SIMPLE LOGIC: Only set default batch if NO URL parameters exist
+    current_active_batch = 2079
+    show_default_batch = False
+    
+    # If no GET parameters at all, it's the first page load
+    if not request.GET:
+        batch_filter = str(current_active_batch)
+        show_default_batch = True
+    
     # Build query - exclude superuser from list
     users = User.objects.exclude(is_superuser=True)
     
+    # Apply filters
     if role_filter:
         users = users.filter(role=role_filter)
-    if batch_filter:
+    
+    # Only apply batch filter if it has a value AND it's not empty string
+    if batch_filter and batch_filter.strip():
         users = users.filter(batch_year=batch_filter)
+    
     if status_filter == 'pending':
         users = users.filter(password_changed=False)
     elif status_filter == 'active':
@@ -208,7 +225,7 @@ def user_list(request):
         'users': users,
         'title': 'User Management - PrimeTime',
         'role_filter': role_filter,
-        'batch_filter': batch_filter,
+        'batch_filter': batch_filter or '',
         'status_filter': status_filter,
         'search_query': search_query,
         'roles': User.ROLE_CHOICES,
@@ -218,7 +235,9 @@ def user_list(request):
             ('pending', 'Pending Password Change'),
             ('active', 'Active'),
             ('disabled', 'Disabled')
-        ]
+        ],
+        'current_active_batch': current_active_batch,
+        'show_default_batch': show_default_batch,
     }
     return render(request, 'accounts/user_list.html', context)
 
@@ -375,6 +394,297 @@ def login_history(request):
         'title': 'Login History - PrimeTime'
     }
     return render(request, 'accounts/login_history.html', context)
+
+
+# ============ NEW VIEWS ADDED BELOW ============
+
+@login_required
+def user_detail(request, pk):
+    """View detailed user information"""
+    
+    if not request.user.is_admin:
+        messages.error(request, 'Access denied. Admin privileges required.')
+        return redirect('dashboard:home')
+    
+    viewed_user = get_object_or_404(User, pk=pk)
+    
+    # Get project count if user is a student
+    project_count = 0
+    if viewed_user.is_student:
+        # Assuming you have a Project model with student foreign key
+        # project_count = Project.objects.filter(student=viewed_user).count()
+        pass
+    
+    context = {
+        'viewed_user': viewed_user,
+        'project_count': project_count,
+        'title': f'{viewed_user.display_name} - User Details'
+    }
+    return render(request, 'accounts/user_detail.html', context)
+
+
+@login_required
+def password_reset_success(request, pk):
+    """Display generated password after successful reset"""
+    
+    if not request.user.is_admin:
+        messages.error(request, 'Access denied.')
+        return redirect('accounts:user_list')
+    
+    target_user = get_object_or_404(User, pk=pk)
+    
+    # Get the new password from session (set during password reset)
+    new_password = request.session.get(f'new_password_{pk}')
+    
+    if not new_password:
+        messages.error(request, 'Password information not found.')
+        return redirect('accounts:user_list')
+    
+    # Clear the password from session after displaying
+    del request.session[f'new_password_{pk}']
+    
+    context = {
+        'target_user': target_user,
+        'new_password': new_password,
+        'title': 'Password Reset Successful'
+    }
+    return render(request, 'accounts/password_reset_success.html', context)
+
+
+@login_required
+def user_reset_password_confirm(request, pk):
+    """Confirmation page before resetting user password"""
+    
+    if not request.user.is_admin:
+        messages.error(request, 'Access denied.')
+        return redirect('accounts:user_list')
+    
+    target_user = get_object_or_404(User, pk=pk)
+    
+    if request.method == 'POST':
+        # Generate new password
+        new_password = target_user.generate_initial_password()
+        target_user.set_password(new_password)
+        target_user.password_changed = False
+        target_user.must_change_password = True
+        target_user.initial_password_visible = True
+        target_user.password_changed_at = None
+        target_user.save()
+        
+        # Store password in session temporarily
+        request.session[f'new_password_{pk}'] = new_password
+        
+        messages.success(request, f'Password reset for {target_user.display_name}.')
+        return redirect('accounts:password_reset_success', pk=pk)
+    
+    context = {
+        'target_user': target_user,
+        'title': f'Reset Password - {target_user.display_name}'
+    }
+    return render(request, 'accounts/user_password_reset_confirm.html', context)
+
+
+@login_required
+def user_disable_confirm(request, pk):
+    """Confirmation page before disabling user account"""
+    
+    if not request.user.is_admin:
+        messages.error(request, 'Access denied.')
+        return redirect('accounts:user_list')
+    
+    target_user = get_object_or_404(User, pk=pk)
+    
+    if request.method == 'POST':
+        target_user.is_enabled = False
+        target_user.save()
+        
+        messages.success(request, f'Account disabled for {target_user.display_name}.')
+        return redirect('accounts:user_detail', pk=pk)
+    
+    context = {
+        'target_user': target_user,
+        'title': f'Disable Account - {target_user.display_name}'
+    }
+    return render(request, 'accounts/user_disable_confirm.html', context)
+
+
+@login_required
+def user_enable_confirm(request, pk):
+    """Confirmation page before enabling user account"""
+    
+    if not request.user.is_admin:
+        messages.error(request, 'Access denied.')
+        return redirect('accounts:user_list')
+    
+    target_user = get_object_or_404(User, pk=pk)
+    
+    if request.method == 'POST':
+        target_user.is_enabled = True
+        target_user.save()
+        
+        messages.success(request, f'Account enabled for {target_user.display_name}.')
+        return redirect('accounts:user_detail', pk=pk)
+    
+    context = {
+        'target_user': target_user,
+        'title': f'Enable Account - {target_user.display_name}'
+    }
+    return render(request, 'accounts/user_enable_confirm.html', context)
+
+
+@login_required
+def user_confirm_delete(request, pk):
+    """Confirmation page before deleting user"""
+    
+    if not request.user.is_admin:
+        messages.error(request, 'Access denied.')
+        return redirect('accounts:user_list')
+    
+    user_to_delete = get_object_or_404(User, pk=pk)
+    
+    # Prevent deleting yourself or superusers
+    if user_to_delete == request.user:
+        messages.error(request, 'You cannot delete your own account.')
+        return redirect('accounts:user_list')
+    
+    if user_to_delete.is_superuser:
+        messages.error(request, 'Cannot delete superuser accounts.')
+        return redirect('accounts:user_list')
+    
+    if request.method == 'POST':
+        username = user_to_delete.username
+        
+        # Delete user (cascade will handle related objects)
+        user_to_delete.delete()
+        
+        messages.success(request, f'User {username} has been permanently deleted.')
+        return redirect('accounts:user_list')
+    
+    context = {
+        'user_to_delete': user_to_delete,
+        'title': f'Delete User - {user_to_delete.display_name}'
+    }
+    return render(request, 'accounts/user_confirm_delete.html', context)
+
+
+@login_required
+def bulk_user_import(request):
+    """Bulk import users from CSV"""
+    
+    if not request.user.is_admin:
+        messages.error(request, 'Access denied. Admin privileges required.')
+        return redirect('dashboard:home')
+    
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+        
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'Please upload a CSV file.')
+            return redirect('accounts:bulk_user_import')
+        
+        try:
+            # Parse CSV
+            csv_data = TextIOWrapper(csv_file.file, encoding='utf-8')
+            reader = csv.DictReader(csv_data)
+            
+            success_count = 0
+            error_count = 0
+            skipped_count = 0
+            errors = []
+            
+            with transaction.atomic():
+                for row_num, row in enumerate(reader, start=2):
+                    try:
+                        # Check required fields
+                        required_fields = ['user_id', 'email', 'full_name', 'role', 'department']
+                        missing_fields = [f for f in required_fields if not row.get(f)]
+                        
+                        if missing_fields:
+                            errors.append(f"Row {row_num}: Missing fields: {', '.join(missing_fields)}")
+                            error_count += 1
+                            continue
+                        
+                        # Check if user exists
+                        if User.objects.filter(email=row['email']).exists():
+                            skipped_count += 1
+                            continue
+                        
+                        if User.objects.filter(user_id=row['user_id']).exists():
+                            skipped_count += 1
+                            continue
+                        
+                        # Create username from email
+                        username = row['email'].split('@')[0]
+                        base_username = username
+                        counter = 1
+                        while User.objects.filter(username=username).exists():
+                            username = f"{base_username}{counter}"
+                            counter += 1
+                        
+                        # Create user
+                        user = User(
+                            username=username,
+                            user_id=row['user_id'],
+                            email=row['email'],
+                            full_name=row['full_name'],
+                            role=row['role'],
+                            department=row['department'],
+                            batch_year=row.get('batch_year') or None,
+                            phone=row.get('phone', ''),
+                            created_by=request.user
+                        )
+                        
+                        # Generate and set password
+                        initial_password = user.generate_initial_password()
+                        user.set_password(initial_password)
+                        user.must_change_password = True
+                        user.save()
+                        
+                        # Create profile
+                        UserProfile.objects.create(user=user)
+                        
+                        success_count += 1
+                        
+                    except Exception as e:
+                        errors.append(f"Row {row_num}: {str(e)}")
+                        error_count += 1
+            
+            # Return JSON response for AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success_count': success_count,
+                    'error_count': error_count,
+                    'skipped_count': skipped_count,
+                    'errors': errors[:10]  # Limit to first 10 errors
+                })
+            
+            # Regular response
+            if success_count > 0:
+                messages.success(request, f'Successfully imported {success_count} users.')
+            if skipped_count > 0:
+                messages.warning(request, f'Skipped {skipped_count} duplicate users.')
+            if error_count > 0:
+                messages.error(request, f'{error_count} users failed to import.')
+            
+        except Exception as e:
+            messages.error(request, f'Error processing CSV: {str(e)}')
+        
+        return redirect('accounts:bulk_user_import')
+    
+    # Get statistics
+    total_users = User.objects.exclude(is_superuser=True).count()
+    active_users = User.objects.filter(is_enabled=True, password_changed=True).exclude(is_superuser=True).count()
+    disabled_users = User.objects.filter(is_enabled=False).count()
+    pending_password = User.objects.filter(password_changed=False).count()
+    
+    context = {
+        'title': 'Bulk User Management',
+        'total_users': total_users,
+        'active_users': active_users,
+        'disabled_users': disabled_users,
+        'pending_password': pending_password,
+    }
+    return render(request, 'accounts/bulk_user_management.html', context)
 
 
 def get_client_ip(request):

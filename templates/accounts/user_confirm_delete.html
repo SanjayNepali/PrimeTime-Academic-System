@@ -1,0 +1,286 @@
+<!-- File: Desktop/Prime/templates/accounts/user_confirm_delete.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Delete User - {{ user_to_delete.display_name }} - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="card modern-card">
+                <div class="card-header bg-danger text-white">
+                    <h4><i class='bx bx-trash'></i> Confirm User Deletion</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Critical Warning -->
+                    <div class="alert alert-danger">
+                        <h5><i class='bx bx-error-circle'></i> Critical Action - Cannot Be Undone</h5>
+                        <p class="mb-0">
+                            You are about to <strong>permanently delete</strong> this user account. 
+                            This action is <strong>irreversible</strong> and will:
+                        </p>
+                        <ul class="mt-2 mb-0">
+                            <li>Remove all user data from the system</li>
+                            <li>Delete associated profile information</li>
+                            <li>Remove login history records</li>
+                            <li>Unassign from all groups and projects</li>
+                            <li>Delete all user-created content (posts, comments, etc.)</li>
+                            <li>Remove supervisor relationships (if applicable)</li>
+                        </ul>
+                    </div>
+
+                    <!-- User Information Card -->
+                    <div class="user-summary-card mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div class="user-avatar-large">
+                                    {% if user_to_delete.profile.profile_picture %}
+                                        <img src="{{ user_to_delete.profile.profile_picture.url }}" 
+                                             alt="{{ user_to_delete.display_name }}"
+                                             class="rounded-circle"
+                                             style="width: 80px; height: 80px; object-fit: cover; border: 3px solid #dc3545;">
+                                    {% else %}
+                                        <div class="bg-danger rounded-circle d-flex align-items-center justify-content-center"
+                                             style="width: 80px; height: 80px;">
+                                            <i class='bx bx-user text-white' style="font-size: 3rem;"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h5 class="mb-1">{{ user_to_delete.display_name }}</h5>
+                                <p class="text-muted mb-2">
+                                    <i class='bx bx-envelope'></i> {{ user_to_delete.email }}<br>
+                                    <i class='bx bx-user'></i> @{{ user_to_delete.username }}
+                                </p>
+                                <div>
+                                    <span class="badge bg-info">{{ user_to_delete.get_role_display }}</span>
+                                    {% if user_to_delete.user_id %}
+                                        <span class="badge bg-secondary">ID: {{ user_to_delete.user_id }}</span>
+                                    {% endif %}
+                                    <span class="badge bg-warning">{{ user_to_delete.department|default:"No Dept" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Account Statistics -->
+                    <div class="account-stats-box mb-4">
+                        <h6 class="mb-3"><i class='bx bx-stats'></i> Account Statistics</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <small class="text-muted">Member Since:</small>
+                                <div class="fw-bold">{{ user_to_delete.created_at|date:"M d, Y" }}</div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <small class="text-muted">Last Login:</small>
+                                <div class="fw-bold">{{ user_to_delete.last_login_at|date:"M d, Y H:i"|default:"Never" }}</div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <small class="text-muted">Password Status:</small>
+                                <div class="fw-bold">
+                                    {% if user_to_delete.password_changed %}
+                                        <span class="badge bg-success">Changed</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Initial</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <small class="text-muted">Account Status:</small>
+                                <div class="fw-bold">
+                                    {% if user_to_delete.is_enabled %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Disabled</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Impact Warning -->
+                    <div class="alert alert-warning">
+                        <h6><i class='bx bx-data'></i> Data That Will Be Deleted</h6>
+                        <ul class="mb-0">
+                            {% if user_to_delete.is_student %}
+                                <li>Student profile and enrollment data</li>
+                                <li>Project submissions and progress tracking</li>
+                                <li>Group memberships and activities</li>
+                                <li>Stress level and analytics data</li>
+                                <li>Supervisor feedback records</li>
+                            {% elif user_to_delete.is_supervisor %}
+                                <li>Supervisor profile and specialization data</li>
+                                <li>Assigned groups and students</li>
+                                <li>Meeting logs and feedback provided</li>
+                                <li>Evaluation records</li>
+                            {% elif user_to_delete.is_admin %}
+                                <li>Administrative actions history</li>
+                                <li>System configurations made</li>
+                                <li>User creation records</li>
+                            {% endif %}
+                            <li>Forum posts and replies ({{ user_to_delete.forum_posts.count|default:0 }} posts)</li>
+                            <li>Chat messages and room memberships</li>
+                            <li>Event participations and RSVPs</li>
+                            <li>Resource uploads and contributions</li>
+                            <li>Login history ({{ user_to_delete.login_history.count|default:0 }} records)</li>
+                        </ul>
+                    </div>
+
+                    <!-- Alternative Actions -->
+                    <div class="alert alert-info">
+                        <h6><i class='bx bx-info-circle'></i> Consider These Alternatives</h6>
+                        <p class="mb-2">Instead of deletion, you can:</p>
+                        <ul class="mb-0">
+                            <li><strong>Disable the account:</strong> Prevents login but preserves all data</li>
+                            <li><strong>Reset password:</strong> If access is the concern</li>
+                            <li><strong>Change role:</strong> Modify user permissions</li>
+                            <li><strong>Archive:</strong> Mark as inactive for record-keeping</li>
+                        </ul>
+                    </div>
+
+                    <!-- Confirmation Form -->
+                    <form method="post" id="deleteForm">
+                        {% csrf_token %}
+                        
+                        <div class="confirmation-box mb-4">
+                            <h6 class="text-danger mb-3">
+                                <i class='bx bx-shield-x'></i> Required Confirmations
+                            </h6>
+                            
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="confirm1" required>
+                                <label class="form-check-label fw-bold" for="confirm1">
+                                    I understand this action is permanent and cannot be undone
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="confirm2" required>
+                                <label class="form-check-label fw-bold" for="confirm2">
+                                    I have considered alternatives (disable, archive, etc.)
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="confirm3" required>
+                                <label class="form-check-label fw-bold" for="confirm3">
+                                    I accept responsibility for deleting all associated data
+                                </label>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-danger">
+                                    Type the username "{{ user_to_delete.username }}" to confirm:
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="usernameConfirm" 
+                                       placeholder="Type username here"
+                                       required
+                                       autocomplete="off">
+                                <small class="text-muted">This ensures you're deleting the correct user</small>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                                <i class='bx bx-trash'></i> Yes, Permanently Delete This User
+                            </button>
+                            <a href="{% url 'accounts:user_detail' user_to_delete.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel - Go Back
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .user-summary-card {
+        background: linear-gradient(135deg, #fff5f5 0%, #ffe0e0 100%);
+        padding: 24px;
+        border-radius: 12px;
+        border: 2px solid #dc3545;
+    }
+    
+    .account-stats-box {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #e9ecef;
+    }
+    
+    .confirmation-box {
+        background: #fff3cd;
+        padding: 20px;
+        border-radius: 12px;
+        border: 2px solid #ffc107;
+    }
+    
+    .form-check-input:checked {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+    
+    #deleteBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('deleteForm');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const confirm1 = document.getElementById('confirm1');
+    const confirm2 = document.getElementById('confirm2');
+    const confirm3 = document.getElementById('confirm3');
+    const usernameConfirm = document.getElementById('usernameConfirm');
+    const expectedUsername = "{{ user_to_delete.username }}";
+    
+    function checkAllConfirmations() {
+        const allChecked = confirm1.checked && confirm2.checked && confirm3.checked;
+        const usernameMatch = usernameConfirm.value === expectedUsername;
+        deleteBtn.disabled = !(allChecked && usernameMatch);
+        
+        if (allChecked && usernameMatch) {
+            deleteBtn.classList.remove('btn-danger');
+            deleteBtn.classList.add('btn-danger', 'btn-pulse');
+        } else {
+            deleteBtn.classList.remove('btn-pulse');
+        }
+    }
+    
+    confirm1.addEventListener('change', checkAllConfirmations);
+    confirm2.addEventListener('change', checkAllConfirmations);
+    confirm3.addEventListener('change', checkAllConfirmations);
+    usernameConfirm.addEventListener('input', checkAllConfirmations);
+    
+    form.addEventListener('submit', function(e) {
+        if (!confirm('ARE YOU ABSOLUTELY SURE? This cannot be undone!')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Deleting...';
+    });
+});
+</script>
+
+<style>
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.btn-pulse {
+    animation: pulse 2s infinite;
+}
+</style>
+
+{% endblock %}

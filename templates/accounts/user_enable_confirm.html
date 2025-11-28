@@ -1,0 +1,243 @@
+<!-- File: Desktop/Prime/templates/accounts/user_enable_confirm.html -->
+
+{% extends 'base.html' %}
+
+{% block title %}Enable User - {{ target_user.display_name }} - PrimeTime{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card modern-card">
+                <div class="card-header bg-success text-white">
+                    <h4><i class='bx bx-user-check'></i> Enable User Account</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Success Info -->
+                    <div class="alert alert-success">
+                        <h5><i class='bx bx-check-circle'></i> Account Re-activation</h5>
+                        <p class="mb-0">
+                            You are about to <strong>enable</strong> the account for 
+                            <strong>{{ target_user.display_name }}</strong>. This will:
+                        </p>
+                        <ul class="mt-2 mb-0">
+                            <li>Restore login access for the user</li>
+                            <li>Re-activate all system permissions</li>
+                            <li>Resume email notifications</li>
+                            <li>Show user in active user lists</li>
+                            <li>Restore full system functionality</li>
+                        </ul>
+                    </div>
+
+                    <!-- User Information -->
+                    <div class="user-info-box mb-4">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="user-avatar" style="width: 60px; height: 60px;">
+                                {% if target_user.profile.profile_picture %}
+                                    <img src="{{ target_user.profile.profile_picture.url }}" 
+                                         alt="{{ target_user.display_name }}"
+                                         class="rounded-circle"
+                                         style="width: 100%; height: 100%; object-fit: cover;">
+                                {% else %}
+                                    <div class="bg-success rounded-circle d-flex align-items-center justify-content-center"
+                                         style="width: 100%; height: 100%;">
+                                        <i class='bx bx-user text-white' style="font-size: 2rem;"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h5 class="mb-0">{{ target_user.display_name }}</h5>
+                                <p class="text-muted mb-0">
+                                    {{ target_user.email }}<br>
+                                    <span class="badge bg-info">{{ target_user.get_role_display }}</span>
+                                    <span class="badge bg-secondary">{{ target_user.department|default:"No Dept" }}</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <small class="text-muted">User ID</small>
+                                <div class="fw-bold"><code>{{ target_user.user_id|default:"-" }}</code></div>
+                            </div>
+                            <div class="info-item">
+                                <small class="text-muted">Batch Year</small>
+                                <div class="fw-bold">{{ target_user.batch_year|default:"-" }}</div>
+                            </div>
+                            <div class="info-item">
+                                <small class="text-muted">Last Login</small>
+                                <div class="fw-bold">{{ target_user.last_login_at|date:"M d, Y"|default:"Never" }}</div>
+                            </div>
+                            <div class="info-item">
+                                <small class="text-muted">Disabled Since</small>
+                                <div class="fw-bold">{{ target_user.updated_at|date:"M d, Y"|default:"-" }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Status -->
+                    <div class="alert alert-warning mb-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong><i class='bx bx-stats'></i> Current Status:</strong>
+                            </div>
+                            <div>
+                                {% if not target_user.is_enabled %}
+                                    <span class="badge bg-danger"><i class='bx bx-x'></i> Disabled</span>
+                                {% else %}
+                                    <span class="badge bg-success"><i class='bx bx-check'></i> Already Active</span>
+                                {% endif %}
+                                {% if not target_user.password_changed %}
+                                    <span class="badge bg-warning"><i class='bx bx-lock'></i> Initial Password</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Password Status Check -->
+                    {% if not target_user.password_changed %}
+                    <div class="alert alert-info">
+                        <h6><i class='bx bx-key'></i> Password Status Notice</h6>
+                        <p class="mb-2">
+                            This user still has their <strong>initial password</strong> and has never logged in.
+                        </p>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="resetPasswordCheck">
+                            <label class="form-check-label" for="resetPasswordCheck">
+                                Generate new password and notify user
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- What Changes -->
+                    <div class="alert alert-light">
+                        <h6><i class='bx bx-info-circle'></i> After Enabling:</h6>
+                        <ul class="mb-0">
+                            <li><i class='bx bx-check text-success'></i> User can login immediately</li>
+                            <li><i class='bx bx-check text-success'></i> All permissions restored</li>
+                            <li><i class='bx bx-check text-success'></i> Email notifications resume</li>
+                            <li><i class='bx bx-check text-success'></i> Access to groups and projects</li>
+                            <li><i class='bx bx-check text-success'></i> Forum and chat functionality</li>
+                            <li><i class='bx bx-check text-success'></i> Full system access restored</li>
+                        </ul>
+                    </div>
+
+                    <!-- Enable Form -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                Reason for Enabling (Optional)
+                            </label>
+                            <textarea class="form-control" 
+                                      name="enable_reason" 
+                                      rows="3" 
+                                      placeholder="Enter reason for enabling this account (for admin logs)..."></textarea>
+                            <small class="text-muted">This will be logged for administrative reference</small>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmEnable" required>
+                            <label class="form-check-label fw-bold" for="confirmEnable">
+                                I confirm that this user should have their account re-activated
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" name="notify_user" id="notifyUser" checked>
+                            <label class="form-check-label" for="notifyUser">
+                                Send email notification to user about account re-activation
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" name="reset_password" id="resetPassword">
+                            <label class="form-check-label" for="resetPassword">
+                                Also reset password and send new credentials
+                            </label>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success" id="enableBtn">
+                                <i class='bx bx-user-check'></i> Enable Account
+                            </button>
+                            <a href="{% url 'accounts:user_detail' target_user.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+
+                    <!-- Additional Actions -->
+                    <div class="alert alert-light mt-4 mb-0">
+                        <h6><i class='bx bx-cog'></i> Additional Actions</h6>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{% url 'accounts:user_update' target_user.pk %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class='bx bx-edit'></i> Edit Profile First
+                            </a>
+                            <a href="{% url 'accounts:user_reset_password' target_user.pk %}" 
+                               class="btn btn-sm btn-outline-warning">
+                                <i class='bx bx-key'></i> Reset Password
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .user-info-box {
+        background: #d1fae5;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #10b981;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 16px;
+    }
+    
+    .info-item {
+        padding: 10px;
+        background: white;
+        border-radius: 8px;
+    }
+    
+    .info-item small {
+        display: block;
+        margin-bottom: 4px;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const enableBtn = document.getElementById('enableBtn');
+    const confirmCheckbox = document.getElementById('confirmEnable');
+    
+    confirmCheckbox.addEventListener('change', function() {
+        enableBtn.disabled = !this.checked;
+    });
+    
+    enableBtn.disabled = true;
+    
+    form.addEventListener('submit', function(e) {
+        if (!confirm('Are you sure you want to enable this user account?')) {
+            e.preventDefault();
+            return false;
+        }
+        
+        enableBtn.disabled = true;
+        enableBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Enabling...';
+    });
+});
+</script>
+
+{% endblock %}

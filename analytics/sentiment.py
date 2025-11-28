@@ -42,10 +42,7 @@ class AdvancedSentimentAnalyzer:
     def _get_user_project(self):
         """Get user's current project"""
         try:
-            return Project.objects.get(
-                student=self.user,
-                batch_year=timezone.now().year
-            )
+            return Project.objects.filter(student=self.user).first()
         except (Project.DoesNotExist, Project.MultipleObjectsReturned):
             return None
     
@@ -71,7 +68,7 @@ class AdvancedSentimentAnalyzer:
         
         # STRICT CHECK: Check for chat activity
         has_chat_activity = Message.objects.filter(
-            user=self.user,
+            sender=self.user,
             timestamp__gte=timezone.now() - timedelta(days=days)
         ).exists()
         
@@ -105,7 +102,7 @@ class AdvancedSentimentAnalyzer:
         try:
             # Get recent messages
             recent_messages = Message.objects.filter(
-                user=self.user,
+                sender=self.user,
                 timestamp__gte=timezone.now() - timedelta(days=days)
             )
             
@@ -311,12 +308,12 @@ class AdvancedSentimentAnalyzer:
         try:
             # Get sent and received messages
             sent_messages = Message.objects.filter(
-                user=self.user,
+                sender=self.user,
                 timestamp__gte=timezone.now() - timedelta(days=days)
             ).count()
             
             received_messages = Message.objects.filter(
-                Q(room__members=self.user) & ~Q(user=self.user),
+                Q(room__participants=self.user) & ~Q(sender=self.user),
                 timestamp__gte=timezone.now() - timedelta(days=days)
             ).count()
             

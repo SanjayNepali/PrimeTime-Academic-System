@@ -15,6 +15,13 @@ urlpatterns = [
     path('post/<int:pk>/edit/', views.post_update, name='post_update'),
     path('post/<int:pk>/delete/', views.post_delete, name='post_delete'),
     
+    # Project-specific forum
+    path('project/<int:project_id>/', views.project_forum, name='project_forum'),  # ADD THIS LINE
+    
+    # Post CRUD
+    path('post/create/', views.post_create, name='post_create'),
+    path('post/<int:pk>/', views.post_detail, name='post_detail'),
+
     # Post interactions
     path('post/<int:pk>/upvote/', views.post_upvote, name='post_upvote'),
     path('post/<int:pk>/follow/', views.post_follow, name='post_follow'),

@@ -456,7 +456,7 @@
                         <div class="room-name">
                             {{ item.room.name }}
                             <span class="room-type-badge badge-{{ item.room.room_type }}">
-                                <i class='bx bx-{{ item.room.room_type == "group" }}folder{{ item.room.room_type == "direct" }}user{{ item.room.room_type == "supervisor" }}shield'></i>
+                                <i class='bx {% if item.room.room_type == "group" %}bx-folder{% elif item.room.room_type == "direct" %}bx-user{% elif item.room.room_type == "supervisor" %}bx-shield{% endif %}'></i>
                                 {{ item.room.get_room_type_display }}
                             </span>
                         </div>
@@ -658,22 +658,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auto-refresh unread counts every 30 seconds
     setInterval(() => {
-        fetch('{% url "chat:chat_home" %}', {
+        fetch('{% url "chat:api_unread_counts" %}', {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.text())
-        .then(html => {
-            // Update unread badges without full page reload
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const newBadges = doc.querySelectorAll('.unread-badge');
-            const currentBadges = document.querySelectorAll('.unread-badge');
-            
-            newBadges.forEach((newBadge, index) => {
-                if (currentBadges[index]) {
-                    currentBadges[index].textContent = newBadge.textContent;
+        .then(response => response.json())
+        .then(data => {
+            // Update unread badges
+            roomCards.forEach(card => {
+                const roomId = card.dataset.roomId;
+                const unreadBadge = card.querySelector('.unread-badge');
+                if (data.rooms && data.rooms[roomId] && unreadBadge) {
+                    unreadBadge.textContent = data.rooms[roomId];
                 }
             });
         })

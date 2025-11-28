@@ -8,83 +8,59 @@ from projects.models import Project
 
 
 class StressLevel(models.Model):
-    """Track student stress levels over time"""
+    """Track student stress levels over time - UPDATED FOR SENTIMENT ANALYZER"""
     
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stress_levels')
+    
+    # Overall stress level (0-100) - MATCHES SENTIMENT ANALYZER
     level = models.FloatField(
         validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )  # 0-100 scale
-    
-    # Factors contributing to stress
-    chat_sentiment_score = models.FloatField(
-        default=0,
-        validators=[MinValueValidator(-1), MaxValueValidator(1)]  # -1 to 1 scale
-    )
-    deadline_pressure = models.FloatField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    workload_score = models.FloatField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    social_isolation_score = models.FloatField(
-        default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
     )
     
-    # Sentiment analysis results
+    # Component scores - MATCHES SENTIMENT ANALYZER
+    chat_sentiment_score = models.FloatField(default=0)
+    deadline_pressure = models.FloatField(default=0)
+    workload_score = models.FloatField(default=0)
+    social_isolation_score = models.FloatField(default=0)
+    
+    # Sentiment analysis results - MATCHES SENTIMENT ANALYZER
     positive_messages = models.IntegerField(default=0)
     negative_messages = models.IntegerField(default=0)
     neutral_messages = models.IntegerField(default=0)
     
     # Context
-    project_phase = models.CharField(max_length=50, blank=True)  # e.g., 'proposal', 'mid-defense'
+    project_phase = models.CharField(max_length=50, blank=True)
     week_of_semester = models.IntegerField(null=True, blank=True)
     
-    timestamp = models.DateTimeField(auto_now_add=True)
+    # Timestamp - CHANGED TO calculated_at TO MATCH SENTIMENT ANALYZER
+    calculated_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
-        ordering = ['-timestamp']
+        ordering = ['-calculated_at']
         indexes = [
-            models.Index(fields=['student', 'timestamp']),
+            models.Index(fields=['student', 'calculated_at']),
             models.Index(fields=['level']),
         ]
     
     def __str__(self):
-        return f"Stress: {self.student.display_name} - {self.level} at {self.timestamp}"
+        return f"Stress: {self.student.display_name} - {self.level} at {self.calculated_at}"
     
-    def calculate_overall_stress(self):
-        """Calculate overall stress level from various factors"""
-        weights = {
-            'chat_sentiment': 0.25,
-            'deadline': 0.35,
-            'workload': 0.25,
-            'social': 0.15
-        }
-        
-        # Convert sentiment score to stress component (0-100)
-        sentiment_stress = (1 - ((self.chat_sentiment_score + 1) / 2)) * 100
-        
-        self.level = (
-            sentiment_stress * weights['chat_sentiment'] +
-            self.deadline_pressure * weights['deadline'] +
-            self.workload_score * weights['workload'] +
-            self.social_isolation_score * weights['social']
-        )
-        self.save()
-
     @property
-    def stress_category(self):
-        """Determine stress category based on level"""
-        if self.level >= 80:
-            return "Critical"
-        elif self.level >= 70:
-            return "High"
+    def stress_label(self):
+        """Get human-readable stress label"""
+        if self.level >= 70:
+            return "High Stress"
         elif self.level >= 40:
-            return "Moderate"
+            return "Medium Stress"
         else:
-            return "Low"
+            return "Low Stress"
+    
+    @property
+    def is_high_stress(self):
+        """Check if stress level is high"""
+        return self.level >= 70
+
+
 class ProgressTracking(models.Model):
     """Track project progress over time"""
     
@@ -242,6 +218,7 @@ class SystemAnalytics(models.Model):
     
     def __str__(self):
         return f"Analytics for {self.date}"
+
 
 class SupervisorFeedback(models.Model):
     """Supervisor feedback log sheet for students"""

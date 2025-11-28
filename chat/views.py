@@ -476,6 +476,12 @@ def analyze_student_stress(request, student_id):
     analyzer = AdvancedSentimentAnalyzer(student)
     stress_analysis = analyzer.comprehensive_stress_analysis(days=7)
     
+    if not stress_analysis:
+        return JsonResponse({
+            'error': 'No stress data available',
+            'student': student.display_name
+        })
+    
     return JsonResponse({
         'student': student.display_name,
         'stress_level': stress_analysis.level,
@@ -485,3 +491,123 @@ def analyze_student_stress(request, student_id):
         'social_isolation': stress_analysis.social_isolation_score,
         'calculated_at': stress_analysis.calculated_at.isoformat()
     })
+
+
+# NEW VIEWS - ADDED TO FIX MISSING ROUTES
+
+@login_required
+def supervisor_chat(request, supervisor_id):
+    """Direct chat with a supervisor"""
+    
+    supervisor = get_object_or_404(User, pk=supervisor_id, role='supervisor')
+    
+    # Find or create a direct message room between user and supervisor
+    # Check if a room already exists
+    existing_room = ChatRoom.objects.filter(
+        room_type='direct',
+        participants=request.user
+    ).filter(
+        participants=supervisor
+    ).first()
+    
+    if existing_room:
+        return redirect('chat:chat_room', room_id=existing_room.id)
+    
+    # Create new direct message room
+    room = ChatRoom.objects.create(
+        name=f"Chat with {supervisor.display_name}",
+        room_type='direct',
+        is_active=True
+    )
+    room.participants.add(request.user, supervisor)
+    
+    # Create ChatRoomMember records
+    ChatRoomMember.objects.create(room=room, user=request.user)
+    ChatRoomMember.objects.create(room=room, user=supervisor)
+    
+    messages.success(request, f'Started chat with {supervisor.display_name}')
+    return redirect('chat:chat_room', room_id=room.id)
+
+
+@login_required
+def user_chat(request, user_id):
+    """Direct chat with any user"""
+    
+    other_user = get_object_or_404(User, pk=user_id)
+    
+    # Don't allow chatting with yourself
+    if other_user == request.user:
+        messages.error(request, "You cannot chat with yourself")
+        return redirect('chat:chat_home')
+    
+    # Find or create a direct message room
+    existing_room = ChatRoom.objects.filter(
+        room_type='direct',
+        participants=request.user
+    ).filter(
+        participants=other_user
+    ).first()
+    
+    if existing_room:
+        return redirect('chat:chat_room', room_id=existing_room.id)
+    
+    # Create new direct message room
+    room = ChatRoom.objects.create(
+        name=f"Chat: {request.user.display_name} & {other_user.display_name}",
+        room_type='direct',
+        is_active=True
+    )
+    room.participants.add(request.user, other_user)
+    
+    # Create ChatRoomMember records
+    ChatRoomMember.objects.create(room=room, user=request.user)
+    ChatRoomMember.objects.create(room=room, user=other_user)
+    
+    messages.success(request, f'Started chat with {other_user.display_name}')
+    return redirect('chat:chat_room', room_id=room.id)
+
+
+@login_required
+def project_forum(request, project_id):
+    """Forum/discussion for a specific project"""
+    
+    from projects.models import Project
+    
+    project = get_object_or_404(Project, pk=project_id)
+    
+    # Check if user has access to this project
+    if not (request.user == project.student or 
+            request.user == project.supervisor or 
+            request.user.is_admin):
+        messages.error(request, "You don't have access to this project's forum")
+        return redirect('chat:chat_home')
+    
+    # Find or create project forum room
+    existing_room = ChatRoom.objects.filter(
+        room_type='group',
+        group__isnull=True,  # Not associated with a group
+        name__icontains=f"Project: {project.title}"
+    ).first()
+    
+    if existing_room:
+        return redirect('chat:chat_room', room_id=existing_room.id)
+    
+    # Create new project forum
+    room = ChatRoom.objects.create(
+        name=f"Project Forum: {project.title}",
+        room_type='group',
+        is_active=True
+    )
+    
+    # Add relevant participants
+    room.participants.add(project.student)
+    if project.supervisor:
+        room.participants.add(project.supervisor)
+    
+    # Create ChatRoomMember records
+    ChatRoomMember.objects.create(room=room, user=project.student)
+    if project.supervisor:
+        ChatRoomMember.objects.create(room=room, user=project.supervisor)
+    
+    messages.success(request, f'Project forum created for {project.title}')
+    return redirect('chat:chat_room', room_id=room.id)

@@ -281,6 +281,51 @@ def post_delete(request, pk):
 
 
 @login_required
+def project_forum(request, project_id):
+    """Forum/discussion for a specific project"""
+    from projects.models import Project
+    
+    project = get_object_or_404(Project, pk=project_id)
+    
+    # Check if user has access to this project
+    if not (request.user == project.student or 
+            request.user == project.supervisor or 
+            request.user.is_admin):
+        messages.error(request, "You don't have access to this project's forum")
+        return redirect('forum:forum_home')
+    
+    # Get posts related to this project
+    posts = ForumPost.objects.filter(
+        project=project,
+        is_hidden=False
+    ).select_related('author', 'category').prefetch_related('tags', 'upvotes').order_by('-created_at')
+    
+    # Get project statistics
+    project_stats = {
+        'total_posts': posts.count(),
+        'solved_posts': posts.filter(is_solved=True).count(),
+        'total_replies': ForumReply.objects.filter(post__project=project).count(),
+    }
+    
+    # Get categories and popular tags for sidebar
+    categories = ForumCategory.objects.filter(is_active=True)
+    popular_tags = ForumTag.objects.annotate(
+        post_count=Count('forumpost')
+    ).order_by('-post_count')[:10]
+    
+    context = {
+        'project': project,
+        'posts': posts,
+        'project_stats': project_stats,
+        'categories': categories,
+        'popular_tags': popular_tags,
+        'title': f'Project Forum: {project.title}'
+    }
+    
+    return render(request, 'forum/project_forum.html', context)
+
+
+@login_required
 def post_upvote(request, pk):
     """Upvote/remove upvote from a post"""
     

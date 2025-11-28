@@ -12,7 +12,7 @@ urlpatterns = [
     path('room/create/', views.create_room, name='create_room'),
     path('notifications/', views.chat_notifications, name='notifications'),
     
-    # Template-specific routes (ADD THESE)
+    # Template-specific routes - Direct messaging and forums
     path('supervisor/<int:supervisor_id>/', views.supervisor_chat, name='supervisor_chat'),
     path('user/<int:user_id>/', views.user_chat, name='user_chat'),
     path('project/<int:project_id>/', views.project_forum, name='project_forum'),

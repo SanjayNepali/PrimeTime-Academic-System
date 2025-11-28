@@ -191,6 +191,7 @@
                                 </div>
                             </div>
 
+                            <!-- FIXED: Supervisor Info with Check -->
                             {% if project.supervisor %}
                             <div class="project-supervisor">
                                 <h6>Supervisor</h6>
@@ -206,6 +207,14 @@
                                         <strong>{{ project.supervisor.display_name }}</strong>
                                         <p class="text-muted mb-0">{{ project.supervisor.department }}</p>
                                     </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="project-supervisor">
+                                <h6>Supervisor</h6>
+                                <div class="alert alert-info mb-0">
+                                    <i class='bx bx-info-circle'></i>
+                                    No supervisor assigned yet. Contact your department.
                                 </div>
                             </div>
                             {% endif %}
@@ -259,10 +268,20 @@
                                     <i class='bx bx-book-bookmark'></i>
                                     <span>Find Resources</span>
                                 </a>
+                                
+                                <!-- FIXED: Check if supervisor exists before creating URL -->
+                                {% if project.supervisor %}
                                 <a href="{% url 'chat:supervisor_chat' project.supervisor.id %}" class="action-btn">
                                     <i class='bx bx-message-dots'></i>
                                     <span>Message Supervisor</span>
                                 </a>
+                                {% else %}
+                                <div class="action-btn" style="opacity: 0.5; cursor: not-allowed;" title="No supervisor assigned">
+                                    <i class='bx bx-message-dots'></i>
+                                    <span>No Supervisor Assigned</span>
+                                </div>
+                                {% endif %}
+                                
                                 <a href="{% url 'forum:project_forum' project.pk %}" class="action-btn">
                                     <i class='bx bx-conversation'></i>
                                     <span>Join Discussion</span>
@@ -434,13 +453,19 @@
                             </div>
                         </div>
 
-                        {% if high_stress %}
+                        <!-- FIXED: Stress alert with supervisor check -->
+                        {% if high_stress and project.supervisor %}
                         <div class="alert alert-warning">
                             <h6><i class='bx bx-info-circle'></i> Need Support?</h6>
                             <p class="small mb-2">Your stress levels are elevated. Consider reaching out:</p>
                             <a href="{% url 'chat:supervisor_chat' project.supervisor.id %}" class="btn btn-sm btn-warning">
                                 Talk to Supervisor
                             </a>
+                        </div>
+                        {% elif high_stress %}
+                        <div class="alert alert-warning">
+                            <h6><i class='bx bx-info-circle'></i> Need Support?</h6>
+                            <p class="small mb-2">Your stress levels are elevated. Please contact your department for support.</p>
                         </div>
                         {% endif %}
                     </div>

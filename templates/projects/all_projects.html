@@ -1,4 +1,4 @@
-<!-- File: Desktop/Prime/templates/projects/all_projects.html -->
+<!-- File: templates/projects/all_projects.html - MODERN CARD LAYOUT -->
 
 {% extends 'base.html' %}
 {% load static %}
@@ -20,10 +20,7 @@
             </p>
         </div>
         <div class="header-stats">
-            <span class="badge bg-info">Total: {{ projects.paginator.count }} projects</span>
-            {% if pending_projects %}
-                <span class="badge bg-warning ms-1">Pending: {{ pending_projects }}</span>
-            {% endif %}
+            <span class="badge bg-info">{{ projects.paginator.count }} projects</span>
         </div>
     </div>
     
@@ -80,9 +77,7 @@
                                 <option value="-created" {% if sort_by == '-created' %}selected{% endif %}>Newest First</option>
                                 <option value="created" {% if sort_by == 'created' %}selected{% endif %}>Oldest First</option>
                                 <option value="title" {% if sort_by == 'title' %}selected{% endif %}>Title (A-Z)</option>
-                                <option value="-title" {% if sort_by == '-title' %}selected{% endif %}>Title (Z-A)</option>
                                 <option value="-progress" {% if sort_by == '-progress' %}selected{% endif %}>Progress (High-Low)</option>
-                                <option value="progress" {% if sort_by == 'progress' %}selected{% endif %}>Progress (Low-High)</option>
                                 <option value="student" {% if sort_by == 'student' %}selected{% endif %}>Student Name</option>
                             </select>
                         </div>
@@ -91,322 +86,446 @@
                     <!-- Filter Button -->
                     <div class="col-md-3 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary me-2">
-                            <i class='bx bx-filter'></i> Apply Filters
+                            <i class='bx bx-filter'></i> Apply
                         </button>
                         <a href="{% url 'projects:all_projects' %}" class="btn btn-secondary">
                             <i class='bx bx-reset'></i> Reset
                         </a>
                     </div>
                 </div>
-                
-                <!-- Active Filters Display -->
-                {% if search_query or status_filter or batch_filter %}
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="active-filters">
-                            <small class="text-muted me-2">Active filters:</small>
-                            {% if search_query %}
-                                <span class="badge bg-primary me-1">
-                                    Search: "{{ search_query }}"
-                                    <a href="?{% if status_filter %}status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="text-white ms-1">×</a>
-                                </span>
-                            {% endif %}
-                            {% if status_filter %}
-                                <span class="badge bg-info me-1">
-                                    Status: {{ status_filter|title }}
-                                    <a href="?{% if search_query %}q={{ search_query }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="text-white ms-1">×</a>
-                                </span>
-                            {% endif %}
-                            {% if batch_filter %}
-                                <span class="badge bg-success me-1">
-                                    Batch: {{ batch_filter }}
-                                    <a href="?{% if search_query %}q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}" class="text-white ms-1">×</a>
-                                </span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </form>
         </div>
     </div>
     
-    <!-- Projects Table -->
-    <div class="card modern-card">
-        <div class="card-body">
-            {% if projects %}
-                <div class="table-responsive">
-                    <table class="table table-hover modern-table">
-                        <thead>
-                            <tr>
-                                <th width="5%">#</th>
-                                <th width="20%">Project Title</th>
-                                <th width="15%">Student</th>
-                                <th width="10%">Student ID</th>
-                                <th width="8%">Batch</th>
-                                <th width="10%">Status</th>
-                                <th width="10%">Progress</th>
-                                <th width="12%">Technologies</th>
-                                <th width="10%">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for project in projects %}
-                            <tr>
-                                <td>{{ forloop.counter0|add:projects.start_index }}</td>
-                                <td>
-                                    <div class="project-title">
-                                        <strong>{{ project.title|truncatechars:50 }}</strong>
-                                        {% if project.description %}
-                                        <small class="text-muted d-block mt-1">
-                                            {{ project.description|truncatechars:60 }}
-                                        </small>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="student-info">
-                                        <strong>{{ project.student.display_name }}</strong>
-                                        {% if project.student.department %}
-                                        <small class="text-muted d-block">{{ project.student.department }}</small>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <code class="user-id">{{ project.student.user_id|default:"-" }}</code>
-                                </td>
-                                <td>
-                                    <span class="batch-year">{{ project.batch_year }}</span>
-                                </td>
-                                <td>
-                                    <span class="badge badge-{{ project.status }}">
-                                        {{ project.get_status_display }}
-                                    </span>
-                                    {% if project.supervisor %}
-                                    <small class="text-muted d-block mt-1">
-                                        {{ project.supervisor.display_name }}
-                                    </small>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="progress-container">
-                                        <div class="progress" style="height: 20px;">
-                                            <div class="progress-bar bg-gradient-primary" 
-                                                 style="width: {{ project.progress_percentage }}%"
-                                                 title="{{ project.progress_percentage }}% Complete">
-                                                {{ project.progress_percentage }}%
-                                            </div>
-                                        </div>
-                                        <small class="text-muted d-block text-center mt-1">
-                                            {{ project.deliverables.count }} deliverables
-                                        </small>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="technologies">
-                                        {% for lang in project.languages_list|slice:":3" %}
-                                            <span class="badge bg-secondary small mb-1">{{ lang }}</span>
-                                        {% endfor %}
-                                        {% if project.languages_list|length > 3 %}
-                                            <span class="badge bg-light text-dark small" 
-                                                  title="{{ project.languages_list|join:', ' }}">
-                                                +{{ project.languages_list|length|add:"-3" }}
-                                            </span>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <a href="{% url 'projects:project_detail' project.pk %}" 
-                                           class="btn btn-sm btn-outline-primary" 
-                                           title="View Details"
-                                           data-bs-toggle="tooltip">
-                                            <i class='bx bx-show'></i>
-                                        </a>
-                                        {% if user.is_admin %}
-                                            {% if project.status == 'pending' %}
-                                            <a href="{% url 'projects:project_review' project.pk %}" 
-                                               class="btn btn-sm btn-outline-success" 
-                                               title="Review Project"
-                                               data-bs-toggle="tooltip">
-                                                <i class='bx bx-check-circle'></i>
-                                            </a>
-                                            {% endif %}
-                                            {% if not project.supervisor and project.status == 'approved' %}
-                                            <a href="{% url 'projects:project_assign_supervisor' project.pk %}" 
-                                               class="btn btn-sm btn-outline-warning" 
-                                               title="Assign Supervisor"
-                                               data-bs-toggle="tooltip">
-                                                <i class='bx bx-user-plus'></i>
-                                            </a>
-                                            {% endif %}
-                                        {% endif %}
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- Pagination -->
-                {% if projects.has_other_pages %}
-                <nav class="mt-4">
-                    <ul class="pagination justify-content-center">
-                        {% if projects.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ projects.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
-                                    <i class='bx bx-chevron-left'></i>
-                                </a>
-                            </li>
-                        {% endif %}
-                        
-                        {% for num in projects.paginator.page_range %}
-                            {% if projects.number == num %}
-                                <li class="page-item active">
-                                    <span class="page-link">{{ num }}</span>
-                                </li>
-                            {% elif num > projects.number|add:'-3' and num < projects.number|add:'3' %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
-                                        {{ num }}
-                                    </a>
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-                        
-                        {% if projects.has_next %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ projects.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
-                                    <i class='bx bx-chevron-right'></i>
-                                </a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                    <div class="text-center mt-2">
-                        <small class="text-muted">
-                            Showing {{ projects.start_index }} - {{ projects.end_index }} of {{ projects.paginator.count }} projects
-                        </small>
+    <!-- Projects Grid -->
+    {% if projects %}
+        <div class="projects-grid">
+            {% for project in projects %}
+            <div class="project-card" onclick="window.location.href='{% url 'projects:project_detail' project.pk %}'">
+                <!-- Card Header -->
+                <div class="project-card-header">
+                    <div class="project-status-badge badge-{{ project.status }}">
+                        {{ project.get_status_display }}
                     </div>
-                </nav>
-                {% endif %}
-            {% else %}
-                <div class="text-center py-5">
-                    <i class='bx bx-folder-open' style="font-size: 4rem; color: var(--text-secondary);"></i>
-                    <h4 class="mt-3">No Projects Found</h4>
-                    <p class="text-muted">Try adjusting your filters or search criteria</p>
-                    {% if search_query or status_filter or batch_filter %}
-                        <a href="{% url 'projects:all_projects' %}" class="btn btn-primary mt-2">
-                            <i class='bx bx-reset'></i> Clear All Filters
-                        </a>
+                    <div class="project-actions">
+                        {% if user.is_admin %}
+                            {% if project.status == 'pending' %}
+                            <a href="{% url 'projects:project_review' project.pk %}" 
+                               class="action-icon" title="Review" onclick="event.stopPropagation()">
+                                <i class='bx bx-check-circle'></i>
+                            </a>
+                            {% endif %}
+                            {% if project.status == 'approved' and not project.supervisor %}
+                            <a href="{% url 'projects:assign_supervisor_page' project.pk %}" 
+                               class="action-icon" title="Assign Supervisor" onclick="event.stopPropagation()">
+                                <i class='bx bx-user-plus'></i>
+                            </a>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Card Body -->
+                <div class="project-card-body">
+                    <!-- Project Icon & Title -->
+                    <div class="project-icon-wrapper">
+                        <div class="project-icon">
+                            <i class='bx bx-folder'></i>
+                        </div>
+                    </div>
+                    
+                    <h3 class="project-title">{{ project.title|truncatechars:50 }}</h3>
+                    <p class="project-description">{{ project.description|truncatechars:100 }}</p>
+
+                    <!-- Technologies -->
+                    <div class="project-tech-tags">
+                        {% for lang in project.languages_list|slice:":3" %}
+                            <span class="tech-tag">{{ lang }}</span>
+                        {% endfor %}
+                        {% if project.languages_list|length > 3 %}
+                            <span class="tech-tag tech-tag-more">+{{ project.languages_list|length|add:"-3" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Card Footer -->
+                <div class="project-card-footer">
+                    <!-- Student Info -->
+                    <div class="student-info-compact">
+                        <div class="student-avatar">
+                            {% if project.student.profile.profile_picture %}
+                                <img src="{{ project.student.profile.profile_picture.url }}" alt="{{ project.student.display_name }}">
+                            {% else %}
+                                <i class='bx bx-user'></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <div class="student-name">{{ project.student.display_name|truncatechars:20 }}</div>
+                            <div class="student-id">{{ project.student.user_id|default:"-" }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-compact">
+                        <div class="progress-info">
+                            <span>Progress</span>
+                            <strong>{{ project.progress_percentage }}%</strong>
+                        </div>
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar-fill" style="width: {{ project.progress_percentage }}%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Supervisor Info -->
+                    {% if project.supervisor %}
+                    <div class="supervisor-info-compact">
+                        <i class='bx bx-user-check'></i>
+                        <span>{{ project.supervisor.display_name|truncatechars:18 }}</span>
+                    </div>
+                    {% else %}
+                    <div class="supervisor-info-compact no-supervisor">
+                        <i class='bx bx-user-x'></i>
+                        <span>No supervisor</span>
+                    </div>
                     {% endif %}
                 </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if projects.has_other_pages %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if projects.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ projects.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                            <i class='bx bx-chevron-left'></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in projects.paginator.page_range %}
+                    {% if projects.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > projects.number|add:'-3' and num < projects.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if projects.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ projects.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">
+                            <i class='bx bx-chevron-right'></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+            <div class="text-center mt-2">
+                <small class="text-muted">
+                    Showing {{ projects.start_index }} - {{ projects.end_index }} of {{ projects.paginator.count }} projects
+                </small>
+            </div>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <i class='bx bx-folder-open'></i>
+            <h4>No Projects Found</h4>
+            <p class="text-muted">Try adjusting your filters or search criteria</p>
+            {% if search_query or status_filter or batch_filter %}
+                <a href="{% url 'projects:all_projects' %}" class="btn btn-primary mt-2">
+                    <i class='bx bx-reset'></i> Clear All Filters
+                </a>
             {% endif %}
         </div>
-    </div>
+    {% endif %}
 </div>
 
 <style>
-.modern-table {
-    border: none;
+/* Projects Grid Layout */
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
 }
 
-.modern-table thead th {
-    background: var(--secondary);
-    border: none;
+/* Project Card */
+.project-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.project-card:hover {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    transform: translateY(-4px);
+}
+
+/* Card Header */
+.project-card-header {
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+.project-status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--text-primary);
-    padding: 12px;
-    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.modern-table tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: all 0.2s ease;
+.badge-draft { background: #e0e0e0; color: #666; }
+.badge-pending { background: #fff3cd; color: #856404; }
+.badge-approved { background: #d4edda; color: #155724; }
+.badge-rejected { background: #f8d7da; color: #721c24; }
+.badge-in_progress { background: #d1ecf1; color: #0c5460; }
+.badge-completed { background: #d1f2eb; color: #1e7e6f; }
+
+.project-actions {
+    display: flex;
+    gap: 8px;
 }
 
-.modern-table tbody tr:hover {
-    background: var(--secondary);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.action-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: #5568FE;
+    font-size: 18px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.badge-draft { background: #6B7280; color: white; }
-.badge-pending { background: #F59E0B; color: white; }
-.badge-approved { background: #10B981; color: white; }
-.badge-rejected { background: #EF4444; color: white; }
-.badge-in_progress { background: #3B82F6; color: white; }
-.badge-completed { background: #8B5CF6; color: white; }
-
-.bg-gradient-primary {
-    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+.action-icon:hover {
+    background: #5568FE;
+    color: white;
+    transform: scale(1.1);
 }
 
-.filter-form .form-label {
-    font-weight: 500;
-    margin-bottom: 4px;
+/* Card Body */
+.project-card-body {
+    padding: 24px 20px;
+    flex: 1;
 }
 
-.active-filters {
-    padding: 8px 0;
+.project-icon-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
 }
 
-.user-id {
-    background: var(--secondary);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.8rem;
+.project-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 32px;
 }
 
-.batch-year {
-    font-weight: 600;
-    color: var(--primary);
+.project-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+    color: #1a1d26;
+    text-align: center;
+    line-height: 1.3;
 }
 
-.progress-container {
-    min-width: 80px;
+.project-description {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 16px 0;
+    text-align: center;
+    line-height: 1.5;
 }
 
-.technologies {
+.project-tech-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
+    gap: 6px;
+    justify-content: center;
 }
 
-.student-info strong {
-    font-size: 0.9rem;
+.tech-tag {
+    padding: 4px 10px;
+    background: #f6f8fb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #374151;
 }
 
-.project-title strong {
-    font-size: 0.9rem;
+.tech-tag-more {
+    background: #5568FE;
+    color: white;
+    border-color: #5568FE;
+}
+
+/* Card Footer */
+.project-card-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #f0f0f0;
+    background: #fafbfc;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.student-info-compact {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.student-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 18px;
+    color: #6b7280;
+}
+
+.student-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.student-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1d26;
     line-height: 1.2;
+}
+
+.student-id {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.progress-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+.progress-info span {
+    color: #6b7280;
+}
+
+.progress-info strong {
+    color: #1a1d26;
+}
+
+.progress-bar-wrapper {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.supervisor-info-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #059669;
+    padding: 8px 12px;
+    background: rgba(16, 185, 129, 0.08);
+    border-radius: 8px;
+}
+
+.supervisor-info-compact.no-supervisor {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.supervisor-info-compact i {
+    font-size: 16px;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.empty-state i {
+    font-size: 80px;
+    color: #e5e7eb;
+    margin-bottom: 20px;
+}
+
+.empty-state h4 {
+    margin-bottom: 12px;
+    color: #1a1d26;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .projects-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-    
-    // Auto-submit form when certain filters change
+    // Auto-submit form on filter change
     const autoSubmitFilters = document.querySelectorAll('select[name="status"], select[name="batch"], select[name="sort"]');
     autoSubmitFilters.forEach(select => {
         select.addEventListener('change', function() {
             this.closest('form').submit();
         });
-    });
-    
-    // Add loading state to filter form
-    const filterForm = document.querySelector('.filter-form');
-    filterForm.addEventListener('submit', function() {
-        const submitBtn = this.querySelector('button[type="submit"]');
-        if (submitBtn) {
-            submitBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Filtering...';
-            submitBtn.disabled = true;
-        }
     });
 });
 </script>

@@ -96,8 +96,8 @@ class StressCalculator:
         since = timezone.now() - timedelta(days=days)
         stress_records = StressLevel.objects.filter(
             student=user,
-            timestamp=since
-        ).order_by('timestamp')
+            calculated_at__gte=since
+        ).order_by('calculated_at')
 
         if not stress_records.exists():
             return {'trend': 'stable', 'average': 0, 'records': []}
@@ -123,20 +123,30 @@ class StressCalculator:
             'trend': trend,
             'average': average,
             'current': levels[-1] if levels else 0,
-            'records': list(stress_records.values('timestamp', 'level'))
+            'records': list(stress_records.values('calculated_at', 'level'))
         }
 
     @staticmethod
     def get_high_stress_students(threshold=70):
-        """Get list of students with high stress levels"""
+        """Get list of students with high stress levels - SQLite compatible"""
         from analytics.models import StressLevel
+        from accounts.models import User
 
-        # Get latest stress level for each student
-        latest_stress = StressLevel.objects.filter(
+        # Get all high stress records
+        high_stress_records = StressLevel.objects.filter(
             level__gte=threshold
-        ).order_by('student', '-timestamp').distinct('student')
+        ).select_related('student').order_by('student_id', '-calculated_at')
 
-        return latest_stress
+        # Group by student and take the latest record for each using Python
+        students_seen = set()
+        latest_high_stress = []
+        
+        for record in high_stress_records:
+            if record.student_id not in students_seen:
+                latest_high_stress.append(record)
+                students_seen.add(record.student_id)
+
+        return latest_high_stress
 
 
 class PerformanceCalculator:
@@ -197,7 +207,16 @@ class PerformanceCalculator:
 
         # Check for regular activity (at least weekly)
         total_weeks = max(1, (timezone.now() - project.created_at).days / 7)
-        activity_weeks = activities.values('timestamp__week').distinct().count()
+        
+        # Use date-based grouping for SQLite compatibility
+        activity_dates = activities.values_list('timestamp', flat=True)
+        unique_weeks = set()
+        for date in activity_dates:
+            # Get ISO week number
+            year, week, _ = date.isocalendar()
+            unique_weeks.add(f"{year}-{week}")
+        
+        activity_weeks = len(unique_weeks)
 
         consistency = min(100, (activity_weeks / total_weeks) * 100)
         return consistency
@@ -211,7 +230,6 @@ class PerformanceCalculator:
             return 0
 
         # Simple timeliness calculation
-        # In a real system, you'd compare submission_date with deadline
         timely_submissions = deliverables.filter(submitted_at__isnull=False).count()
         total_submissions = deliverables.count()
 
@@ -329,19 +347,32 @@ class AnalyticsDashboard:
 
         # Average progress
         all_projects = Project.objects.all()
-        progress_scores = [ProgressCalculator.calculate_project_progress(p) for p in all_projects]
+        progress_scores = []
+        for project in all_projects:
+            progress = ProgressCalculator.calculate_project_progress(project)
+            progress_scores.append(progress)
+        
         avg_progress = np.mean(progress_scores) if progress_scores else 0
 
         # High stress count
-        high_stress = StressCalculator.get_high_stress_students(threshold=70).count()
+        high_stress_list = StressCalculator.get_high_stress_students(threshold=70)
+        high_stress_count = len(high_stress_list)
+
+        # Calculate completion rate
+        completed_count = 0
+        for status in status_distribution:
+            if status['status'] == 'completed':
+                completed_count = status['count']
+                break
+
+        completion_rate = (completed_count / total_projects * 100) if total_projects > 0 else 0
 
         return {
             'total_students': total_students,
             'total_projects': total_projects,
             'total_groups': total_groups,
             'average_progress': avg_progress,
-            'high_stress_students': high_stress,
+            'high_stress_students': high_stress_count,
             'status_distribution': list(status_distribution),
-            'completion_rate': (status_distribution.filter(status='completed').count() / total_projects * 100) if total_projects > 0 else 0
+            'completion_rate': completion_rate
         }
-

@@ -72,6 +72,7 @@ class StressLevel(models.Model):
         """Check if stress level is high"""
         return self.level >= 70
 
+
 class ProgressTracking(models.Model):
     """Track project progress over time"""
     
@@ -143,7 +144,8 @@ class SupervisorMeetingLog(models.Model):
         related_name='supervisor_meetings',
         limit_choices_to={'role': 'supervisor'}
     )
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='meetings')
+    # FIXED: Changed related_name to avoid clash with projects.SupervisorMeeting
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='meeting_logs')
     
     meeting_date = models.DateTimeField()
     duration_minutes = models.IntegerField(validators=[MinValueValidator(1)])
@@ -229,6 +231,7 @@ class SystemAnalytics(models.Model):
     
     def __str__(self):
         return f"Analytics for {self.date}"
+
 
 class SupervisorFeedback(models.Model):
     """Supervisor feedback log sheet for students"""

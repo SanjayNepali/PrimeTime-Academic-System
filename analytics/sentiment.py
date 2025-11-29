@@ -45,6 +45,24 @@ class AdvancedSentimentAnalyzer:
             return Project.objects.filter(student=self.user).first()
         except (Project.DoesNotExist, Project.MultipleObjectsReturned):
             return None
+    def _calculate_project_progress(self):
+        """Calculate project progress if progress_percentage attribute doesn't exist"""
+        if not self.project:
+            return 0
+        
+        # Try to use progress_percentage if available
+        if hasattr(self.project, 'progress_percentage'):
+            return self.project.progress_percentage
+        
+        # Fallback: calculate progress based on deliverables
+        deliverables = self.project.deliverables.all()
+        total_deliverables = deliverables.count()
+        
+        if total_deliverables == 0:
+            return 0
+        
+        completed_deliverables = deliverables.filter(is_approved=True).count()
+        return (completed_deliverables / total_deliverables) * 100
     
     def comprehensive_stress_analysis(self, days=7):
         """Comprehensive stress analysis - return None if no REAL meaningful data"""
@@ -205,7 +223,8 @@ class AdvancedSentimentAnalyzer:
         if not self.project:
             return {'score': 0, 'progress': 0, 'behind_schedule': False}
         
-        progress = self.project.progress_percentage
+        # FIXED: Use the fallback method
+        progress = self._calculate_project_progress()
         
         # Expected progress based on time elapsed
         project_start = self.project.created_at
@@ -234,7 +253,6 @@ class AdvancedSentimentAnalyzer:
             'behind_schedule': progress_gap > 10,
             'recent_activity': recent_activity
         }
-    
     def _calculate_deadline_pressure(self):
         """Calculate pressure from upcoming deadlines"""
         if not self.project:
@@ -413,13 +431,12 @@ class AdvancedSentimentAnalyzer:
             project_phase=self._get_project_phase(),
             week_of_semester=self._get_week_of_semester()
         )
-    
     def _get_project_phase(self):
         """Determine current project phase"""
         if not self.project:
             return "unknown"
         
-        progress = self.project.progress_percentage
+        progress = self._calculate_project_progress()
         
         if progress < 20:
             return "initial"
@@ -429,7 +446,6 @@ class AdvancedSentimentAnalyzer:
             return "final-phase"
         else:
             return "completion"
-    
     def _get_week_of_semester(self):
         """Calculate current week of semester"""
         # Simple implementation - can be enhanced with actual semester dates

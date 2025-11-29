@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Count, Q, Sum, Avg
 from django.http import HttpResponseForbidden
 from django.core.paginator import Paginator
 from accounts.models import User
@@ -18,6 +18,9 @@ from analytics.sentiment import AdvancedSentimentAnalyzer
 from analytics.models import StressLevel
 from analytics.calculators import PerformanceCalculator, ProgressCalculator
 
+from .forms import LogSheetApprovalForm, MeetingScheduleForm, MeetingMinutesForm, ProgressNoteForm
+from .models import ProjectLogSheet, SupervisorMeeting, StudentProgressNote
+from analytics.calculators import PerformanceCalculator, StressCalculator
 
 @login_required
 def my_project(request):
@@ -359,7 +362,7 @@ def project_submit(request, pk):
 
 @login_required
 def all_projects(request):
-    """All projects view for admin and supervisors"""
+    """All projects view for admin and supervisors - UPDATED"""
     
     if not (request.user.is_supervisor or request.user.is_admin):
         messages.error(request, 'Access denied.')
@@ -370,7 +373,7 @@ def all_projects(request):
     batch_filter = request.GET.get('batch', '')
     sort_by = request.GET.get('sort', '-created_at')
     
-    projects = Project.objects.all().select_related('student', 'supervisor')
+    projects = Project.objects.all().select_related('student', 'supervisor', 'student__profile')
     
     if request.user.is_supervisor:
         projects = projects.filter(supervisor=request.user)
@@ -407,6 +410,11 @@ def all_projects(request):
     page = request.GET.get('page')
     projects_page = paginator.get_page(page)
     
+    # Count pending projects for badge
+    pending_projects = 0
+    if request.user.is_admin:
+        pending_projects = Project.objects.filter(status='pending').count()
+    
     context = {
         'title': 'All Projects - PrimeTime',
         'projects': projects_page,
@@ -418,10 +426,10 @@ def all_projects(request):
         'batches': range(2079, 2090),
         'is_supervisor': request.user.is_supervisor,
         'is_admin': request.user.is_admin,
+        'pending_projects': pending_projects,
     }
     
     return render(request, 'projects/all_projects.html', context)
-
 
 @login_required
 def project_create(request):
@@ -470,6 +478,7 @@ def project_create(request):
         'batch_year': request.user.batch_year,
     }
     return render(request, 'projects/project_form.html', context)
+
 @login_required
 def project_edit(request, pk):
     """Edit existing project with resubmit functionality"""
@@ -786,6 +795,93 @@ def deliverable_submit(request, pk):
     messages.info(request, 'Deliverable submission feature will be implemented soon.')
     return redirect('projects:my_project')
 
+@login_required
+def assign_supervisor_page(request, pk):
+    """
+    Supervisor assignment page with detailed view
+    Shows all supervisors with their workload
+    """
+    if not request.user.is_admin:
+        messages.error(request, 'Only admins can assign supervisors.')
+        return redirect('dashboard:home')
+    
+    project = get_object_or_404(Project, pk=pk)
+    
+    if project.status != 'approved':
+        messages.error(request, 'Only approved projects can have supervisors assigned.')
+        return redirect('projects:all_projects')
+    
+    if request.method == 'POST':
+        supervisor_id = request.POST.get('supervisor_id')
+        
+        if not supervisor_id:
+            messages.error(request, 'Please select a supervisor.')
+            return redirect('projects:assign_supervisor_page', pk=pk)
+        
+        try:
+            supervisor = User.objects.get(id=supervisor_id, role='supervisor')
+            
+            # Assign supervisor
+            project.supervisor = supervisor
+            if project.status == 'approved':
+                project.status = 'in_progress'
+            project.save()
+            
+            # Log activity
+            ProjectActivity.objects.create(
+                project=project,
+                user=request.user,
+                action='supervisor_assigned',
+                details=f'Supervisor {supervisor.display_name} assigned to project'
+            )
+            
+            messages.success(
+                request, 
+                f'Supervisor {supervisor.display_name} successfully assigned to {project.title}!'
+            )
+            return redirect('projects:all_projects')
+            
+        except User.DoesNotExist:
+            messages.error(request, 'Invalid supervisor selected.')
+            return redirect('projects:assign_supervisor_page', pk=pk)
+    
+    # Get all supervisors with their workload
+    supervisors = User.objects.filter(role='supervisor').annotate(
+        supervised_count=Count('supervised_projects')
+    ).order_by('supervised_count', 'full_name')
+    
+    # Calculate availability for each supervisor
+    supervisor_data = []
+    for supervisor in supervisors:
+        supervised_count = supervisor.supervised_count
+        workload_percentage = min(int((supervised_count / 7) * 100), 100)
+        is_available = supervised_count < 7
+        
+        # Get current students
+        current_students = User.objects.filter(
+            projects__supervisor=supervisor,
+            projects__status__in=['in_progress', 'approved']
+        ).distinct()
+        
+        supervisor_data.append({
+            'id': supervisor.id,
+            'display_name': supervisor.display_name,
+            'email': supervisor.email,
+            'department': supervisor.department,
+            'profile': supervisor.profile,
+            'supervised_count': supervised_count,
+            'workload_percentage': workload_percentage,
+            'is_available': is_available,
+            'current_students': current_students
+        })
+    
+    context = {
+        'project': project,
+        'supervisors': supervisor_data,
+        'title': f'Assign Supervisor - {project.title}',
+    }
+    
+    return render(request, 'projects/assign_supervisor.html', context)
 
 @login_required
 def project_review(request, pk):
@@ -951,3 +1047,335 @@ def supervisor_projects(request):
     }
     
     return render(request, 'projects/supervisor_projects.html', context)
+
+# ===========================================================================
+# NEW SUPERVISOR MANAGEMENT VIEWS
+# ===========================================================================
+
+@login_required
+def supervisor_project_detail(request, pk):
+    """
+    Comprehensive supervisor view of project with:
+    - Student info & analytics
+    - Log sheets
+    - Meetings
+    - Stress monitoring
+    - Deliverables tracking
+    - Private notes
+    """
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can access this page.')
+        return redirect('dashboard:home')
+    
+    project = get_object_or_404(Project, pk=pk)
+    
+    # Verify supervisor is assigned to this project
+    if project.supervisor != request.user:
+        messages.error(request, 'You are not the supervisor for this project.')
+        return redirect('projects:supervisor_projects')
+    
+    student = project.student
+    
+    # ==================================================================
+    # STUDENT ANALYTICS & PERFORMANCE
+    # ==================================================================
+    
+    # Get latest stress level
+    latest_stress = StressLevel.objects.filter(
+        student=student
+    ).order_by('-calculated_at').first()
+    
+    # Get stress trend
+    stress_trend = None
+    if latest_stress:
+        stress_trend = StressCalculator.get_stress_trend(student, days=30)
+    
+    # Calculate performance
+    performance = PerformanceCalculator.calculate_student_performance(student)
+    
+    # ==================================================================
+    # LOG SHEETS
+    # ==================================================================
+    
+    log_sheets = ProjectLogSheet.objects.filter(
+        project=project
+    ).order_by('-week_number')
+    
+    pending_log_sheets = log_sheets.filter(is_approved=False)
+    approved_log_sheets = log_sheets.filter(is_approved=True)
+    
+    # ==================================================================
+    # MEETINGS
+    # ==================================================================
+    
+    upcoming_meetings = SupervisorMeeting.objects.filter(
+        project=project,
+        scheduled_date__gte=timezone.now(),
+        status='scheduled'
+    ).order_by('scheduled_date')
+    
+    past_meetings = SupervisorMeeting.objects.filter(
+        project=project,
+        status='completed'
+    ).order_by('-scheduled_date')[:10]
+    
+    # ==================================================================
+    # DELIVERABLES
+    # ==================================================================
+    
+    deliverables = project.deliverables.all().order_by('stage')
+    completed_deliverables = deliverables.filter(is_approved=True).count()
+    total_deliverables = deliverables.count()
+    
+    # ==================================================================
+    # SUPERVISOR NOTES
+    # ==================================================================
+    
+    supervisor_notes = StudentProgressNote.objects.filter(
+        project=project,
+        supervisor=request.user
+    ).order_by('-created_at')[:20]
+    
+    # ==================================================================
+    # RECENT ACTIVITIES
+    # ==================================================================
+    
+    recent_activities = project.activities.all().order_by('-timestamp')[:15]
+    
+    # ==================================================================
+    # STATISTICS
+    # ==================================================================
+    
+    total_hours_logged = log_sheets.aggregate(
+        total=Sum('hours_spent')
+    )['total'] or 0
+    
+    average_rating = log_sheets.filter(
+        supervisor_rating__isnull=False
+    ).aggregate(
+        avg=Avg('supervisor_rating')
+    )['avg']
+    
+    meeting_attendance_rate = 0
+    if past_meetings.exists():
+        attended = past_meetings.filter(student_attended=True).count()
+        meeting_attendance_rate = int((attended / past_meetings.count()) * 100)
+    
+    context = {
+        'title': f'Supervise: {project.title}',
+        'project': project,
+        'student': student,
+        
+        # Analytics
+        'latest_stress': latest_stress,
+        'stress_trend': stress_trend,
+        'performance': performance,
+        
+        # Log sheets
+        'log_sheets': log_sheets,
+        'pending_log_sheets': pending_log_sheets,
+        'approved_log_sheets': approved_log_sheets,
+        
+        # Meetings
+        'upcoming_meetings': upcoming_meetings,
+        'past_meetings': past_meetings,
+        
+        # Deliverables
+        'deliverables': deliverables,
+        'completed_deliverables': completed_deliverables,
+        'total_deliverables': total_deliverables,
+        
+        # Notes
+        'supervisor_notes': supervisor_notes,
+        
+        # Activities
+        'recent_activities': recent_activities,
+        
+        # Statistics
+        'total_hours_logged': total_hours_logged,
+        'average_rating': average_rating,
+        'meeting_attendance_rate': meeting_attendance_rate,
+        
+        # Tab management
+        'active_tab': request.GET.get('tab', 'overview'),
+    }
+    
+    return render(request, 'projects/supervisor_project_detail.html', context)
+
+
+@login_required
+def approve_log_sheet(request, pk):
+    """Approve and provide feedback on student log sheet"""
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can approve log sheets.')
+        return redirect('dashboard:home')
+    
+    log_sheet = get_object_or_404(ProjectLogSheet, pk=pk)
+    project = log_sheet.project
+    
+    # Verify supervisor
+    if project.supervisor != request.user:
+        messages.error(request, 'You are not the supervisor for this project.')
+        return redirect('projects:supervisor_projects')
+    
+    if request.method == 'POST':
+        form = LogSheetApprovalForm(request.POST, instance=log_sheet)
+        if form.is_valid():
+            log_sheet = form.save(commit=False)
+            log_sheet.is_approved = True
+            log_sheet.supervisor_signature = request.user.display_name
+            log_sheet.reviewed_at = timezone.now()
+            log_sheet.save()
+            
+            # Log activity
+            ProjectActivity.objects.create(
+                project=project,
+                user=request.user,
+                action='logsheet_approved',
+                details=f'Week {log_sheet.week_number} log sheet approved with rating {log_sheet.supervisor_rating}/5'
+            )
+            
+            messages.success(
+                request,
+                f'Log sheet for Week {log_sheet.week_number} approved successfully!'
+            )
+            return redirect('projects:supervisor_project_detail', pk=project.pk)
+    else:
+        form = LogSheetApprovalForm(instance=log_sheet)
+    
+    context = {
+        'form': form,
+        'log_sheet': log_sheet,
+        'project': project,
+        'title': f'Approve Log Sheet - Week {log_sheet.week_number}',
+    }
+    return render(request, 'projects/approve_log_sheet.html', context)
+
+
+@login_required
+def schedule_meeting(request, pk):
+    """Schedule a meeting with student"""
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can schedule meetings.')
+        return redirect('dashboard:home')
+    
+    project = get_object_or_404(Project, pk=pk)
+    
+    # Verify supervisor
+    if project.supervisor != request.user:
+        messages.error(request, 'You are not the supervisor for this project.')
+        return redirect('projects:supervisor_projects')
+    
+    if request.method == 'POST':
+        form = MeetingScheduleForm(request.POST)
+        if form.is_valid():
+            meeting = form.save(commit=False)
+            meeting.project = project
+            meeting.status = 'scheduled'
+            meeting.save()
+            
+            # Log activity
+            ProjectActivity.objects.create(
+                project=project,
+                user=request.user,
+                action='meeting_scheduled',
+                details=f'{meeting.get_meeting_type_display()} scheduled for {meeting.scheduled_date.strftime("%b %d, %Y at %I:%M %p")}'
+            )
+            
+            messages.success(
+                request,
+                f'Meeting scheduled successfully for {meeting.scheduled_date.strftime("%b %d, %Y at %I:%M %p")}'
+            )
+            return redirect('projects:supervisor_project_detail', pk=project.pk)
+    else:
+        form = MeetingScheduleForm()
+    
+    context = {
+        'form': form,
+        'project': project,
+        'student': project.student,
+        'title': f'Schedule Meeting - {project.title}',
+    }
+    return render(request, 'projects/schedule_meeting.html', context)
+
+
+@login_required
+def record_meeting_minutes(request, meeting_id):
+    """Record meeting minutes after meeting"""
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can record meeting minutes.')
+        return redirect('dashboard:home')
+    
+    meeting = get_object_or_404(SupervisorMeeting, pk=meeting_id)
+    project = meeting.project
+    
+    # Verify supervisor
+    if project.supervisor != request.user:
+        messages.error(request, 'You are not the supervisor for this project.')
+        return redirect('projects:supervisor_projects')
+    
+    if request.method == 'POST':
+        form = MeetingMinutesForm(request.POST, instance=meeting)
+        if form.is_valid():
+            meeting = form.save(commit=False)
+            meeting.status = 'completed'
+            meeting.completed_at = timezone.now()
+            meeting.save()
+            
+            # Log activity
+            ProjectActivity.objects.create(
+                project=project,
+                user=request.user,
+                action='meeting_completed',
+                details=f'{meeting.get_meeting_type_display()} completed - Attendance: {"Present" if meeting.student_attended else "Absent"}'
+            )
+            
+            messages.success(request, 'Meeting minutes recorded successfully!')
+            return redirect('projects:supervisor_project_detail', pk=project.pk)
+    else:
+        form = MeetingMinutesForm(instance=meeting)
+    
+    context = {
+        'form': form,
+        'meeting': meeting,
+        'project': project,
+        'title': f'Record Minutes - {meeting.get_meeting_type_display()}',
+    }
+    return render(request, 'projects/record_meeting_minutes.html', context)
+
+
+@login_required
+def add_progress_note(request, pk):
+    """Add a progress note for student"""
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can add progress notes.')
+        return redirect('dashboard:home')
+    
+    project = get_object_or_404(Project, pk=pk)
+    
+    # Verify supervisor
+    if project.supervisor != request.user:
+        messages.error(request, 'You are not the supervisor for this project.')
+        return redirect('projects:supervisor_projects')
+    
+    if request.method == 'POST':
+        form = ProgressNoteForm(request.POST)
+        if form.is_valid():
+            note = form.save(commit=False)
+            note.project = project
+            note.supervisor = request.user
+            note.save()
+            
+            visibility = "visible to student" if note.is_visible_to_student else "private"
+            messages.success(request, f'Progress note added successfully ({visibility})!')
+            return redirect('projects:supervisor_project_detail', pk=project.pk)
+    else:
+        form = ProgressNoteForm()
+    
+    context = {
+        'form': form,
+        'project': project,
+        'student': project.student,
+        'title': f'Add Progress Note - {project.student.display_name}',
+    }
+    return render(request, 'projects/add_progress_note.html', context)

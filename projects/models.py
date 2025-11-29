@@ -216,6 +216,10 @@ class ProjectActivity(models.Model):
         ('deliverable_approved', 'Deliverable Approved'),
         ('supervisor_assigned', 'Supervisor Assigned'),
         ('completed', 'Project Completed'),
+        ('logsheet_submitted', 'Log Sheet Submitted'),
+        ('logsheet_approved', 'Log Sheet Approved'),
+        ('meeting_scheduled', 'Meeting Scheduled'),
+        ('meeting_completed', 'Meeting Completed'),
     ]
     
     project = models.ForeignKey(
@@ -234,3 +238,199 @@ class ProjectActivity(models.Model):
     
     def __str__(self):
         return f"{self.project.title} - {self.get_action_display()}"
+
+
+class ProjectLogSheet(models.Model):
+    """Weekly log sheets for project tracking by students"""
+    
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='log_sheets'
+    )
+    week_number = models.IntegerField()
+    start_date = models.DateField()
+    end_date = models.DateField()
+    
+    # Student submission
+    tasks_completed = models.TextField(
+        help_text="Tasks completed this week"
+    )
+    challenges_faced = models.TextField(
+        blank=True,
+        help_text="Challenges or blockers faced"
+    )
+    next_week_plan = models.TextField(
+        help_text="Plan for next week"
+    )
+    hours_spent = models.DecimalField(
+        max_digits=5,
+        decimal_places=1,
+        validators=[MinValueValidator(0)],
+        help_text="Hours worked this week"
+    )
+    
+    # Attachments
+    attachment = models.FileField(
+        upload_to='log_sheets/%Y/%m/',
+        blank=True,
+        null=True,
+        help_text="Optional progress screenshots/documents"
+    )
+    
+    # Supervisor review
+    supervisor_remarks = models.TextField(blank=True)
+    supervisor_rating = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="1-5 rating"
+    )
+    is_approved = models.BooleanField(default=False)
+    supervisor_signature = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Digital signature (supervisor name)"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Timestamps
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-week_number']
+        unique_together = ['project', 'week_number']
+        verbose_name = "Project Log Sheet"
+        verbose_name_plural = "Project Log Sheets"
+    
+    def __str__(self):
+        return f"{self.project.title} - Week {self.week_number}"
+    
+    def approve(self, supervisor, remarks='', rating=None):
+        """Approve log sheet with supervisor remarks"""
+        self.is_approved = True
+        self.supervisor_remarks = remarks
+        self.supervisor_rating = rating
+        self.supervisor_signature = supervisor.display_name
+        self.reviewed_at = timezone.now()
+        self.save()
+        
+        # Log activity
+        ProjectActivity.objects.create(
+            project=self.project,
+            user=supervisor,
+            action='logsheet_approved',
+            details=f'Week {self.week_number} log sheet approved'
+        )
+
+
+class SupervisorMeeting(models.Model):
+    """Track meetings between supervisor and student"""
+    
+    MEETING_TYPE_CHOICES = [
+        ('scheduled', 'Scheduled Meeting'),
+        ('adhoc', 'Ad-hoc Discussion'),
+        ('review', 'Progress Review'),
+        ('defense', 'Defense/Presentation'),
+        ('emergency', 'Emergency Meeting'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+        ('rescheduled', 'Rescheduled'),
+    ]
+    
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='meetings'
+    )
+    meeting_type = models.CharField(max_length=20, choices=MEETING_TYPE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
+    
+    # Schedule
+    scheduled_date = models.DateTimeField()
+    duration_minutes = models.IntegerField(default=30)
+    location = models.CharField(max_length=200, blank=True)
+    meeting_link = models.URLField(blank=True)
+    
+    # Agenda
+    agenda = models.TextField()
+    
+    # Minutes (after meeting)
+    discussion_summary = models.TextField(blank=True)
+    action_items = models.TextField(blank=True)
+    next_steps = models.TextField(blank=True)
+    
+    # Attendance
+    student_attended = models.BooleanField(default=False)
+    supervisor_notes = models.TextField(blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-scheduled_date']
+        verbose_name = "Supervisor Meeting"
+        verbose_name_plural = "Supervisor Meetings"
+    
+    def __str__(self):
+        return f"{self.project.title} - {self.get_meeting_type_display()} - {self.scheduled_date.date()}"
+    
+    def mark_completed(self):
+        """Mark meeting as completed"""
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.save()
+
+
+class StudentProgressNote(models.Model):
+    """Private notes by supervisor about student progress"""
+    
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='supervisor_notes'
+    )
+    supervisor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_notes',
+        limit_choices_to={'role': 'supervisor'}
+    )
+    
+    # Note content
+    note = models.TextField()
+    
+    # Categories
+    CATEGORY_CHOICES = [
+        ('progress', 'Progress Update'),
+        ('concern', 'Concern/Issue'),
+        ('achievement', 'Achievement'),
+        ('reminder', 'Reminder'),
+        ('other', 'Other'),
+    ]
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='progress')
+    
+    # Privacy
+    is_visible_to_student = models.BooleanField(
+        default=False,
+        help_text="Make this note visible to student"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Supervisor Note"
+        verbose_name_plural = "Supervisor Notes"
+    
+    def __str__(self):
+        return f"Note for {self.project.student.display_name} - {self.created_at.date()}"

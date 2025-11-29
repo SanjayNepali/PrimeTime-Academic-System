@@ -2,7 +2,7 @@
 
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Project, ProjectDeliverable
+from .models import Project, ProjectDeliverable, ProjectLogSheet, SupervisorMeeting, StudentProgressNote
 
 
 class ProjectForm(forms.ModelForm):
@@ -169,3 +169,118 @@ class DeliverableReviewForm(forms.ModelForm):
             if marks < 0 or marks > 100:
                 raise ValidationError('Marks must be between 0 and 100.')
         return marks
+
+
+class LogSheetApprovalForm(forms.ModelForm):
+    """Form for supervisors to approve/review log sheets"""
+    
+    class Meta:
+        model = ProjectLogSheet
+        fields = ['supervisor_remarks', 'supervisor_rating']
+        widgets = {
+            'supervisor_remarks': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Provide feedback on this week\'s progress...'
+            }),
+            'supervisor_rating': forms.Select(
+                attrs={'class': 'form-control'}
+            ),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set the choices for supervisor_rating dynamically
+        self.fields['supervisor_rating'].choices = [(i, f"{i} - {'⭐' * i}") for i in range(1, 6)]
+    
+    def clean_supervisor_remarks(self):
+        remarks = self.cleaned_data.get('supervisor_remarks')
+        if not remarks or len(remarks) < 10:
+            raise ValidationError('Please provide detailed feedback (at least 10 characters).')
+        return remarks
+
+
+class MeetingScheduleForm(forms.ModelForm):
+    """Form for scheduling meetings with students"""
+    
+    class Meta:
+        model = SupervisorMeeting
+        fields = ['meeting_type', 'scheduled_date', 'duration_minutes', 
+                  'location', 'meeting_link', 'agenda']
+        widgets = {
+            'meeting_type': forms.Select(attrs={'class': 'form-control'}),
+            'scheduled_date': forms.DateTimeInput(attrs={
+                'class': 'form-control',
+                'type': 'datetime-local'
+            }),
+            'duration_minutes': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 15,
+                'max': 180,
+                'step': 15
+            }),
+            'location': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'e.g., Office 304 or Online'
+            }),
+            'meeting_link': forms.URLInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Zoom/Google Meet link (optional)'
+            }),
+            'agenda': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'What will be discussed in this meeting?'
+            }),
+        }
+
+
+class MeetingMinutesForm(forms.ModelForm):
+    """Form for recording meeting minutes"""
+    
+    class Meta:
+        model = SupervisorMeeting
+        fields = ['student_attended', 'discussion_summary', 'action_items', 
+                  'next_steps', 'supervisor_notes']
+        widgets = {
+            'student_attended': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'discussion_summary': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Summarize what was discussed...'
+            }),
+            'action_items': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'List action items for the student...'
+            }),
+            'next_steps': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'What are the next steps?'
+            }),
+            'supervisor_notes': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 2,
+                'placeholder': 'Private notes (not visible to student)'
+            }),
+        }
+
+
+class ProgressNoteForm(forms.ModelForm):
+    """Form for adding supervisor notes"""
+    
+    class Meta:
+        model = StudentProgressNote
+        fields = ['category', 'note', 'is_visible_to_student']
+        widgets = {
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'note': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Add your observations, concerns, or notes...'
+            }),
+            'is_visible_to_student': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+        }

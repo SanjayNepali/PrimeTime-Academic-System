@@ -85,7 +85,7 @@
                     </div>
                     
                     <small class="text-muted d-block mt-2">
-                        Last updated: {{ latest_stress.timestamp|timesince }} ago
+                        Last updated: {{ latest_stress.calculated_at|timesince }} ago
                     </small>
                 </div>
             </div>
@@ -204,7 +204,7 @@
                     </button>
                 </div>
                 <div class="card-body">
-                    <canvas id="stressTrendChart" height="80"></canvas>
+                    <canvas id="stressTrendChart" height="250"></canvas>
                     
                     <!-- Stress Factors Breakdown - Only if we have latest_stress -->
                     {% if latest_stress %}
@@ -216,8 +216,9 @@
                                     <small class="text-muted">Chat Sentiment</small>
                                     <div class="progress mt-1" style="height: 6px;">
                                         <div class="progress-bar bg-info" 
-                                             style="width: {{ chat_factor_width }}%"></div>
+                                             style="width: {{ latest_stress.chat_sentiment_score }}%"></div>
                                     </div>
+                                    <small>{{ latest_stress.chat_sentiment_score|floatformat:0 }}%</small>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -227,6 +228,7 @@
                                         <div class="progress-bar bg-warning" 
                                              style="width: {{ latest_stress.deadline_pressure }}%"></div>
                                     </div>
+                                    <small>{{ latest_stress.deadline_pressure|floatformat:0 }}%</small>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -236,6 +238,7 @@
                                         <div class="progress-bar bg-danger" 
                                              style="width: {{ latest_stress.workload_score }}%"></div>
                                     </div>
+                                    <small>{{ latest_stress.workload_score|floatformat:0 }}%</small>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -245,6 +248,7 @@
                                         <div class="progress-bar bg-secondary" 
                                              style="width: {{ latest_stress.social_isolation_score }}%"></div>
                                     </div>
+                                    <small>{{ latest_stress.social_isolation_score|floatformat:0 }}%</small>
                                 </div>
                             </div>
                         </div>
@@ -264,7 +268,7 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="performanceChart" height="200"></canvas>
+                    <canvas id="performanceChart" height="250"></canvas>
                     
                     <div class="mt-4">
                         <div class="breakdown-item">
@@ -345,7 +349,7 @@
                             <tbody>
                                 {% for stress in stress_history %}
                                 <tr>
-                                    <td>{{ stress.timestamp|date:"M d, Y H:i" }}</td>
+                                    <td>{{ stress.calculated_at|date:"M d, Y H:i" }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="progress" style="width: 100px; height: 20px; margin-right: 10px;">
@@ -390,11 +394,11 @@
     font-size: 24px;
 }
 
-.bg-primary-light { background: rgba(85, 104, 254, 0.1); color: var(--primary); }
-.bg-success-light { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-.bg-danger-light { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
-.bg-warning-light { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-.bg-info-light { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+.bg-primary-light { background: rgba(85, 104, 254, 0.1); color: #5568FE; }
+.bg-success-light { background: rgba(16, 185, 129, 0.1); color: #10B981; }
+.bg-danger-light { background: rgba(239, 68, 68, 0.1); color: #EF4444; }
+.bg-warning-light { background: rgba(245, 158, 11, 0.1); color: #F59E0B; }
+.bg-info-light { background: rgba(59, 130, 246, 0.1); color: #3B82F6; }
 
 .grade-badge {
     display: inline-block;
@@ -411,7 +415,7 @@
 
 .factor-card {
     padding: 12px;
-    background: var(--secondary);
+    background: #f8f9fa;
     border-radius: 8px;
 }
 
@@ -420,95 +424,136 @@
 }
 
 .bg-gradient-primary {
-    background: linear-gradient(90deg, var(--primary), #667eea);
+    background: linear-gradient(90deg, #5568FE, #667eea);
 }
 
 .bg-gradient-success {
-    background: linear-gradient(90deg, var(--success), #059669);
+    background: linear-gradient(90deg, #10B981, #059669);
 }
 
 .bg-gradient-info {
-    background: linear-gradient(90deg, var(--info), #2563eb);
+    background: linear-gradient(90deg, #3B82F6, #2563eb);
+}
+
+.modern-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modern-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
 }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Stress Trend Chart - Only if we have stress history
-{% if stress_history %}
-const stressCtx = document.getElementById('stressTrendChart').getContext('2d');
-new Chart(stressCtx, {
-    type: 'line',
-    data: {
-        labels: [
-            {% for stress in stress_history reversed %}
-            '{{ stress.timestamp|date:"M d" }}'{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ],
-        datasets: [{
-            label: 'Stress Level',
-            data: [
-                {% for stress in stress_history reversed %}
-                {{ stress.level|floatformat:1 }}{% if not forloop.last %},{% endif %}
-                {% endfor %}
-            ],
-            borderColor: '#EF4444',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            tension: 0.4,
-            fill: true
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: { display: false }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                max: 100
-            }
-        }
-    }
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts only if they exist
+    initializeCharts();
 });
-{% endif %}
 
-// Performance Breakdown Chart - Only if we have performance data
-{% if performance %}
-const perfCtx = document.getElementById('performanceChart').getContext('2d');
-new Chart(perfCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Progress', 'Quality', 'Consistency', 'Timeliness'],
-        datasets: [{
-            data: [
-                {{ performance.breakdown.progress|floatformat:0 }},
-                {{ performance.breakdown.deliverable_quality|floatformat:0 }},
-                {{ performance.breakdown.consistency|floatformat:0 }},
-                {{ performance.breakdown.timeliness|floatformat:0 }}
-            ],
-            backgroundColor: [
-                '#5568FE',
-                '#10B981',
-                '#3B82F6',
-                '#F59E0B'
-            ]
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: {
-                position: 'bottom'
+function initializeCharts() {
+    // Stress Trend Chart - Only if element exists
+    const stressChartEl = document.getElementById('stressTrendChart');
+    if (stressChartEl) {
+        const stressCtx = stressChartEl.getContext('2d');
+        new Chart(stressCtx, {
+            type: 'line',
+            data: {
+                labels: [
+                    {% for stress in stress_history reversed %}
+                    '{{ stress.calculated_at|date:"M d" }}'{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                datasets: [{
+                    label: 'Stress Level',
+                    data: [
+                        {% for stress in stress_history reversed %}
+                        {{ stress.level|floatformat:1 }}{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            drawBorder: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
             }
-        }
+        });
     }
-});
-{% endif %}
 
-// Replace the existing refreshStressAnalysis function
+    // Performance Breakdown Chart - Only if element exists
+    const perfChartEl = document.getElementById('performanceChart');
+    if (perfChartEl) {
+        const perfCtx = perfChartEl.getContext('2d');
+        new Chart(perfCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Progress', 'Quality', 'Consistency', 'Timeliness'],
+                datasets: [{
+                    data: [
+                        {{ performance.breakdown.progress|floatformat:0 }},
+                        {{ performance.breakdown.deliverable_quality|floatformat:0 }},
+                        {{ performance.breakdown.consistency|floatformat:0 }},
+                        {{ performance.breakdown.timeliness|floatformat:0 }}
+                    ],
+                    backgroundColor: [
+                        '#5568FE',
+                        '#10B981',
+                        '#3B82F6',
+                        '#F59E0B'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+}
+
+// Run initial analysis
 async function runInitialAnalysis() {
     const btn = event.target;
     const originalHTML = btn.innerHTML;
@@ -528,13 +573,12 @@ async function runInitialAnalysis() {
         const data = await response.json();
         
         if (data.success) {
-            // Show success message and reload to show real data
             showAnalysisSuccess(data.message);
             setTimeout(() => {
                 location.reload();
             }, 2000);
         } else {
-            throw new Error(data.error || 'Analysis failed');
+            throw new Error(data.message || 'Analysis failed');
         }
     } catch (error) {
         showAnalysisError(error.message);
@@ -543,31 +587,9 @@ async function runInitialAnalysis() {
     }
 }
 
-function showAnalysisSuccess(message) {
-    // Create success alert
-    const alert = document.createElement('div');
-    alert.className = 'alert alert-success alert-dismissible fade show';
-    alert.innerHTML = `
-        <i class="bx bx-check-circle"></i> ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.querySelector('.container-fluid').prepend(alert);
-}
-
-function showAnalysisError(message) {
-    // Create error alert
-    const alert = document.createElement('div');
-    alert.className = 'alert alert-danger alert-dismissible fade show';
-    alert.innerHTML = `
-        <i class="bx bx-error-circle"></i> Analysis failed: ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.querySelector('.container-fluid').prepend(alert);
-}
-
 // Refresh stress analysis
 function refreshStressAnalysis() {
-    const btn = event.target.closest('button');
+    const btn = event.target;
     const originalHTML = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Analyzing...';
@@ -582,19 +604,41 @@ function refreshStressAnalysis() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            location.reload();
+            showAnalysisSuccess(data.message);
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
         } else {
-            alert('Error: ' + data.error);
+            showAnalysisError(data.message || 'Analysis failed');
         }
     })
     .catch(error => {
-        alert('Error running analysis: ' + error);
+        showAnalysisError('Error running analysis: ' + error);
     })
     .finally(() => {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
     });
+}
+
+function showAnalysisSuccess(message) {
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="bx bx-check-circle"></i> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.container-fluid').prepend(alert);
+}
+
+function showAnalysisError(message) {
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-danger alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="bx bx-error-circle"></i> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.container-fluid').prepend(alert);
 }
 
 function getCookie(name) {

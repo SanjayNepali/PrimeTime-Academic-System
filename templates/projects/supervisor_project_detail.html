@@ -1,0 +1,1101 @@
+<!-- File: templates/projects/supervisor_project_detail.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="project-header mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="header-icon">
+                        <i class='bx bx-folder-open'></i>
+                    </div>
+                    <div>
+                        <h2 class="mb-1">{{ project.title }}</h2>
+                        <div class="project-meta">
+                            <span class="badge badge-{{ project.status }}">{{ project.get_status_display }}</span>
+                            <span class="meta-item"><i class='bx bx-calendar'></i> Started {{ project.created_at|timesince }} ago</span>
+                            <span class="meta-item"><i class='bx bx-trending-up'></i> {{ project.progress_percentage }}% Complete</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="action-buttons">
+                    <a href="{% url 'projects:schedule_meeting' project.pk %}" class="btn btn-primary">
+                        <i class='bx bx-calendar-plus'></i> Schedule Meeting
+                    </a>
+                    <a href="{% url 'projects:add_progress_note' project.pk %}" class="btn btn-outline-primary">
+                        <i class='bx bx-note'></i> Add Note
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Information Card -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card modern-card student-info-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-user'></i> Student Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="student-profile">
+                        <div class="student-avatar-large">
+                            {% if student.profile.profile_picture %}
+                                <img src="{{ student.profile.profile_picture.url }}" alt="{{ student.display_name }}">
+                            {% else %}
+                                <i class='bx bx-user-circle'></i>
+                            {% endif %}
+                        </div>
+                        <div class="student-details">
+                            <h4>{{ student.display_name }}</h4>
+                            <p class="text-muted mb-2">{{ student.user_id|default:"No ID" }}</p>
+                            <p class="mb-2"><strong>Department:</strong> {{ student.department|default:"Not specified" }}</p>
+                            <p class="mb-2"><strong>Batch:</strong> {{ student.batch_year|default:"Not specified" }}</p>
+                            <p class="mb-0"><strong>Email:</strong> {{ student.email }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stress & Performance Overview -->
+        <div class="col-md-8">
+            <div class="row">
+                <!-- Stress Level -->
+                <div class="col-md-6">
+                    <div class="card modern-card stress-card">
+                        <div class="card-header">
+                            <h5><i class='bx bx-heart'></i> Stress Level</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if latest_stress %}
+                                <div class="stress-gauge">
+                                    <div class="stress-value stress-{{ stress_trend.level|default:'low' }}">
+                                        {{ latest_stress.level|floatformat:0 }}%
+                                    </div>
+                                    <div class="stress-label">{{ stress_trend.label|default:"Low Stress" }}</div>
+                                    <div class="stress-trend">
+                                        {% if stress_trend %}
+                                            <i class='bx bx-{{ stress_trend.icon }}'></i>
+                                            {{ stress_trend.message }}
+                                        {% else %}
+                                            <i class='bx bx-minus'></i> No trend data available
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-3">
+                                    <i class='bx bx-line-chart' style="font-size: 3rem; color: #6c757d;"></i>
+                                    <p class="text-muted mt-2">No stress data available</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Overview -->
+                <div class="col-md-6">
+                    <div class="card modern-card performance-card">
+                        <div class="card-header">
+                            <h5><i class='bx bx-trending-up'></i> Performance</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if performance %}
+                                <div class="performance-metrics">
+                                    <div class="metric">
+                                        <span class="metric-value">{{ performance.overall_score|floatformat:1 }}/100</span>
+                                        <span class="metric-label">Overall Score</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-value">{{ performance.grade }}</span>
+                                        <span class="metric-label">Grade</span>
+                                    </div>
+                                    <div class="progress mt-3" style="height: 8px;">
+                                        <div class="progress-bar bg-{{ performance.level }}" 
+                                             style="width: {{ performance.overall_score }}%"></div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-3">
+                                    <i class='bx bx-stats' style="font-size: 3rem; color: #6c757d;"></i>
+                                    <p class="text-muted mt-2">No performance data available</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="smart-tabs mb-4">
+        <div class="tabs-wrapper">
+            <button class="tab-btn {% if active_tab == 'overview' %}active{% endif %}" 
+                    onclick="window.location.href='?tab=overview'">
+                <i class='bx bx-info-circle'></i> Overview
+            </button>
+            <button class="tab-btn {% if active_tab == 'logsheets' %}active{% endif %}" 
+                    onclick="window.location.href='?tab=logsheets'">
+                <i class='bx bx-notepad'></i> Log Sheets
+                {% if pending_log_sheets %}
+                <span class="tab-badge">{{ pending_log_sheets.count }}</span>
+                {% endif %}
+            </button>
+            <button class="tab-btn {% if active_tab == 'meetings' %}active{% endif %}" 
+                    onclick="window.location.href='?tab=meetings'">
+                <i class='bx bx-calendar'></i> Meetings
+            </button>
+            <button class="tab-btn {% if active_tab == 'deliverables' %}active{% endif %}" 
+                    onclick="window.location.href='?tab=deliverables'">
+                <i class='bx bx-file'></i> Deliverables
+            </button>
+            <button class="tab-btn {% if active_tab == 'notes' %}active{% endif %}" 
+                    onclick="window.location.href='?tab=notes'">
+                <i class='bx bx-note'></i> Notes
+            </button>
+            <button class="tab-btn {% if active_tab == 'analytics' %}active{% endif %}" 
+                    onclick="window.location.href='?tab=analytics'">
+                <i class='bx bx-stats'></i> Analytics
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content-wrapper">
+        <!-- Overview Tab -->
+        {% if active_tab == 'overview' %}
+        <div class="tab-pane active">
+            <div class="row">
+                <!-- Project Details -->
+                <div class="col-md-8">
+                    <div class="card modern-card mb-4">
+                        <div class="card-header">
+                            <h5><i class='bx bx-detail'></i> Project Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="project-description mb-4">
+                                <h6>Description</h6>
+                                <p>{{ project.description|linebreaks }}</p>
+                            </div>
+
+                            <div class="project-technologies mb-4">
+                                <h6>Technologies & Tools</h6>
+                                <div class="tech-tags">
+                                    {% for lang in project.languages_list %}
+                                    <span class="tech-tag">
+                                        <i class='bx bx-code-alt'></i> {{ lang }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Statistics -->
+                            <div class="project-statistics">
+                                <h6>Project Statistics</h6>
+                                <div class="row text-center">
+                                    <div class="col-md-3">
+                                        <div class="stat-item">
+                                            <div class="stat-value">{{ total_hours_logged }}</div>
+                                            <div class="stat-label">Hours Logged</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-item">
+                                            <div class="stat-value">{{ average_rating|default:"0.0" }}/5</div>
+                                            <div class="stat-label">Avg Rating</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-item">
+                                            <div class="stat-value">{{ meeting_attendance_rate }}%</div>
+                                            <div class="stat-label">Attendance</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="stat-item">
+                                            <div class="stat-value">{{ completed_deliverables }}/{{ total_deliverables }}</div>
+                                            <div class="stat-label">Deliverables</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activities -->
+                    <div class="card modern-card">
+                        <div class="card-header">
+                            <h5><i class='bx bx-history'></i> Recent Activities</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                {% for activity in recent_activities %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker {{ activity.action }}"></div>
+                                    <div class="timeline-content">
+                                        <h6>{{ activity.get_action_display }}</h6>
+                                        {% if activity.details %}
+                                        <p class="mb-1">{{ activity.details }}</p>
+                                        {% endif %}
+                                        <small class="text-muted">
+                                            {{ activity.timestamp|timesince }} ago by {{ activity.user.display_name }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <p class="text-muted text-center">No recent activity</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions & Upcoming -->
+                <div class="col-md-4">
+                    <!-- Quick Actions -->
+                    <div class="card modern-card mb-4">
+                        <div class="card-header">
+                            <h5><i class='bx bx-zap'></i> Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="quick-actions">
+                                <a href="{% url 'projects:schedule_meeting' project.pk %}" class="action-btn">
+                                    <i class='bx bx-calendar-plus'></i>
+                                    <span>Schedule Meeting</span>
+                                </a>
+                                <a href="{% url 'projects:add_progress_note' project.pk %}" class="action-btn">
+                                    <i class='bx bx-note'></i>
+                                    <span>Add Progress Note</span>
+                                </a>
+                                <a href="{% url 'chat:user_chat' student.id %}" class="action-btn">
+                                    <i class='bx bx-message-dots'></i>
+                                    <span>Message Student</span>
+                                </a>
+                                {% if pending_log_sheets %}
+                                <a href="?tab=logsheets" class="action-btn">
+                                    <i class='bx bx-check-circle'></i>
+                                    <span>Review Log Sheets ({{ pending_log_sheets.count }})</span>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Meetings -->
+                    <div class="card modern-card">
+                        <div class="card-header">
+                            <h5><i class='bx bx-calendar-event'></i> Upcoming Meetings</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if upcoming_meetings %}
+                                {% for meeting in upcoming_meetings %}
+                                <div class="meeting-item">
+                                    <div class="meeting-date">
+                                        <strong>{{ meeting.scheduled_date|date:"M d" }}</strong>
+                                        <small>{{ meeting.scheduled_date|time:"g:i A" }}</small>
+                                    </div>
+                                    <div class="meeting-details">
+                                        <h6>{{ meeting.get_meeting_type_display }}</h6>
+                                        <p class="text-muted small mb-1">{{ meeting.agenda|truncatechars:50 }}</p>
+                                        <div class="meeting-actions">
+                                            <a href="{% url 'projects:record_meeting_minutes' meeting.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                Record Minutes
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted text-center">No upcoming meetings</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Log Sheets Tab -->
+        {% if active_tab == 'logsheets' %}
+        <div class="tab-pane active">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4><i class='bx bx-notepad'></i> Project Log Sheets</h4>
+                <div class="logsheet-stats">
+                    <span class="badge bg-warning">{{ pending_log_sheets.count }} Pending</span>
+                    <span class="badge bg-success">{{ approved_log_sheets.count }} Approved</span>
+                </div>
+            </div>
+
+            {% if log_sheets %}
+            <div class="logsheets-container">
+                {% for log_sheet in log_sheets %}
+                <div class="card modern-card logsheet-card {% if not log_sheet.is_approved %}pending{% endif %}">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Week {{ log_sheet.week_number }}</h5>
+                            <div class="logsheet-status">
+                                {% if log_sheet.is_approved %}
+                                <span class="badge bg-success">
+                                    <i class='bx bx-check-circle'></i> Approved
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">
+                                    <i class='bx bx-time'></i> Pending Review
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="logsheet-dates">
+                            <small class="text-muted">
+                                {{ log_sheet.start_date|date:"M d, Y" }} - {{ log_sheet.end_date|date:"M d, Y" }}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="logsheet-content">
+                                    <div class="section">
+                                        <h6><i class='bx bx-check-circle'></i> Tasks Completed</h6>
+                                        <p>{{ log_sheet.tasks_completed|linebreaks }}</p>
+                                    </div>
+                                    
+                                    {% if log_sheet.challenges_faced %}
+                                    <div class="section">
+                                        <h6><i class='bx bx-error-circle'></i> Challenges Faced</h6>
+                                        <p>{{ log_sheet.challenges_faced|linebreaks }}</p>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="section">
+                                        <h6><i class='bx bx-calendar'></i> Next Week Plan</h6>
+                                        <p>{{ log_sheet.next_week_plan|linebreaks }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="logsheet-meta">
+                                    <div class="meta-item">
+                                        <i class='bx bx-time'></i>
+                                        <span>{{ log_sheet.hours_spent }} hours</span>
+                                    </div>
+                                    
+                                    {% if log_sheet.is_approved %}
+                                    <div class="meta-item">
+                                        <i class='bx bx-star'></i>
+                                        <span>Rating: {{ log_sheet.supervisor_rating }}/5</span>
+                                    </div>
+                                    
+                                    <div class="supervisor-feedback">
+                                        <h6>Supervisor Remarks</h6>
+                                        <p>{{ log_sheet.supervisor_remarks|linebreaks }}</p>
+                                        
+                                        {% if log_sheet.supervisor_signature %}
+                                        <div class="signature">
+                                            <small class="text-muted">
+                                                Signed by: {{ log_sheet.supervisor_signature }}
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if log_sheet.reviewed_at %}
+                                        <div class="review-date">
+                                            <small class="text-muted">
+                                                Reviewed on: {{ log_sheet.reviewed_at|date:"M d, Y g:i A" }}
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                Submitted: {{ log_sheet.submitted_at|date:"M d, Y g:i A" }}
+                            </small>
+                            <div class="logsheet-actions">
+                                {% if not log_sheet.is_approved %}
+                                <a href="{% url 'projects:approve_log_sheet' log_sheet.pk %}" 
+                                   class="btn btn-primary btn-sm">
+                                    <i class='bx bx-check'></i> Review & Approve
+                                </a>
+                                {% else %}
+                                <a href="{% url 'projects:approve_log_sheet' log_sheet.pk %}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class='bx bx-edit'></i> Update Review
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class='bx bx-notepad'></i>
+                <h4>No Log Sheets Yet</h4>
+                <p class="text-muted">Student hasn't submitted any log sheets yet.</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Meetings Tab -->
+        {% if active_tab == 'meetings' %}
+        <div class="tab-pane active">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4><i class='bx bx-calendar'></i> Meetings & Discussions</h4>
+                <a href="{% url 'projects:schedule_meeting' project.pk %}" class="btn btn-primary">
+                    <i class='bx bx-calendar-plus'></i> Schedule New Meeting
+                </a>
+            </div>
+
+            <div class="row">
+                <!-- Upcoming Meetings -->
+                <div class="col-md-6">
+                    <div class="card modern-card">
+                        <div class="card-header">
+                            <h5>Upcoming Meetings</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if upcoming_meetings %}
+                                {% for meeting in upcoming_meetings %}
+                                <div class="meeting-card">
+                                    <div class="meeting-header">
+                                        <h6>{{ meeting.get_meeting_type_display }}</h6>
+                                        <span class="badge bg-primary">{{ meeting.duration_minutes }}min</span>
+                                    </div>
+                                    <div class="meeting-details">
+                                        <p><i class='bx bx-calendar'></i> {{ meeting.scheduled_date|date:"M d, Y g:i A" }}</p>
+                                        {% if meeting.location %}
+                                        <p><i class='bx bx-map'></i> {{ meeting.location }}</p>
+                                        {% endif %}
+                                        {% if meeting.meeting_link %}
+                                        <p><i class='bx bx-link'></i> <a href="{{ meeting.meeting_link }}" target="_blank">Join Meeting</a></p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="meeting-agenda">
+                                        <strong>Agenda:</strong>
+                                        <p>{{ meeting.agenda|truncatechars:100 }}</p>
+                                    </div>
+                                    <div class="meeting-actions">
+                                        <a href="{% url 'projects:record_meeting_minutes' meeting.id %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            Record Minutes
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted text-center">No upcoming meetings scheduled</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Past Meetings -->
+                <div class="col-md-6">
+                    <div class="card modern-card">
+                        <div class="card-header">
+                            <h5>Past Meetings</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if past_meetings %}
+                                {% for meeting in past_meetings %}
+                                <div class="meeting-card past">
+                                    <div class="meeting-header">
+                                        <h6>{{ meeting.get_meeting_type_display }}</h6>
+                                        <span class="badge {% if meeting.student_attended %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if meeting.student_attended %}Attended{% else %}Absent{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="meeting-details">
+                                        <p><i class='bx bx-calendar'></i> {{ meeting.scheduled_date|date:"M d, Y" }}</p>
+                                        {% if meeting.discussion_summary %}
+                                        <div class="discussion-summary">
+                                            <strong>Discussion:</strong>
+                                            <p>{{ meeting.discussion_summary|truncatechars:100 }}</p>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="meeting-actions">
+                                        <a href="{% url 'projects:record_meeting_minutes' meeting.id %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            View/Edit Minutes
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted text-center">No past meetings recorded</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Deliverables Tab -->
+        {% if active_tab == 'deliverables' %}
+        <div class="tab-pane active">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4><i class='bx bx-file'></i> Project Deliverables</h4>
+                <div class="deliverable-stats">
+                    <span class="badge bg-success">{{ completed_deliverables }} Completed</span>
+                    <span class="badge bg-secondary">{{ total_deliverables|add:"-completed_deliverables" }} Pending</span>
+                </div>
+            </div>
+
+            {% if deliverables %}
+            <div class="deliverables-container">
+                {% for deliverable in deliverables %}
+                <div class="card modern-card deliverable-card {% if deliverable.is_approved %}completed{% else %}pending{% endif %}">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{{ deliverable.get_stage_display }}</h5>
+                            <div class="deliverable-status">
+                                {% if deliverable.is_approved %}
+                                <span class="badge bg-success">
+                                    <i class='bx bx-check-circle'></i> Approved
+                                    {% if deliverable.marks %}({{ deliverable.marks }}/100){% endif %}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">
+                                    <i class='bx bx-time'></i> Pending
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                {% if deliverable.is_approved %}
+                                    {% if deliverable.feedback %}
+                                    <div class="feedback-section">
+                                        <h6>Feedback</h6>
+                                        <p>{{ deliverable.feedback|linebreaks }}</p>
+                                    </div>
+                                    {% endif %}
+                                {% else %}
+                                    <p class="text-muted">Awaiting student submission</p>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="deliverable-meta">
+                                    <div class="meta-item">
+                                        <i class='bx bx-calendar'></i>
+                                        <span>Submitted: {{ deliverable.submitted_at|date:"M d, Y" }}</span>
+                                    </div>
+                                    {% if deliverable.reviewed_at %}
+                                    <div class="meta-item">
+                                        <i class='bx bx-check-circle'></i>
+                                        <span>Reviewed: {{ deliverable.reviewed_at|date:"M d, Y" }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if deliverable.is_approved %}
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                {% if deliverable.marks %}Marks: {{ deliverable.marks }}/100{% endif %}
+                            </small>
+                            <button class="btn btn-outline-primary btn-sm" disabled>
+                                <i class='bx bx-edit'></i> Update Review
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class='bx bx-file'></i>
+                <h4>No Deliverables Yet</h4>
+                <p class="text-muted">Student hasn't submitted any deliverables yet.</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Notes Tab -->
+        {% if active_tab == 'notes' %}
+        <div class="tab-pane active">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4><i class='bx bx-note'></i> Progress Notes</h4>
+                <a href="{% url 'projects:add_progress_note' project.pk %}" class="btn btn-primary">
+                    <i class='bx bx-plus'></i> Add New Note
+                </a>
+            </div>
+
+            {% if supervisor_notes %}
+            <div class="notes-container">
+                {% for note in supervisor_notes %}
+                <div class="card modern-card note-card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class='bx bx-{{ note.category|default:"note" }}'></i>
+                                {{ note.get_category_display }}
+                            </h5>
+                            <div class="note-visibility">
+                                {% if note.is_visible_to_student %}
+                                <span class="badge bg-info">
+                                    <i class='bx bx-show'></i> Visible to Student
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class='bx bx-hide'></i> Private
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            Created: {{ note.created_at|date:"M d, Y g:i A" }}
+                        </small>
+                    </div>
+                    <div class="card-body">
+                        <p>{{ note.note|linebreaks }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class='bx bx-note'></i>
+                <h4>No Notes Yet</h4>
+                <p class="text-muted">You haven't added any progress notes for this student yet.</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Analytics Tab -->
+        {% if active_tab == 'analytics' %}
+        <div class="tab-pane active">
+            <h4><i class='bx bx-stats'></i> Detailed Analytics</h4>
+            
+            <div class="row mt-4">
+                <!-- Stress Analytics -->
+                <div class="col-md-6">
+                    <div class="card modern-card">
+                        <div class="card-header">
+                            <h5>Stress Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if latest_stress %}
+                            <div class="stress-breakdown">
+                                <div class="stress-factor">
+                                    <label>Chat Sentiment</label>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar bg-{{ stress_factors.0.level }}" 
+                                             style="width: {{ stress_factors.0.score }}%">
+                                            {{ stress_factors.0.score }}%
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stress-factor">
+                                    <label>Deadline Pressure</label>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar bg-{{ stress_factors.1.level }}" 
+                                             style="width: {{ stress_factors.1.score }}%">
+                                            {{ stress_factors.1.score }}%
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stress-factor">
+                                    <label>Workload</label>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar bg-{{ stress_factors.2.level }}" 
+                                             style="width: {{ stress_factors.2.score }}%">
+                                            {{ stress_factors.2.score }}%
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stress-factor">
+                                    <label>Social Isolation</label>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar bg-{{ stress_factors.3.level }}" 
+                                             style="width: {{ stress_factors.3.score }}%">
+                                            {{ stress_factors.3.score }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No stress data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Analytics -->
+                <div class="col-md-6">
+                    <div class="card modern-card">
+                        <div class="card-header">
+                            <h5>Performance Metrics</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if performance %}
+                            <div class="performance-metrics-detailed">
+                                <div class="metric-item">
+                                    <span class="metric-label">Overall Score</span>
+                                    <span class="metric-value">{{ performance.overall_score|floatformat:1 }}/100</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Grade</span>
+                                    <span class="metric-value badge bg-{{ performance.level }}">{{ performance.grade }}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Progress Rate</span>
+                                    <span class="metric-value">{{ project.progress_percentage }}%</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Meeting Attendance</span>
+                                    <span class="metric-value">{{ meeting_attendance_rate }}%</span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No performance data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+/* Header Styles */
+.project-header {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.header-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 32px;
+}
+
+.project-meta {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* Student Info Card */
+.student-info-card .student-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.student-avatar-large {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: #9ca3af;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.student-avatar-large img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Stress and Performance Cards */
+.stress-card .stress-gauge,
+.performance-card .performance-metrics {
+    text-align: center;
+}
+
+.stress-value {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stress-value.stress-low { color: #10b981; }
+.stress-value.stress-medium { color: #f59e0b; }
+.stress-value.stress-high { color: #ef4444; }
+
+.stress-label {
+    font-size: 16px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.stress-trend {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.performance-metrics .metric {
+    margin-bottom: 12px;
+}
+
+.metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    display: block;
+    line-height: 1;
+}
+
+.metric-label {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* Log Sheets */
+.logsheet-card.pending {
+    border-left: 4px solid #f59e0b;
+}
+
+.logsheet-card {
+    border-left: 4px solid #10b981;
+    margin-bottom: 16px;
+}
+
+.logsheet-content .section {
+    margin-bottom: 20px;
+}
+
+.logsheet-content .section h6 {
+    color: #374151;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logsheet-meta .meta-item {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+}
+
+.supervisor-feedback {
+    margin-top: 16px;
+    padding: 12px;
+    background: #f0f9ff;
+    border-radius: 8px;
+    border-left: 4px solid #0ea5e9;
+}
+
+/* Meetings */
+.meeting-card {
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-bottom: 12px;
+}
+
+.meeting-card.past {
+    opacity: 0.8;
+    background: #f9fafb;
+}
+
+.meeting-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.meeting-details p {
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+/* Deliverables */
+.deliverable-card.completed {
+    border-left: 4px solid #10b981;
+}
+
+.deliverable-card.pending {
+    border-left: 4px solid #6b7280;
+}
+
+/* Notes */
+.note-card {
+    margin-bottom: 16px;
+}
+
+/* Analytics */
+.stress-breakdown .stress-factor {
+    margin-bottom: 16px;
+}
+
+.stress-breakdown label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.performance-metrics-detailed .metric-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.performance-metrics-detailed .metric-item:last-child {
+    border-bottom: none;
+}
+
+/* Quick Actions */
+.quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #374151;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: white;
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+/* Statistics */
+.stat-item {
+    padding: 16px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2937;
+    display: block;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-state i {
+    font-size: 64px;
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.empty-state h4 {
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .project-meta {
+        flex-direction: column;
+        align-items: start;
+        gap: 8px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    
+    .student-profile {
+        text-align: left;
+        flex-direction: row;
+        gap: 16px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh stress data every 5 minutes
+    setInterval(function() {
+        // You can implement auto-refresh here if needed
+    }, 300000);
+    
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

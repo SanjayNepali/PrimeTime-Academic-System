@@ -119,7 +119,6 @@ def student_stress_detail(request, student_id):
     }
     return render(request, 'analytics/student_stress_detail.html', context)
 
-
 @login_required
 def run_stress_analysis(request):
     """Manually trigger stress analysis for current user"""
@@ -130,6 +129,13 @@ def run_stress_analysis(request):
         analyzer = AdvancedSentimentAnalyzer(request.user)
         stress_record = analyzer.comprehensive_stress_analysis(days=7)
 
+        # FIXED: Handle the case when no data is available
+        if stress_record is None:
+            return JsonResponse({
+                'success': False,
+                'message': 'Not enough data available for stress analysis. Please ensure you have a project with deliverables and some chat activity.'
+            })
+
         return JsonResponse({
             'success': True,
             'stress_level': stress_record.level,
@@ -137,9 +143,10 @@ def run_stress_analysis(request):
             'message': f'Your current stress level is {stress_record.level:.1f}% ({stress_record.stress_category})'
         })
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Stress analysis error: {e}")
         return JsonResponse({'error': str(e)}, status=500)
-
-
 # ========== SUPERVISOR STUDENT MONITORING VIEWS ==========
 
 @login_required
@@ -301,12 +308,12 @@ def debug_stress_calculation(request):
         return JsonResponse({'error': 'Students only'}, status=403)
     
     from .sentiment import AdvancedSentimentAnalyzer
-    from chat.models import Message  # Add this import
+    from chat.models import Message
     
     analyzer = AdvancedSentimentAnalyzer(request.user)
     
-    # Check what data exists - FIXED THIS LINE
-    has_chat_data = Message.objects.filter(user=request.user).exists()
+    # FIXED: Use 'sender' instead of 'user'
+    has_chat_data = Message.objects.filter(sender=request.user).exists()
     has_project = bool(analyzer.project)
     
     # Run analysis manually to see breakdown
@@ -327,7 +334,6 @@ def debug_stress_calculation(request):
         'overall_stress': overall_stress,
         'project': str(analyzer.project) if analyzer.project else None
     })
-
 @login_required
 def admin_view_all_logsheets(request):
     """Admin views all supervisor feedback log sheets and stress levels"""
@@ -340,10 +346,11 @@ def admin_view_all_logsheets(request):
         'student', 'supervisor', 'project'
     ).order_by('-date')[:100]
 
-    # Get high stress students (stress level > 70) - only if stress data exists
-    high_stress_students = StressLevel.objects.filter(
-        level__gte=70
-    ).select_related('student').order_by('-level', '-timestamp')[:50]
+    # Get high stress students using the fixed method
+    high_stress_students = StressCalculator.get_high_stress_students(threshold=70)
+    
+    # Since it returns a list, we can slice it directly
+    high_stress_students = high_stress_students[:50]
 
     # Get students requiring action
     action_required_feedback = SupervisorFeedback.objects.filter(
@@ -370,4 +377,3 @@ def admin_view_all_logsheets(request):
         'avg_stress': avg_stress,
     }
     return render(request, 'analytics/admin_all_logsheets.html', context)
-

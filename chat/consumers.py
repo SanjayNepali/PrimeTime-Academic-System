@@ -89,13 +89,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_message(data)
             elif message_type == 'typing':
                 await self.handle_typing(data)
-            elif message_type == 'read':
-                await self.handle_read(data)
             elif message_type == 'reaction':
                 await self.handle_reaction(data)
             elif message_type == 'delete':
                 await self.handle_delete(data)
-            
+            elif message_type == "mark_room_read":
+                await self.handle_mark_room_read(data)
+
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
                 'type': 'error',
@@ -107,6 +107,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'message': str(e)
             }))
     
+    async def handle_mark_room_read(self, data):
+        """Handle marking room as read"""
+        try:
+            incoming_room_id = str(data.get('room_id', ''))
+            if str(self.room_id) != incoming_room_id:
+                # ignore incorrect room id
+                return
+        except Exception:
+            return
+
+        await self.update_member_last_read()
+
     async def handle_message(self, data):
         """Handle new chat message"""
         content = data.get('message', '').strip()
@@ -130,7 +142,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message = await self.save_message(content, reply_to_id, analysis['sentiment_score'])
         
         if message:
-            # Send message to room group
+            # CRITICAL FIX: Send to others FIRST (excluding sender)
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -142,14 +154,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'timestamp': message.timestamp.isoformat(),
                     'reply_to': reply_to_id,
                     'sentiment_score': message.sentiment_score,
-                    'is_flagged': message.is_flagged
+                    'is_flagged': message.is_flagged,
                 }
             )
+            
+            # THEN send confirmation to sender
+            # (This ensures sender sees their message immediately)
+            await self.send(text_data=json.dumps({
+                'type': 'message_sent',
+                'message_id': message.id,
+                'sender_id': self.user.id,
+                'sender_name': self.user.display_name,
+                'content': content,
+                'timestamp': message.timestamp.isoformat(),
+                'reply_to': reply_to_id,
+                'sentiment_score': message.sentiment_score,
+                'is_flagged': message.is_flagged,
+            }))
             
             # If flagged as suspicious, notify admins
             if analysis['is_suspicious']:
                 await self.notify_admins_suspicious_content(message, analysis)
-    
+
     async def handle_typing(self, data):
         """Handle typing indicator"""
         is_typing = data.get('is_typing', False)
@@ -169,16 +195,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'is_typing': is_typing
             }
         )
-    
-    async def handle_read(self, data):
-        """Handle message read receipt"""
-        message_id = data.get('message_id')
-        
-        if message_id:
-            await self.mark_message_read(message_id)
-            
-            # Update last_read_at for user
-            await self.update_last_read()
     
     async def handle_reaction(self, data):
         """Handle emoji reaction to message"""
@@ -222,9 +238,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Message type handlers (for receiving from channel layer)
     
     async def chat_message(self, event):
-        """Send chat message to WebSocket"""
+        """Send chat message to WebSocket - FIXED FOR REAL-TIME"""
+        # CRITICAL FIX: Don't send back to sender (they get message_sent instead)
+        if event['sender_id'] == self.user.id:
+            print(f"Skipping broadcast to sender {self.user.id} for message {event['message_id']}")
+            return  # Sender gets 'message_sent' type instead
+        
+        # Send to all OTHER users
         await self.send(text_data=json.dumps({
-            'type': 'message',
+            'type': 'message',  # Note: type is 'message' not 'chat_message'
             'message_id': event['message_id'],
             'sender_id': event['sender_id'],
             'sender_name': event['sender_name'],
@@ -232,7 +254,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'timestamp': event['timestamp'],
             'reply_to': event.get('reply_to'),
             'sentiment_score': event.get('sentiment_score', 0),
-            'is_flagged': event.get('is_flagged', False)
+            'is_flagged': event.get('is_flagged', False),
         }))
     
     async def typing_status(self, event):
@@ -268,13 +290,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def message_reaction(self, event):
         """Send reaction notification"""
-        await self.send(text_data=json.dumps({
-            'type': 'reaction',
-            'message_id': event['message_id'],
-            'user_id': event['user_id'],
-            'username': event['username'],
-            'emoji': event['emoji']
-        }))
+        # Don't send user's own reactions back to them
+        if event['user_id'] != self.user.id:
+            await self.send(text_data=json.dumps({
+                'type': 'reaction',
+                'message_id': event['message_id'],
+                'user_id': event['user_id'],
+                'username': event['username'],
+                'emoji': event['emoji']
+            }))
     
     async def message_deleted(self, event):
         """Send deletion notification"""
@@ -402,27 +426,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"Error removing typing indicator: {e}")
     
     @database_sync_to_async
-    def mark_message_read(self, message_id):
-        """Mark message as read"""
-        try:
-            message = Message.objects.get(id=message_id)
-            message.mark_as_read_by(self.user)
-        except Message.DoesNotExist:
-            pass
-    
-    @database_sync_to_async
-    def update_last_read(self):
-        """Update user's last read timestamp"""
-        try:
-            member = ChatRoomMember.objects.get(
-                room_id=self.room_id,
-                user=self.user
-            )
-            member.mark_as_read()
-        except ChatRoomMember.DoesNotExist:
-            pass
-    
-    @database_sync_to_async
     def add_reaction(self, message_id, emoji):
         """Add emoji reaction to message"""
         try:
@@ -468,3 +471,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
         except Exception as e:
             print(f"Error notifying admins: {e}")
+    
+    @database_sync_to_async
+    def update_member_last_read(self):
+        """
+        Set the ChatRoomMember.last_read_at = now for this user & room.
+        Uses get_or_create so it won't raise if the membership row is missing.
+        """
+        try:
+            from chat.models import ChatRoomMember
+            member, created = ChatRoomMember.objects.get_or_create(
+                room_id=self.room_id,
+                user=self.user
+            )
+            member.last_read_at = timezone.now()
+            member.save(update_fields=['last_read_at'])
+        except Exception as e:
+            print("Error updating last_read_at:", e)

@@ -1,4 +1,4 @@
-<!-- File: Desktop/Prime/templates/chat/chat_home.html -->
+<!-- File: templates/chat/chat_home.html -->
 
 {% extends 'base.html' %}
 {% load static %}
@@ -8,24 +8,159 @@
 {% block extra_css %}
 <style>
     .chat-container {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
     }
 
-    .chat-header {
+    .chat-tabs {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 32px;
+        gap: 8px;
+        margin-bottom: 24px;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 0;
     }
 
-    .chat-title {
-        font-size: 28px;
-        font-weight: 700;
+    .chat-tab {
+        padding: 12px 24px;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.2s;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+    }
+
+    .chat-tab:hover {
         color: var(--text-primary);
+        background: var(--secondary);
+    }
+
+    .chat-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+
+    .tab-badge {
+        background: #EF4444;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        margin-left: 6px;
+        font-weight: 700;
+    }
+
+    .search-section {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .search-wrapper {
+        position: relative;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 12px 48px 12px 16px;
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(85, 104, 254, 0.1);
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-secondary);
+        font-size: 20px;
+    }
+
+    .user-search-results {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-top: 8px;
+        max-height: 400px;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+
+    .user-search-results.show {
+        display: block;
+    }
+
+    .user-search-item {
+        padding: 12px 16px;
         display: flex;
         align-items: center;
         gap: 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .user-search-item:hover {
+        background: var(--secondary);
+    }
+
+    .user-avatar-search {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 16px;
+        flex-shrink: 0;
+    }
+
+    .user-info-search {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .user-name-search {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .user-role-search {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .time-badge {
+        background: rgba(245, 158, 11, 0.1);
+        color: #D97706;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
     }
 
     .chat-stats {
@@ -39,7 +174,7 @@
         background: white;
         border-radius: 12px;
         padding: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
 
     .stat-label {
@@ -56,6 +191,14 @@
         color: var(--primary);
     }
 
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
     .rooms-grid {
         display: grid;
         gap: 20px;
@@ -70,7 +213,6 @@
         cursor: pointer;
         border-left: 4px solid transparent;
         position: relative;
-        overflow: hidden;
     }
 
     .room-card:hover {
@@ -81,20 +223,12 @@
     .room-card.group { border-left-color: #3B82F6; }
     .room-card.direct { border-left-color: #8B5CF6; }
     .room-card.supervisor { border-left-color: #F59E0B; }
-    .room-card.frozen { 
-        border-left-color: #EF4444;
-        opacity: 0.75;
-    }
 
     .room-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         margin-bottom: 16px;
-    }
-
-    .room-title-section {
-        flex: 1;
     }
 
     .room-name {
@@ -116,7 +250,6 @@
         font-size: 11px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
     .badge-group { 
@@ -130,12 +263,6 @@
     .badge-supervisor { 
         background: rgba(245, 158, 11, 0.1); 
         color: #D97706; 
-    }
-
-    .room-badges {
-        display: flex;
-        gap: 8px;
-        align-items: center;
     }
 
     .unread-badge {
@@ -155,18 +282,6 @@
         50% { opacity: 0.7; }
     }
 
-    .frozen-badge {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(239, 68, 68, 0.1);
-        color: #DC2626;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-    }
-
     .room-meta {
         display: flex;
         gap: 24px;
@@ -179,45 +294,6 @@
         display: flex;
         align-items: center;
         gap: 6px;
-    }
-
-    .online-indicator {
-        width: 8px;
-        height: 8px;
-        background: #10B981;
-        border-radius: 50%;
-        display: inline-block;
-        animation: blink 2s infinite;
-    }
-
-    @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; }
-    }
-
-    .sentiment-indicator {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 8px;
-        font-size: 12px;
-        font-weight: 500;
-    }
-
-    .sentiment-positive {
-        background: rgba(16, 185, 129, 0.1);
-        color: #059669;
-    }
-
-    .sentiment-neutral {
-        background: rgba(107, 114, 128, 0.1);
-        color: #4B5563;
-    }
-
-    .sentiment-negative {
-        background: rgba(239, 68, 68, 0.1);
-        color: #DC2626;
     }
 
     .last-message {
@@ -266,20 +342,7 @@
         margin-bottom: 20px;
     }
 
-    .empty-title {
-        font-size: 24px;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 12px;
-    }
-
-    .empty-text {
-        color: var(--text-secondary);
-        font-size: 16px;
-        margin-bottom: 24px;
-    }
-
-    .create-room-btn {
+    .create-message-btn {
         position: fixed;
         bottom: 32px;
         right: 32px;
@@ -299,80 +362,9 @@
         z-index: 100;
     }
 
-    .create-room-btn:hover {
-        transform: scale(1.1) rotate(90deg);
+    .create-message-btn:hover {
+        transform: scale(1.1);
         box-shadow: 0 12px 32px rgba(85, 104, 254, 0.5);
-    }
-
-    .filter-section {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 24px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-
-    .filter-row {
-        display: flex;
-        gap: 16px;
-        flex-wrap: wrap;
-    }
-
-    .filter-group {
-        flex: 1;
-        min-width: 200px;
-    }
-
-    .filter-label {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 8px;
-        display: block;
-    }
-
-    .filter-select {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        font-size: 14px;
-        background: white;
-        cursor: pointer;
-    }
-
-    .filter-select:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(85, 104, 254, 0.1);
-    }
-
-    .accessibility-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(239, 68, 68, 0.05);
-        backdrop-filter: blur(2px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 16px;
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-
-    .room-card.frozen:hover .accessibility-overlay {
-        opacity: 1;
-    }
-
-    .overlay-content {
-        background: white;
-        padding: 16px 24px;
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-        text-align: center;
     }
 </style>
 {% endblock %}
@@ -380,96 +372,95 @@
 {% block content %}
 <div class="chat-container">
     <!-- Header -->
-    <div class="chat-header">
-        <h1 class="chat-title">
-            <i class='bx bx-message-dots'></i>
-            Chat Rooms
-        </h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">
+                <i class='bx bx-message-dots'></i>
+                Messages
+            </h1>
+            <p class="text-muted mb-0">Stay connected with your team</p>
+        </div>
         {% if user.is_supervisor or user.is_admin %}
         <a href="{% url 'chat:create_room' %}" class="btn btn-primary">
-            <i class='bx bx-plus'></i> Create Room
+            <i class='bx bx-plus'></i> Create Group
         </a>
         {% endif %}
+    </div>
+
+    <!-- Search Users -->
+    <div class="search-section">
+        <h6 class="mb-3"><i class='bx bx-search-alt'></i> Search Users to Message</h6>
+        <div class="search-wrapper">
+            <input type="text" 
+                   class="search-input" 
+                   id="userSearch" 
+                   placeholder="Search by name, email, or username..."
+                   autocomplete="off">
+            <i class='bx bx-search search-icon'></i>
+            <div class="user-search-results" id="searchResults"></div>
+        </div>
     </div>
 
     <!-- Statistics -->
     <div class="chat-stats">
         <div class="stat-card">
-            <div class="stat-label">Total Rooms</div>
+            <div class="stat-label">Total Conversations</div>
             <div class="stat-value">{{ room_data|length }}</div>
         </div>
         <div class="stat-card">
             <div class="stat-label">Unread Messages</div>
-            <div class="stat-value">{{ total_unread|default:0 }}</div>
+            <div class="stat-value" style="color: #EF4444;">{{ total_unread|default:0 }}</div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">Active Conversations</div>
-            <div class="stat-value">{{ active_rooms|default:0 }}</div>
+            <div class="stat-label">Group Chats</div>
+            <div class="stat-value" style="color: #3B82F6;">{{ group_rooms_count|default:0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Direct Messages</div>
+            <div class="stat-value" style="color: #8B5CF6;">{{ direct_rooms_count|default:0 }}</div>
         </div>
     </div>
-
-    <!-- Filter Section -->
-    {% if room_data %}
-    <div class="filter-section">
-        <div class="filter-row">
-            <div class="filter-group">
-                <label class="filter-label">Room Type</label>
-                <select class="filter-select" id="roomTypeFilter">
-                    <option value="all">All Types</option>
-                    <option value="group">Group Chat</option>
-                    <option value="direct">Direct Message</option>
-                    <option value="supervisor">Supervisor Chat</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-label">Status</label>
-                <select class="filter-select" id="statusFilter">
-                    <option value="all">All Status</option>
-                    <option value="accessible">Accessible</option>
-                    <option value="frozen">Frozen</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label class="filter-label">Sort By</label>
-                <select class="filter-select" id="sortFilter">
-                    <option value="recent">Most Recent</option>
-                    <option value="unread">Unread First</option>
-                    <option value="name">Name (A-Z)</option>
-                </select>
-            </div>
-        </div>
+    <!-- Tabs -->
+    <div class="chat-tabs">
+        <button class="chat-tab active" data-tab="groups">
+            <i class='bx bx-group'></i> Groups
+            {% if group_unread > 0 %}
+            <span class="tab-badge">{{ group_unread }}</span>
+            {% endif %}
+        </button>
+        <button class="chat-tab" data-tab="direct">
+            <i class='bx bx-user'></i> Direct Messages
+            {% if direct_unread > 0 %}
+            <span class="tab-badge">{{ direct_unread }}</span>
+            {% endif %}
+        </button>
     </div>
-    {% endif %}
-
-    <!-- Rooms List -->
-    <div class="rooms-grid" id="roomsGrid">
-        {% if room_data %}
-            {% for item in room_data %}
-            <div class="room-card {{ item.room.room_type }} {% if not item.is_accessible %}frozen{% endif %}"
-                 data-room-type="{{ item.room.room_type }}"
-                 data-accessible="{{ item.is_accessible }}"
-                 data-unread="{{ item.unread }}"
-                 onclick="{% if item.is_accessible %}window.location.href='{% url 'chat:chat_room' item.room.id %}'{% endif %}">
+    <!-- Group Chats Tab -->
+    <div class="tab-content active" id="groups">
+        <div class="rooms-grid">
+            {% for item in group_messages %}
+            <div class="room-card {{ item.room.room_type }}" 
+                 data-room-id="{{ item.room.id }}"
+                 onclick="{% if item.is_accessible %}window.location.href='{% url 'chat:chat_room' item.room.id %}'{% else %}showAccessDenied(){% endif %}">
                 
                 <div class="room-header">
-                    <div class="room-title-section">
+                    <div class="flex-grow-1">
                         <div class="room-name">
+                            <i class='bx {% if item.room.room_type == "group" %}bx-group{% else %}bx-shield{% endif %}'></i>
                             {{ item.room.name }}
                             <span class="room-type-badge badge-{{ item.room.room_type }}">
-                                <i class='bx {% if item.room.room_type == "group" %}bx-folder{% elif item.room.room_type == "direct" %}bx-user{% elif item.room.room_type == "supervisor" %}bx-shield{% endif %}'></i>
                                 {{ item.room.get_room_type_display }}
                             </span>
                         </div>
                     </div>
                     
-                    <div class="room-badges">
+                    <div class="d-flex align-items-center gap-2">
                         {% if item.unread > 0 %}
                             <span class="unread-badge">{{ item.unread }}</span>
                         {% endif %}
                         {% if not item.is_accessible %}
-                            <span class="frozen-badge">
-                                <i class='bx bx-lock'></i>
-                                Frozen
+                            <span class="time-badge">
+                                <i class='bx bx-lock'></i> Time Restricted
                             </span>
                         {% endif %}
                     </div>
@@ -478,7 +469,7 @@
                 <div class="room-meta">
                     {% if item.online_count > 0 %}
                     <div class="meta-item">
-                        <span class="online-indicator"></span>
+                        <span style="width: 8px; height: 8px; background: #10B981; border-radius: 50%; display: inline-block;"></span>
                         {{ item.online_count }} online
                     </div>
                     {% endif %}
@@ -498,29 +489,6 @@
                     </div>
                 </div>
 
-                <!-- Sentiment Indicator (if available) -->
-                {% if item.avg_sentiment is not None %}
-                <div class="meta-item">
-                    {% if item.avg_sentiment > 0.3 %}
-                        <span class="sentiment-indicator sentiment-positive">
-                            <i class='bx bx-smile'></i>
-                            Positive vibe
-                        </span>
-                    {% elif item.avg_sentiment < -0.3 %}
-                        <span class="sentiment-indicator sentiment-negative">
-                            <i class='bx bx-sad'></i>
-                            Needs attention
-                        </span>
-                    {% else %}
-                        <span class="sentiment-indicator sentiment-neutral">
-                            <i class='bx bx-meh'></i>
-                            Neutral
-                        </span>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                <!-- Last Message -->
                 {% if item.last_message %}
                 <div class="last-message">
                     <div class="message-sender">
@@ -532,7 +500,6 @@
                 </div>
                 {% endif %}
 
-                <!-- Schedule Info (for frozen rooms) -->
                 {% if not item.is_accessible and item.room.schedule_start_time %}
                 <div class="schedule-info">
                     <i class='bx bx-calendar'></i>
@@ -542,140 +509,197 @@
                     {% endif %}
                 </div>
                 {% endif %}
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class='bx bx-group'></i>
+                </div>
+                <h3>No Group Chats</h3>
+                <p class="text-muted">You haven't joined any group chats yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
 
-                <!-- Accessibility Overlay -->
-                {% if not item.is_accessible %}
-                <div class="accessibility-overlay">
-                    <div class="overlay-content">
-                        <i class='bx bx-lock' style="font-size: 32px; color: #EF4444;"></i>
-                        <div style="margin-top: 8px; font-weight: 600;">Room is currently frozen</div>
-                        <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
-                            Check back during scheduled hours
+    <!-- Direct Messages Tab -->
+    <div class="tab-content" id="direct">
+        <div class="rooms-grid">
+            {% for item in direct_messages %}
+            <div class="room-card direct" 
+                 data-room-id="{{ item.room.id }}"
+                 onclick="{% if item.is_accessible %}window.location.href='{% url 'chat:chat_room' item.room.id %}'{% else %}showAccessDenied(){% endif %}">
+                
+                <div class="room-header">
+                    <div class="flex-grow-1">
+                        <div class="room-name">
+                            <i class='bx bx-user'></i>
+                            {{ item.room.name }}
                         </div>
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-2">
+                        {% if item.unread > 0 %}
+                            <span class="unread-badge">{{ item.unread }}</span>
+                        {% endif %}
+                        {% if not item.is_accessible %}
+                            <span class="time-badge">
+                                <i class='bx bx-lock'></i> User Unavailable
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="room-meta">
+                    <div class="meta-item">
+                        <i class='bx bx-time-five'></i>
+                        {% if item.room.last_message_at %}
+                            {{ item.room.last_message_at|timesince }} ago
+                        {% else %}
+                            No messages
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if item.last_message %}
+                <div class="last-message">
+                    <div class="message-sender">
+                        {{ item.last_message.sender.display_name }}
+                    </div>
+                    <div class="message-content">
+                        {{ item.last_message.display_content|truncatewords:20 }}
                     </div>
                 </div>
                 {% endif %}
+
+                {% if not item.is_accessible and not user.is_supervisor %}
+                <div class="schedule-info">
+                    <i class='bx bx-info-circle'></i>
+                    This user is only available during their scheduled hours
+                </div>
+                {% endif %}
             </div>
-            {% endfor %}
-        {% else %}
+            {% empty %}
             <div class="empty-state">
                 <div class="empty-icon">
                     <i class='bx bx-message-x'></i>
                 </div>
-                <h3 class="empty-title">No Chat Rooms Yet</h3>
-                <p class="empty-text">
-                    You haven't joined any chat rooms yet. 
-                    {% if user.is_supervisor or user.is_admin %}
-                    Create a room to start chatting with your team!
-                    {% else %}
-                    Wait for your supervisor to add you to a chat room.
-                    {% endif %}
-                </p>
-                {% if user.is_supervisor or user.is_admin %}
-                <a href="{% url 'chat:create_room' %}" class="btn btn-primary">
-                    <i class='bx bx-plus'></i> Create Your First Room
-                </a>
-                {% endif %}
+                <h3>No Direct Messages</h3>
+                <p class="text-muted">Start a conversation by searching for a user above.</p>
             </div>
-        {% endif %}
+            {% endfor %}
+        </div>
     </div>
-
-    <!-- Create Room Button (Floating) -->
-    {% if user.is_supervisor or user.is_admin %}
-    <a href="{% url 'chat:create_room' %}" class="create-room-btn" title="Create New Room">
-        <i class='bx bx-plus'></i>
-    </a>
-    {% endif %}
+    <!-- Floating Action Button -->
+    <button class="create-message-btn" onclick="focusSearch()" title="New Message">
+        <i class='bx bx-edit-alt'></i>
+    </button>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Filter and sort functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const roomsGrid = document.getElementById('roomsGrid');
-    const roomCards = Array.from(document.querySelectorAll('.room-card'));
-    
-    const typeFilter = document.getElementById('roomTypeFilter');
-    const statusFilter = document.getElementById('statusFilter');
-    const sortFilter = document.getElementById('sortFilter');
-
-    if (!typeFilter) return; // No filters if no rooms
-
-    function filterRooms() {
-        const type = typeFilter.value;
-        const status = statusFilter.value;
-
-        roomCards.forEach(card => {
-            const cardType = card.dataset.roomType;
-            const isAccessible = card.dataset.accessible === 'True';
-            
-            let show = true;
-
-            if (type !== 'all' && cardType !== type) {
-                show = false;
-            }
-
-            if (status === 'accessible' && !isAccessible) {
-                show = false;
-            } else if (status === 'frozen' && isAccessible) {
-                show = false;
-            }
-
-            card.style.display = show ? 'block' : 'none';
-        });
-    }
-
-    function sortRooms() {
-        const sortBy = sortFilter.value;
-        const visibleCards = roomCards.filter(card => card.style.display !== 'none');
-
-        visibleCards.sort((a, b) => {
-            if (sortBy === 'unread') {
-                return parseInt(b.dataset.unread) - parseInt(a.dataset.unread);
-            } else if (sortBy === 'name') {
-                const nameA = a.querySelector('.room-name').textContent.trim();
-                const nameB = b.querySelector('.room-name').textContent.trim();
-                return nameA.localeCompare(nameB);
-            }
-            return 0; // 'recent' is default order
-        });
-
-        visibleCards.forEach(card => roomsGrid.appendChild(card));
-    }
-
-    typeFilter.addEventListener('change', () => {
-        filterRooms();
-        sortRooms();
+// Tab switching
+document.querySelectorAll('.chat-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        this.classList.add('active');
+        document.getElementById(this.dataset.tab).classList.add('active');
     });
-
-    statusFilter.addEventListener('change', () => {
-        filterRooms();
-        sortRooms();
-    });
-
-    sortFilter.addEventListener('change', sortRooms);
-
-    // Auto-refresh unread counts every 30 seconds
-    setInterval(() => {
-        fetch('{% url "chat:api_unread_counts" %}', {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Update unread badges
-            roomCards.forEach(card => {
-                const roomId = card.dataset.roomId;
-                const unreadBadge = card.querySelector('.unread-badge');
-                if (data.rooms && data.rooms[roomId] && unreadBadge) {
-                    unreadBadge.textContent = data.rooms[roomId];
-                }
-            });
-        })
-        .catch(err => console.error('Error refreshing unread counts:', err));
-    }, 30000);
 });
+
+// User search
+let searchTimeout;
+const searchInput = document.getElementById('userSearch');
+const searchResults = document.getElementById('searchResults');
+
+searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+    
+    if (query.length < 2) {
+        searchResults.classList.remove('show');
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        searchUsers(query);
+    }, 300);
+});
+
+function searchUsers(query) {
+    fetch(`/chat/api/search-users/?q=${encodeURIComponent(query)}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        displaySearchResults(data.users);
+    })
+    .catch(err => console.error('Search error:', err));
+}
+
+function displaySearchResults(users) {
+    if (users.length === 0) {
+        searchResults.innerHTML = '<div class="p-3 text-center text-muted">No users found</div>';
+        searchResults.classList.add('show');
+        return;
+    }
+    
+    searchResults.innerHTML = users.map(user => `
+        <a href="/chat/user/${user.id}/" class="user-search-item">
+            <div class="user-avatar-search">
+                ${user.initials}
+            </div>
+            <div class="user-info-search">
+                <div class="user-name-search">${user.name}</div>
+                <div class="user-role-search">${user.role} ${user.department ? '• ' + user.department : ''}</div>
+            </div>
+            ${user.time_restricted ? '<span class="time-badge"><i class="bx bx-time"></i> Time Restricted</span>' : ''}
+        </a>
+    `).join('');
+    
+    searchResults.classList.add('show');
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        searchResults.classList.remove('show');
+    }
+});
+
+function focusSearch() {
+    searchInput.focus();
+    searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function showAccessDenied() {
+    alert('This chat is currently not accessible due to time restrictions.');
+}
+
+// Auto-refresh unread counts every 30 seconds
+setInterval(() => {
+    fetch('{% url "chat:api_unread_counts" %}', {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Update badge counts
+        document.querySelectorAll('.unread-badge').forEach(badge => {
+            const roomId = badge.closest('[data-room-id]').dataset.roomId;
+            if (data.rooms && data.rooms[roomId]) {
+                badge.textContent = data.rooms[roomId];
+                badge.style.display = data.rooms[roomId] > 0 ? 'inline-block' : 'none';
+            }
+        });
+    })
+    .catch(err => console.error('Error refreshing counts:', err));
+}, 30000);
 </script>
 {% endblock %}

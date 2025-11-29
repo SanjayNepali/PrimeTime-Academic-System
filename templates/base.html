@@ -123,6 +123,177 @@
     </style>
 </head>
 <body>
+<body>
+<!-- Add this IMMEDIATELY after <body> tag in base.html, BEFORE any other scripts -->
+
+    <script>
+    (function() {
+        'use strict';
+        
+        console.log('🚫 ULTIMATE NOTIFICATION BLOCKER ACTIVATED');
+        
+        // ============================================
+        // STEP 1: Completely disable Notification API
+        // ============================================
+        if ('Notification' in window) {
+            // Override the Notification constructor
+            window.Notification = function(title, options) {
+                console.log('🚫 BLOCKED Notification:', title, options);
+                
+                // Return a fake notification object
+                return {
+                    close: function() { console.log('🚫 Blocked notification.close()'); },
+                    onclick: null,
+                    onerror: null,
+                    onshow: null,
+                    onclose: null,
+                    addEventListener: function() { console.log('🚫 Blocked notification.addEventListener()'); },
+                    removeEventListener: function() { console.log('🚫 Blocked notification.removeEventListener()'); }
+                };
+            };
+            
+            // Block permission requests
+            window.Notification.requestPermission = function() {
+                console.log('🚫 BLOCKED Notification.requestPermission()');
+                return Promise.resolve('denied');
+            };
+            
+            // Force permission to denied
+            Object.defineProperty(window.Notification, 'permission', {
+                get: function() { 
+                    return 'denied'; 
+                },
+                set: function() {
+                    console.log('🚫 BLOCKED attempt to change Notification.permission');
+                },
+                configurable: false
+            });
+            
+            // Make it immutable
+            Object.freeze(window.Notification);
+            
+            console.log('✅ Notification API completely disabled');
+        }
+        
+        // ============================================
+        // STEP 2: Block Service Workers
+        // ============================================
+        if ('serviceWorker' in navigator) {
+            const originalRegister = navigator.serviceWorker.register;
+            navigator.serviceWorker.register = function() {
+                console.log('🚫 BLOCKED Service Worker registration');
+                return Promise.reject(new Error('Service Workers disabled by notification blocker'));
+            };
+            
+            const originalGetRegistration = navigator.serviceWorker.getRegistration;
+            navigator.serviceWorker.getRegistration = function() {
+                console.log('🚫 BLOCKED Service Worker getRegistration');
+                return Promise.resolve(undefined);
+            };
+            
+            console.log('✅ Service Workers blocked');
+        }
+        
+        // ============================================
+        // STEP 3: Block common notification libraries
+        // ============================================
+        const notificationMethods = [
+            'notify',
+            'showNotification',
+            'toast',
+            'showToast',
+            'alert',
+            'notification',
+            'push',
+            'pushNotification'
+        ];
+        
+        notificationMethods.forEach(method => {
+            const original = window[method];
+            window[method] = function() {
+                console.log('🚫 BLOCKED notification method:', method, arguments);
+                // Return empty to prevent errors
+                return null;
+            };
+        });
+        
+        // ============================================
+        // STEP 4: Monitor and block dynamic notification creation
+        // ============================================
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) { // Element node
+                        // Block any elements that look like notification popups
+                        const suspiciousClasses = [
+                            'notification',
+                            'toast',
+                            'alert',
+                            'popup',
+                            'snackbar'
+                        ];
+                        
+                        const classList = Array.from(node.classList || []);
+                        const hasSuspiciousClass = suspiciousClasses.some(cls => 
+                            classList.some(c => c.toLowerCase().includes(cls))
+                        );
+                        
+                        if (hasSuspiciousClass && node.textContent.includes('Sanjay Nepali')) {
+                            console.log('🚫 BLOCKED suspicious notification element:', node);
+                            node.remove();
+                        }
+                    }
+                });
+            });
+        });
+        
+        // Start observing when DOM is ready
+        if (document.body) {
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        } else {
+            document.addEventListener('DOMContentLoaded', function() {
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            });
+        }
+        
+        // ============================================
+        // STEP 5: Intercept console methods used for debugging
+        // ============================================
+        const originalConsoleLog = console.log;
+        console.log = function() {
+            const args = Array.from(arguments);
+            const hasNotificationKeyword = args.some(arg => 
+                typeof arg === 'string' && 
+                (arg.includes('Notification') || arg.includes('notification'))
+            );
+            
+            if (hasNotificationKeyword) {
+                originalConsoleLog.apply(console, ['🚫 Blocked notification-related log:'].concat(args));
+            } else {
+                originalConsoleLog.apply(console, args);
+            }
+        };
+        
+        // ============================================
+        // FINAL CONFIRMATION
+        // ============================================
+        console.log('✅ ULTIMATE NOTIFICATION BLOCKER FULLY ACTIVE');
+        console.log('✅ All notification APIs have been disabled');
+        console.log('✅ Service Workers have been blocked');
+        console.log('✅ Notification libraries have been neutered');
+        console.log('✅ DOM monitoring is active');
+        
+        // Expose blocker status for debugging
+        window.__notificationBlockerActive = true;
+    })();
+    </script>
+    
     {% if user.is_authenticated %}
     <!-- Modern Navigation -->
     <nav class="modern-nav">

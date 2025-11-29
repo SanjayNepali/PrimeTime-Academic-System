@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q, Count, Max, F, Avg, Case, When, IntegerField
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime, time as datetime_time
 import json
 
 from .models import ChatRoom, Message, ChatRoomMember, ChatNotification
@@ -17,36 +17,123 @@ from groups.models import Group
 from analytics.models import StressLevel
 from analytics.sentiment import AdvancedSentimentAnalyzer
 
-
+def check_user_availability(user, current_user):
+    """
+    Check if a user is available for messaging based on time restrictions
+    Supervisors can message anytime, students have time restrictions
+    """
+    # Supervisors and admins can message anytime
+    if current_user.role in ['supervisor', 'admin']:
+        return True, None
+    
+    # If user is checking their own availability (student)
+    if user == current_user and user.role == 'student':
+        from groups.models import GroupMembership
+        student_membership = GroupMembership.objects.filter(
+            student=user,
+            is_active=True
+        ).first()
+        
+        if student_membership and student_membership.group.schedule_start_time:
+            return check_time_in_range(
+                student_membership.group.schedule_start_time,
+                student_membership.group.schedule_end_time,
+                student_membership.group.schedule_days
+            )
+    
+    # If messaging a supervisor, check recipient's schedule
+    if user.role == 'supervisor':
+        # Get supervisor's group schedule
+        from groups.models import Group
+        supervisor_group = Group.objects.filter(supervisor=user).first()
+        
+        if supervisor_group and supervisor_group.schedule_start_time:
+            return check_time_in_range(
+                supervisor_group.schedule_start_time,
+                supervisor_group.schedule_end_time,
+                supervisor_group.schedule_days
+            )
+    
+    # Students messaging each other - check sender's schedule
+    if user.role == 'student' and current_user.role == 'student':
+        from groups.models import GroupMembership
+        student_membership = GroupMembership.objects.filter(
+            student=current_user,
+            is_active=True
+        ).first()
+        
+        if student_membership and student_membership.group.schedule_start_time:
+            return check_time_in_range(
+                student_membership.group.schedule_start_time,
+                student_membership.group.schedule_end_time,
+                student_membership.group.schedule_days
+            )
+    
+    return True, None
+def check_time_in_range(start_time, end_time, allowed_days):
+    """Check if current time is within allowed range"""
+    now = timezone.now()
+    current_time = now.time()
+    current_day = now.strftime('%a')
+    
+    # Check day
+    if allowed_days:
+        days_list = [day.strip() for day in allowed_days.split(',')]
+        if current_day not in days_list:
+            return False, f"Available only on: {allowed_days}"
+    
+    # Check time
+    if start_time and end_time:
+        if not (start_time <= current_time <= end_time):
+            return False, f"Available from {start_time.strftime('%I:%M %p')} to {end_time.strftime('%I:%M %p')}"
+    
+    return True, None
 @login_required
 def chat_home(request):
-    """Enhanced chat home page with analytics"""
+    """Enhanced chat home with groups and direct messages separated"""
     
-    # Get user's chat rooms with enhanced data
+    # Get user's chat rooms
     rooms = ChatRoom.objects.filter(
         participants=request.user,
         is_active=True
-    ).prefetch_related('participants', 'members')
+    ).prefetch_related('participants', 'members').order_by('-last_message_at')
     
     room_data = []
     total_unread = 0
-    active_rooms = 0
+    group_unread = 0
+    direct_unread = 0
+    
+    # Counters for room types
+    group_rooms_count = 0
+    direct_rooms_count = 0
     
     for room in rooms:
         # Get last message
         last_message = room.messages.filter(is_deleted=False).order_by('-timestamp').first()
         
-        # Calculate unread count
+        # Calculate ACCURATE unread count
         try:
             member = room.members.get(user=request.user)
+            # Only count messages AFTER last_read_at AND from others
             unread = room.messages.filter(
                 timestamp__gt=member.last_read_at,
                 is_deleted=False
             ).exclude(sender=request.user).count()
         except ChatRoomMember.DoesNotExist:
-            unread = 0
+            # If no member record, count all messages not from user
+            unread = room.messages.filter(
+                is_deleted=False
+            ).exclude(sender=request.user).count()
         
         total_unread += unread
+        
+        # Track group vs direct unread AND count room types
+        if room.room_type == 'direct':
+            direct_unread += unread
+            direct_rooms_count += 1
+        else:
+            group_unread += unread
+            group_rooms_count += 1
         
         # Get online count
         online_count = room.members.filter(is_online=True).count()
@@ -54,13 +141,17 @@ def chat_home(request):
         # Get participant count
         participant_count = room.participants.count()
         
-        # Check accessibility
-        is_accessible = room.is_accessible_now()
+        # Check accessibility with time restrictions
+        is_accessible = True
+        if room.is_frozen:
+            is_accessible = room.is_accessible_now()
+        elif room.room_type == 'direct':
+            # For direct messages, check recipient availability
+            other_user = room.participants.exclude(id=request.user.id).first()
+            if other_user:
+                is_accessible, _ = check_user_availability(other_user, request.user)
         
-        if is_accessible and last_message and (timezone.now() - last_message.timestamp).days < 1:
-            active_rooms += 1
-        
-        # Calculate average sentiment (last 10 messages)
+        # Calculate average sentiment
         recent_messages = room.messages.filter(
             is_deleted=False
         ).order_by('-timestamp')[:10]
@@ -80,22 +171,111 @@ def chat_home(request):
             'avg_sentiment': avg_sentiment
         })
     
-    # Sort by last message time
-    room_data.sort(key=lambda x: x['room'].last_message_at or timezone.now(), reverse=True)
+    # Separate direct messages for the template
+    direct_messages = [r for r in room_data if r['room'].room_type == 'direct']
+    group_messages = [r for r in room_data if r['room'].room_type != 'direct']
     
     context = {
         'room_data': room_data,
+        'direct_messages': direct_messages,
+        'group_messages': group_messages,
         'total_unread': total_unread,
-        'active_rooms': active_rooms,
+        'group_unread': group_unread,
+        'direct_unread': direct_unread,
+        'group_rooms_count': group_rooms_count,
+        'direct_rooms_count': direct_rooms_count,
         'title': 'Chat - PrimeTime'
     }
     
     return render(request, 'chat/chat_home.html', context)
 
+@login_required
+def search_users(request):
+    """AJAX endpoint to search for users to message"""
+    query = request.GET.get('q', '').strip()
+    
+    if len(query) < 2:
+        return JsonResponse({'users': []})
+    
+    # Search users (exclude self)
+    users = User.objects.filter(
+        Q(username__icontains=query) |
+        Q(email__icontains=query) |
+        Q(full_name__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query),
+        is_active=True,
+        is_enabled=True
+    ).exclude(id=request.user.id)[:20]
+    
+    # Build results with availability info
+    results = []
+    for user in users:
+        is_available, restriction_msg = check_user_availability(user, request.user)
+        
+        results.append({
+            'id': user.id,
+            'name': user.display_name,
+            'initials': f"{user.first_name[0] if user.first_name else user.username[0]}{user.last_name[0] if user.last_name else ''}".upper(),
+            'role': user.get_role_display(),
+            'department': user.department or '',
+            'time_restricted': not is_available,
+            'restriction_msg': restriction_msg
+        })
+    
+    return JsonResponse({'users': results})
+
+
+@login_required
+def user_chat(request, user_id):
+    """Start or continue a direct chat with a user"""
+    other_user = get_object_or_404(User, pk=user_id, is_active=True)
+    
+    # Don't allow chatting with yourself
+    if other_user == request.user:
+        messages.error(request, "You cannot chat with yourself")
+        return redirect('chat:chat_home')
+    
+    # Check availability
+    is_available, restriction_msg = check_user_availability(other_user, request.user)
+    
+    # Supervisors get a notification but can still send
+    if not is_available and request.user.role == 'supervisor':
+        messages.warning(request, f"Note: {other_user.display_name} will only see your messages during their available hours: {restriction_msg}")
+    elif not is_available:
+        messages.error(request, f"{other_user.display_name} is not available right now. {restriction_msg}")
+        return redirect('chat:chat_home')
+    
+    # Find or create direct message room
+    existing_room = ChatRoom.objects.filter(
+        room_type='direct',
+        participants=request.user
+    ).filter(
+        participants=other_user
+    ).first()
+    
+    if existing_room:
+        return redirect('chat:chat_room', room_id=existing_room.id)
+    
+    # Create new direct message room
+    room = ChatRoom.objects.create(
+        name=f"{request.user.display_name} & {other_user.display_name}",
+        room_type='direct',
+        is_active=True
+    )
+    room.participants.add(request.user, other_user)
+    
+    # Create ChatRoomMember records
+    ChatRoomMember.objects.create(room=room, user=request.user)
+    ChatRoomMember.objects.create(room=room, user=other_user)
+    
+    messages.success(request, f'Started chat with {other_user.display_name}')
+    return redirect('chat:chat_room', room_id=room.id)
+
 
 @login_required
 def chat_room(request, room_id):
-    """Enhanced chat room view with sentiment analysis"""
+    """Enhanced chat room view with proper read tracking"""
     
     room = get_object_or_404(ChatRoom, pk=room_id, is_active=True)
     
@@ -104,16 +284,33 @@ def chat_room(request, room_id):
         messages.error(request, "You don't have access to this chat room")
         return redirect('chat:chat_home')
     
-    # Check if room is accessible at current time
-    if not room.is_accessible_now():
-        schedule_info = ""
-        if room.schedule_start_time and room.schedule_end_time:
+    # Check accessibility
+    is_accessible = True
+    restriction_msg = None
+    
+    if room.is_frozen:
+        # For frozen rooms, check room schedule
+        is_accessible = room.is_accessible_now()
+        if not is_accessible:
             schedule_info = f"This room is accessible from {room.schedule_start_time.strftime('%I:%M %p')} to {room.schedule_end_time.strftime('%I:%M %p')}"
             if room.schedule_days:
                 schedule_info += f" on {room.schedule_days}"
-        
-        messages.warning(request, f'This chat room is currently frozen. {schedule_info}')
-        return redirect('chat:chat_home')
+            messages.warning(request, schedule_info)
+            return redirect('chat:chat_home')
+    elif room.room_type == 'direct':
+        # For direct messages, check availability based on user role
+        other_user = room.participants.exclude(id=request.user.id).first()
+        if other_user:
+            if request.user.role == 'student':
+                # Students can only message during THEIR OWN schedule
+                is_accessible, restriction_msg = check_user_availability(request.user, request.user)
+            else:
+                # Supervisors/admins check recipient's availability
+                is_accessible, restriction_msg = check_user_availability(other_user, request.user)
+            
+            if not is_accessible and request.user.role != 'supervisor':
+                messages.warning(request, f"You cannot send messages right now. {restriction_msg}")
+                return redirect('chat:chat_home')
     
     # Get or create member
     member, created = ChatRoomMember.objects.get_or_create(
@@ -121,23 +318,29 @@ def chat_room(request, room_id):
         user=request.user
     )
     
-    # Get messages with sentiment data
+    # CRITICAL: Mark ALL existing messages as read when user views the room
+    member.last_read_at = timezone.now()
+    member.save(update_fields=['last_read_at'])
+    
+
+    
+    # Update last seen
+    member.update_last_seen()
+    
+    # Get messages
     messages_qs = room.messages.filter(
         is_deleted=False
     ).select_related(
         'sender', 'sender__profile', 'reply_to'
     ).prefetch_related('reactions').order_by('timestamp')
     
-    # Mark as read
-    member.mark_as_read()
-    
-    # Update last seen
-    member.update_last_seen()
-    
-    # Get participants with profile data
+    # Get participants
     participants = room.participants.select_related('profile').all()
     
-    # Calculate date groupings for messages
+    # Check if room has any supervisor participants
+    has_supervisor = room.participants.filter(role='supervisor').exists()
+    
+    # Date groupings
     today = timezone.now().date()
     yesterday = today - timedelta(days=1)
     
@@ -148,10 +351,49 @@ def chat_room(request, room_id):
         'member': member,
         'today': today,
         'yesterday': yesterday,
+        'is_accessible': is_accessible,
+        'restriction_msg': restriction_msg,
+        'has_supervisor': has_supervisor,
         'title': room.name
     }
     
     return render(request, 'chat/room.html', context)
+
+@login_required
+def get_unread_counts(request):
+    """Get ACCURATE unread message counts for all rooms"""
+    
+    rooms = ChatRoom.objects.filter(
+        participants=request.user,
+        is_active=True
+    )
+    
+    unread_data = {}
+    total_unread = 0
+    
+    for room in rooms:
+        try:
+            member = room.members.get(user=request.user)
+            # Count only messages AFTER last_read_at from others
+            unread = room.messages.filter(
+                timestamp__gt=member.last_read_at,
+                is_deleted=False
+            ).exclude(sender=request.user).count()
+            
+            unread_data[room.id] = unread
+            total_unread += unread
+        except ChatRoomMember.DoesNotExist:
+            # If no member record, count all non-self messages
+            unread = room.messages.filter(
+                is_deleted=False
+            ).exclude(sender=request.user).count()
+            unread_data[room.id] = unread
+            total_unread += unread
+    
+    return JsonResponse({
+        'total_unread': total_unread,
+        'rooms': unread_data
+    })
 
 
 @login_required
@@ -395,7 +637,6 @@ def analytics_dashboard(request):
     return render(request, 'chat/analytics_dashboard.html', context)
 
 
-# AJAX views
 @login_required
 def get_room_messages(request, room_id):
     """Get messages for a room (AJAX)"""
@@ -432,37 +673,6 @@ def get_room_messages(request, room_id):
 
 
 @login_required
-def get_unread_counts(request):
-    """Get unread message counts for all rooms (AJAX)"""
-    
-    rooms = ChatRoom.objects.filter(
-        participants=request.user,
-        is_active=True
-    )
-    
-    unread_data = {}
-    total_unread = 0
-    
-    for room in rooms:
-        try:
-            member = room.members.get(user=request.user)
-            unread = room.messages.filter(
-                timestamp__gt=member.last_read_at,
-                is_deleted=False
-            ).exclude(sender=request.user).count()
-            
-            unread_data[room.id] = unread
-            total_unread += unread
-        except ChatRoomMember.DoesNotExist:
-            unread_data[room.id] = 0
-    
-    return JsonResponse({
-        'total_unread': total_unread,
-        'rooms': unread_data
-    })
-
-
-@login_required
 def analyze_student_stress(request, student_id):
     """Analyze and return stress data for a specific student (AJAX)"""
     
@@ -493,16 +703,23 @@ def analyze_student_stress(request, student_id):
     })
 
 
-# NEW VIEWS - ADDED TO FIX MISSING ROUTES
-
 @login_required
 def supervisor_chat(request, supervisor_id):
     """Direct chat with a supervisor"""
     
     supervisor = get_object_or_404(User, pk=supervisor_id, role='supervisor')
     
+    # Check availability
+    is_available, restriction_msg = check_user_availability(supervisor, request.user)
+    
+    # Supervisors get a notification but can still send
+    if not is_available and request.user.role == 'supervisor':
+        messages.warning(request, f"Note: {supervisor.display_name} will only see your messages during their available hours: {restriction_msg}")
+    elif not is_available:
+        messages.error(request, f"{supervisor.display_name} is not available right now. {restriction_msg}")
+        return redirect('chat:chat_home')
+    
     # Find or create a direct message room between user and supervisor
-    # Check if a room already exists
     existing_room = ChatRoom.objects.filter(
         room_type='direct',
         participants=request.user
@@ -526,44 +743,6 @@ def supervisor_chat(request, supervisor_id):
     ChatRoomMember.objects.create(room=room, user=supervisor)
     
     messages.success(request, f'Started chat with {supervisor.display_name}')
-    return redirect('chat:chat_room', room_id=room.id)
-
-
-@login_required
-def user_chat(request, user_id):
-    """Direct chat with any user"""
-    
-    other_user = get_object_or_404(User, pk=user_id)
-    
-    # Don't allow chatting with yourself
-    if other_user == request.user:
-        messages.error(request, "You cannot chat with yourself")
-        return redirect('chat:chat_home')
-    
-    # Find or create a direct message room
-    existing_room = ChatRoom.objects.filter(
-        room_type='direct',
-        participants=request.user
-    ).filter(
-        participants=other_user
-    ).first()
-    
-    if existing_room:
-        return redirect('chat:chat_room', room_id=existing_room.id)
-    
-    # Create new direct message room
-    room = ChatRoom.objects.create(
-        name=f"Chat: {request.user.display_name} & {other_user.display_name}",
-        room_type='direct',
-        is_active=True
-    )
-    room.participants.add(request.user, other_user)
-    
-    # Create ChatRoomMember records
-    ChatRoomMember.objects.create(room=room, user=request.user)
-    ChatRoomMember.objects.create(room=room, user=other_user)
-    
-    messages.success(request, f'Started chat with {other_user.display_name}')
     return redirect('chat:chat_room', room_id=room.id)
 
 

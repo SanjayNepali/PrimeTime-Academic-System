@@ -8,22 +8,22 @@ from projects.models import Project
 
 
 class StressLevel(models.Model):
-    """Track student stress levels over time - UPDATED FOR SENTIMENT ANALYZER"""
+    """Track student stress levels over time"""
     
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='stress_levels')
     
-    # Overall stress level (0-100) - MATCHES SENTIMENT ANALYZER
+    # Overall stress level (0-100)
     level = models.FloatField(
         validators=[MinValueValidator(0), MaxValueValidator(100)]
     )
     
-    # Component scores - MATCHES SENTIMENT ANALYZER
+    # Component scores
     chat_sentiment_score = models.FloatField(default=0)
     deadline_pressure = models.FloatField(default=0)
     workload_score = models.FloatField(default=0)
     social_isolation_score = models.FloatField(default=0)
     
-    # Sentiment analysis results - MATCHES SENTIMENT ANALYZER
+    # Sentiment analysis results
     positive_messages = models.IntegerField(default=0)
     negative_messages = models.IntegerField(default=0)
     neutral_messages = models.IntegerField(default=0)
@@ -32,7 +32,7 @@ class StressLevel(models.Model):
     project_phase = models.CharField(max_length=50, blank=True)
     week_of_semester = models.IntegerField(null=True, blank=True)
     
-    # Timestamp - CHANGED TO calculated_at TO MATCH SENTIMENT ANALYZER
+    # FIXED: Use calculated_at consistently
     calculated_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -44,6 +44,18 @@ class StressLevel(models.Model):
     
     def __str__(self):
         return f"Stress: {self.student.display_name} - {self.level} at {self.calculated_at}"
+    
+    @property
+    def stress_category(self):
+        """Get stress category label"""
+        if self.level >= 80:
+            return "Critical"
+        elif self.level >= 60:
+            return "High"
+        elif self.level >= 40:
+            return "Moderate"
+        else:
+            return "Low"
     
     @property
     def stress_label(self):
@@ -59,7 +71,6 @@ class StressLevel(models.Model):
     def is_high_stress(self):
         """Check if stress level is high"""
         return self.level >= 70
-
 
 class ProgressTracking(models.Model):
     """Track project progress over time"""
@@ -218,7 +229,6 @@ class SystemAnalytics(models.Model):
     
     def __str__(self):
         return f"Analytics for {self.date}"
-
 
 class SupervisorFeedback(models.Model):
     """Supervisor feedback log sheet for students"""

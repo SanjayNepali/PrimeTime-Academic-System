@@ -1,0 +1,222 @@
+<!-- forum/templates/forum/project_forum.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Project Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="bx bx-folder-open me-2"></i>
+                            {{ project.title }}
+                        </h4>
+                        <span class="badge bg-light text-dark">{{ project.status|title }}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">{{ project.description }}</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <strong>Student:</strong> 
+                                {{ project.student.get_full_name|default:project.student.username }}
+                            </small>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <strong>Supervisor:</strong> 
+                                {% if project.supervisor %}
+                                    {{ project.supervisor.get_full_name|default:project.supervisor.username }}
+                                {% else %}
+                                    <span class="text-warning">Not assigned yet</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    {% if project.programming_languages %}
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <small class="text-muted">
+                                <strong>Technologies:</strong> {{ project.programming_languages }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Project Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h3 class="text-primary">{{ project_stats.total_posts }}</h3>
+                            <p class="text-muted mb-0">Total Posts</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h3 class="text-success">{{ project_stats.solved_posts }}</h3>
+                            <p class="text-muted mb-0">Solved</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h3 class="text-info">{{ project_stats.total_replies }}</h3>
+                            <p class="text-muted mb-0">Replies</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h3 class="text-warning">{{ posts|length }}</h3>
+                            <p class="text-muted mb-0">Active</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5>Project Discussions</h5>
+                <a href="{% url 'forum:post_create' %}?project_id={{ project.id }}" class="btn btn-primary">
+                    <i class="bx bx-plus"></i> New Discussion
+                </a>
+            </div>
+
+            <!-- Posts List -->
+            {% if posts %}
+                {% for post in posts %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-1 text-center">
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="h5 mb-1 text-primary">{{ post.upvote_count }}</span>
+                                        <small class="text-muted">Votes</small>
+                                    </div>
+                                    <div class="d-flex flex-column align-items-center mt-2">
+                                        <span class="h6 mb-1 {% if post.is_solved %}text-success{% else %}text-muted{% endif %}">
+                                            {{ post.reply_count }}
+                                        </span>
+                                        <small class="text-muted">Replies</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-9">
+                                    <h6 class="card-title mb-1">
+                                        <a href="{% url 'forum:post_detail' post.pk %}" class="text-decoration-none">
+                                            {{ post.title }}
+                                        </a>
+                                        {% if post.is_solved %}
+                                            <span class="badge bg-success ms-1">Solved</span>
+                                        {% endif %}
+                                        {% if post.is_pinned %}
+                                            <span class="badge bg-warning ms-1">Pinned</span>
+                                        {% endif %}
+                                    </h6>
+                                    <p class="card-text text-muted small mb-2">
+                                        {{ post.content|striptags|truncatewords:30 }}
+                                    </p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for tag in post.tags.all %}
+                                            <span class="badge bg-light text-dark">{{ tag.name }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <small class="text-muted d-block">
+                                        {{ post.created_at|timesince }} ago
+                                    </small>
+                                    <small class="text-muted">
+                                        by {{ post.author.get_full_name|default:post.author.username }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="bx bx-message-rounded text-muted display-4 mb-3"></i>
+                        <h5 class="text-muted">No discussions yet</h5>
+                        <p class="text-muted">Start the first discussion for this project!</p>
+                        <a href="{% url 'forum:post_create' %}?project_id={{ project.id }}" class="btn btn-primary mt-2">
+                            <i class="bx bx-plus"></i> Create First Post
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-3">
+            <!-- Project Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Project Info</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small class="text-muted"><strong>Status:</strong></small>
+                        <span class="badge {% if project.status == 'approved' %}bg-success{% elif project.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %} float-end">
+                            {{ project.status|title }}
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted"><strong>Progress:</strong></small>
+                        <span class="float-end">{{ project.progress_percentage }}%</span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted"><strong>Created:</strong></small>
+                        <small class="float-end">{{ project.created_at|date:"M d, Y" }}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categories -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Categories</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for category in categories %}
+                            <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                {{ category.name }}
+                                <span class="badge bg-primary rounded-pill">{{ category.post_count }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Popular Tags -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Popular Tags</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for tag in popular_tags %}
+                            <span class="badge bg-light text-dark mb-1">{{ tag.name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

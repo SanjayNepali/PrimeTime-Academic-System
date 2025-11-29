@@ -1,0 +1,158 @@
+<!-- File: templates/projects/project_wellness.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Wellness - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-heart-circle'></i> Wellness & Stress Analysis</h2>
+            <p class="text-muted mb-0">{{ project.title }}</p>
+        </div>
+        <a href="{% url 'projects:my_project' %}" class="btn btn-secondary">
+            <i class='bx bx-arrow-back'></i> Back to Project
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Stress Analysis -->
+        <div class="col-md-8">
+            <div class="card modern-card mb-4">
+                <div class="card-header">
+                    <h5><i class='bx bx-heart-circle'></i> Current Stress Level</h5>
+                </div>
+                <div class="card-body">
+                    <div class="stress-display text-center mb-4">
+                        <div class="stress-gauge">
+                            <div class="gauge-value stress-{{ stress_level }}">
+                                {{ stress_score }}
+                            </div>
+                            <div class="gauge-label">/100</div>
+                        </div>
+                        <h4 class="mt-3 stress-{{ stress_level }}">
+                            {% if stress_level == 'high' %}
+                                High Stress Level
+                            {% elif stress_level == 'medium' %}
+                                Moderate Stress
+                            {% else %}
+                                Low Stress
+                            {% endif %}
+                        </h4>
+                    </div>
+
+                    {% if latest_stress %}
+                    <div class="stress-factors">
+                        <h6 class="mb-3">Contributing Factors</h6>
+                        {% for factor in stress_factors %}
+                        <div class="factor-item mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>{{ factor.name }}</span>
+                                <strong>{{ factor.score }}/100</strong>
+                            </div>
+                            <div class="progress" style="height: 12px;">
+                                <div class="progress-bar bg-{{ factor.level }}" 
+                                     style="width: {{ factor.score }}%"
+                                     role="progressbar"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mt-4 text-muted small">
+                        <i class='bx bx-info-circle'></i>
+                        Last updated: {{ latest_stress.calculated_at|timesince }} ago
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class='bx bx-info-circle'></i>
+                        <strong>No stress data available yet.</strong>
+                        <p class="mb-0 mt-2">Stress analysis requires some activity in the system. Keep using the platform and check back later!</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Wellness Tips -->
+        <div class="col-md-4">
+            <div class="card modern-card mb-4">
+                <div class="card-header">
+                    <h5><i class='bx bx-bulb'></i> Wellness Tips</h5>
+                </div>
+                <div class="card-body">
+                    {% for tip in wellness_tips %}
+                    <div class="wellness-tip mb-3">
+                        <i class='bx {{ tip.icon }} text-primary'></i>
+                        <p class="mb-0">{{ tip.text }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if high_stress and project.supervisor %}
+            <div class="alert alert-warning">
+                <h6><i class='bx bx-info-circle'></i> Need Support?</h6>
+                <p class="small mb-2">Your stress levels are elevated. Consider reaching out:</p>
+                <a href="{% url 'chat:supervisor_chat' project.supervisor.id %}" class="btn btn-sm btn-warning w-100">
+                    <i class='bx bx-message-dots'></i> Talk to Supervisor
+                </a>
+            </div>
+            {% elif high_stress %}
+            <div class="alert alert-warning">
+                <h6><i class='bx bx-info-circle'></i> Need Support?</h6>
+                <p class="small mb-0">Your stress levels are elevated. Please contact your department for support.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.stress-display {
+    padding: 40px 20px;
+}
+
+.stress-gauge {
+    display: inline-block;
+    position: relative;
+}
+
+.gauge-value {
+    font-size: 80px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.gauge-label {
+    font-size: 24px;
+    color: #6B7280;
+}
+
+.stress-low { color: #10B981; }
+.stress-medium { color: #F59E0B; }
+.stress-high { color: #EF4444; }
+
+.wellness-tip {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: #F6F8FB;
+    border-radius: 8px;
+}
+
+.wellness-tip i {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.factor-item {
+    padding: 16px;
+    background: #F6F8FB;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

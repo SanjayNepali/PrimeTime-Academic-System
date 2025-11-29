@@ -290,7 +290,7 @@ def project_forum(request, project_id):
     # Check if user has access to this project
     if not (request.user == project.student or 
             request.user == project.supervisor or 
-            request.user.is_admin):
+            request.user.role == 'admin'):
         messages.error(request, "You don't have access to this project's forum")
         return redirect('forum:forum_home')
     
@@ -313,17 +313,22 @@ def project_forum(request, project_id):
         post_count=Count('forumpost')
     ).order_by('-post_count')[:10]
     
+    # Safe supervisor name
+    supervisor_name = "Not assigned"
+    if project.supervisor:
+        supervisor_name = project.supervisor.get_full_name() or project.supervisor.username
+    
     context = {
         'project': project,
         'posts': posts,
         'project_stats': project_stats,
         'categories': categories,
         'popular_tags': popular_tags,
+        'supervisor_name': supervisor_name,  # Pass safe name to template
         'title': f'Project Forum: {project.title}'
     }
     
     return render(request, 'forum/project_forum.html', context)
-
 
 @login_required
 def post_upvote(request, pk):

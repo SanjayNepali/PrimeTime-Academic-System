@@ -132,7 +132,7 @@ def student_dashboard(request):
     has_stress_data = False
     
     # Get latest stress level
-    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
     if latest_stress and latest_stress.level > 10:
         stress_level = latest_stress.level
         has_stress_data = True
@@ -153,11 +153,9 @@ def student_dashboard(request):
         ]
     
     # Recent activities
-    recent_activities = []
-    if project:
-        recent_activities = ProjectActivity.objects.filter(
-            project=project
-        ).order_by('-timestamp')[:5]
+    recent_activities = ProjectActivity.objects.filter(
+        project=project
+    ).order_by('-timestamp')[:5]
     
     # Student-specific stats - UPDATED with new fields
     context = {

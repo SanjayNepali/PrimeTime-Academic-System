@@ -84,7 +84,7 @@ class StressCalculator:
         from analytics.models import StressLevel
 
         try:
-            return StressLevel.objects.filter(student=user).latest('timestamp')
+            return StressLevel.objects.filter(student=user).latest('calculated_at')
         except StressLevel.DoesNotExist:
             return None
 
@@ -344,3 +344,4 @@ class AnalyticsDashboard:
             'status_distribution': list(status_distribution),
             'completion_rate': (status_distribution.filter(status='completed').count() / total_projects * 100) if total_projects > 0 else 0
         }
+

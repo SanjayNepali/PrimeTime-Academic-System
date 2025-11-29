@@ -1,0 +1,257 @@
+<!-- File: templates/projects/project_team.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Team - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class='bx bx-group'></i> Team & Collaboration</h2>
+            <p class="text-muted mb-0">{{ project.title }}</p>
+        </div>
+        <a href="{% url 'projects:my_project' %}" class="btn btn-secondary">
+            <i class='bx bx-arrow-back'></i> Back to Project
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Team Members -->
+        <div class="col-md-6 mb-4">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-user-circle'></i> Team Members</h5>
+                </div>
+                <div class="card-body">
+                    {% if supervisor %}
+                    <div class="team-member mb-3 border-bottom pb-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="member-avatar bg-primary text-white">
+                                <i class='bx bx-user-check'></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <strong>{{ supervisor.display_name }}</strong>
+                                <p class="text-muted mb-0 small">Supervisor • {{ supervisor.department }}</p>
+                            </div>
+                            <a href="{% url 'chat:supervisor_chat' supervisor.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class='bx bx-message-dots'></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if group_members %}
+                        {% for member in group_members %}
+                        <div class="team-member mb-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="member-avatar bg-secondary text-white">
+                                    <i class='bx bx-user'></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <strong>{{ member.display_name }}</strong>
+                                    <p class="text-muted mb-0 small">Team Member • {{ member.department }}</p>
+                                </div>
+                                <a href="{% url 'chat:user_chat' member.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class='bx bx-message'></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        {% if not supervisor %}
+                        <div class="text-center py-4">
+                            <i class='bx bx-user-plus' style="font-size: 3rem; color: #6c757d;"></i>
+                            <p class="text-muted mt-2 mb-0">No team members yet</p>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="col-md-6 mb-4">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-history'></i> Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                    <div class="timeline">
+                        {% for activity in recent_activities %}
+                        <div class="timeline-item mb-3">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">{{ activity.get_action_display }}</h6>
+                                {% if activity.details %}
+                                <p class="mb-1 small text-muted">{{ activity.details }}</p>
+                                {% endif %}
+                                <small class="text-muted">
+                                    {{ activity.timestamp|timesince }} ago
+                                    {% if activity.user %}
+                                        by {{ activity.user.display_name }}
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class='bx bx-history' style="font-size: 3rem; color: #6c757d;"></i>
+                        <p class="text-muted mt-2 mb-0">No recent activity</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collaboration Tools -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5><i class='bx bx-conversation'></i> Collaboration Tools</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="collab-tool">
+                                <div class="tool-icon bg-primary">
+                                    <i class='bx bx-message-dots'></i>
+                                </div>
+                                <div class="tool-info">
+                                    <h6>Team Chat</h6>
+                                    <p class="text-muted small mb-2">Communicate with your team members</p>
+                                    {% if group %}
+                                    <a href="{% url 'chat:group_chat' group.id %}" class="btn btn-sm btn-primary">
+                                        Open Chat
+                                    </a>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-secondary" disabled>
+                                        No Group
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="collab-tool">
+                                <div class="tool-icon bg-success">
+                                    <i class='bx bx-conversation'></i>
+                                </div>
+                                <div class="tool-info">
+                                    <h6>Discussion Forum</h6>
+                                    <p class="text-muted small mb-2">Join project discussions</p>
+                                    <a href="{% url 'forum:project_forum' project.pk %}" class="btn btn-sm btn-success">
+                                        View Forum
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="collab-tool">
+                                <div class="tool-icon bg-warning">
+                                    <i class='bx bx-book-bookmark'></i>
+                                </div>
+                                <div class="tool-info">
+                                    <h6>Shared Resources</h6>
+                                    <p class="text-muted small mb-2">Access shared learning materials</p>
+                                    <a href="{% url 'projects:project_recommendations' project.pk %}" class="btn btn-sm btn-warning">
+                                        View Resources
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.member-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.team-member {
+    padding: 12px;
+    background: #F6F8FB;
+    border-radius: 8px;
+}
+
+.timeline {
+    position: relative;
+    padding-left: 32px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #E5E7EB;
+}
+
+.timeline-item {
+    position: relative;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -28px;
+    top: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #5568FE;
+    border: 3px solid white;
+    box-shadow: 0 0 0 2px #E5E7EB;
+}
+
+.collab-tool {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    background: #F6F8FB;
+    border-radius: 12px;
+    height: 100%;
+}
+
+.tool-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: white;
+    flex-shrink: 0;
+}
+
+.tool-info {
+    flex: 1;
+}
+
+.tool-info h6 {
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+</style>
+{% endblock %}

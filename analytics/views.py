@@ -23,14 +23,14 @@ def my_analytics(request):
         return redirect('dashboard:home')
 
     # Get ONLY existing stress data - no defaults
-    latest_stress = StressLevel.objects.filter(student=request.user).order_by('-timestamp').first()
+    latest_stress = StressLevel.objects.filter(student=request.user).order_by('-calculated_at').first()
     
     # Only calculate trends if we have actual data
     stress_trend = None
     stress_history = None
     if latest_stress:
         stress_trend = StressCalculator.get_stress_trend(request.user, days=30)
-        stress_history = StressLevel.objects.filter(student=request.user).order_by('-timestamp')[:10]
+        stress_history = StressLevel.objects.filter(student=request.user).order_by('-calculated_at')[:10]
     
     # Only calculate performance if project exists
     performance = None
@@ -103,13 +103,13 @@ def student_stress_detail(request, student_id):
             return redirect('analytics:supervisor_analytics')
 
     # Get comprehensive stress data - only if exists
-    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
     stress_trend = None
     stress_history = None
     
     if latest_stress:
         stress_trend = StressCalculator.get_stress_trend(student, days=60)
-        stress_history = StressLevel.objects.filter(student=student).order_by('-timestamp')[:20]
+        stress_history = StressLevel.objects.filter(student=student).order_by('-calculated_at')[:20]
 
     context = {
         'student': student,
@@ -170,17 +170,17 @@ def supervisor_view_student_profile(request, student_id):
         project = None
 
     # Get latest stress level - only if exists
-    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
 
     # Get stress trend (last 30 days) - only if stress data exists
     stress_history = None
     if latest_stress:
-        stress_history = StressLevel.objects.filter(student=student).order_by('-timestamp')[:30]
+        stress_history = StressLevel.objects.filter(student=student).order_by('-calculated_at')[:30]
 
     # Get latest progress - only if project exists
     latest_progress = None
     if project:
-        latest_progress = ProgressTracking.objects.filter(project=project).order_by('-timestamp').first()
+        latest_progress = ProgressTracking.objects.filter(project=project).order_by('-calculated_at').first()
 
     # Get supervisor feedback log sheet
     feedback_list = SupervisorFeedback.objects.filter(
@@ -370,3 +370,4 @@ def admin_view_all_logsheets(request):
         'avg_stress': avg_stress,
     }
     return render(request, 'analytics/admin_all_logsheets.html', context)
+

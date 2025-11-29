@@ -4,7 +4,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinLengthValidator
 from accounts.models import User
-
+from projects.models import Project 
 
 class ForumCategory(models.Model):
     """Forum categories"""
@@ -67,7 +67,13 @@ class ForumPost(models.Model):
     
     # Author
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forum_posts')
-    
+    project = models.ForeignKey(
+        'projects.Project', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True,
+        related_name='forum_posts'
+    )
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     is_solved = models.BooleanField(default=False)

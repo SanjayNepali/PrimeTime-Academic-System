@@ -130,24 +130,23 @@
             <button class="tab-btn active" data-tab="overview">
                 <i class='bx bx-info-circle'></i> Overview
             </button>
-            <button class="tab-btn" data-tab="resources">
+            <button class="tab-btn" data-tab="resources" onclick="window.location.href='{% url 'projects:project_recommendations' project.pk %}'">
                 <i class='bx bx-book'></i> Resources
                 {% if recommended_resources_count %}
                 <span class="tab-badge">{{ recommended_resources_count }}</span>
                 {% endif %}
             </button>
-            <button class="tab-btn" data-tab="analytics">
+            <button class="tab-btn" data-tab="analytics" onclick="window.location.href='{% url 'projects:project_analytics' project.pk %}'">
                 <i class='bx bx-chart'></i> Analytics
             </button>
-            <button class="tab-btn" data-tab="stress">
+            <button class="tab-btn" data-tab="stress" onclick="window.location.href='{% url 'projects:project_wellness' project.pk %}'">
                 <i class='bx bx-heart-circle'></i> Wellness
             </button>
-            <button class="tab-btn" data-tab="collaboration">
+            <button class="tab-btn" data-tab="collaboration" onclick="window.location.href='{% url 'projects:project_team' project.pk %}'">
                 <i class='bx bx-group'></i> Team
             </button>
         </div>
     </div>
-
     <!-- Tab Content -->
     <div class="tab-content-wrapper">
         <!-- Overview Tab -->
@@ -289,7 +288,6 @@
                             </div>
                         </div>
                     </div>
-
                     <!-- Progress Timeline -->
                     <div class="card modern-card mb-4">
                         <div class="card-header">

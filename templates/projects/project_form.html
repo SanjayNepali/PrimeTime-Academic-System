@@ -1,4 +1,4 @@
-<!-- File: Desktop/Prime/templates/projects/project_form.html -->
+<!-- File: templates/projects/project_form.html - FIXED WITH RESUBMIT -->
 
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
@@ -13,20 +13,26 @@
         <div class="card">
             <div class="card-header bg-white">
                 <h4 class="mb-0">
-                    <i class='bx bx-folder-plus'></i> 
-                    {% if project %}Edit Project{% else %}Create New Project{% endif %}
+                    <i class='bx {% if is_resubmission %}bx-refresh{% else %}bx-folder-plus{% endif %}'></i> 
+                    {% if is_resubmission %}
+                        Revise & Resubmit Project
+                    {% elif project %}
+                        Edit Project
+                    {% else %}
+                        Create New Project
+                    {% endif %}
                 </h4>
             </div>
             <div class="card-body">
-                {% if project and project.status == 'rejected' %}
+                {% if is_resubmission %}
                 <div class="alert alert-warning">
                     <i class='bx bx-info-circle'></i> 
                     <strong>Project was rejected:</strong> {{ project.rejection_reason }}
-                    <br>Please address the feedback and resubmit.
+                    <br><small class="mt-2 d-block">Please address the feedback above and resubmit your project.</small>
                 </div>
                 {% endif %}
                 
-                <form method="post">
+                <form method="post" id="projectForm">
                     {% csrf_token %}
                     
                     <div class="mb-3">
@@ -62,8 +68,32 @@
                         <small class="text-muted">List all technologies, frameworks, and languages you'll use</small>
                     </div>
                     
+                    {% if is_resubmission %}
+                    <!-- Resubmission Actions -->
+                    <div class="alert alert-info">
+                        <strong>What would you like to do?</strong>
+                        <p class="small mb-0 mt-2">You can save your changes as draft or submit directly for review.</p>
+                    </div>
+                    
+                    <input type="hidden" name="resubmit_now" id="resubmitFlag" value="false">
+                    
+                    <div class="d-flex justify-content-between gap-2">
+                        <a href="{% url 'projects:my_project' %}" class="btn btn-outline-secondary">
+                            <i class='bx bx-arrow-back'></i> Cancel
+                        </a>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-secondary" onclick="setResubmit(false)">
+                                <i class='bx bx-save'></i> Save as Draft
+                            </button>
+                            <button type="submit" class="btn btn-success" onclick="setResubmit(true)">
+                                <i class='bx bx-send'></i> Update & Resubmit
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Regular Edit/Create Actions -->
                     <div class="d-flex justify-content-between">
-                        <a href="{% if project %}{% url 'projects:project_detail' project.pk %}{% else %}{% url 'dashboard:student_dashboard' %}{% endif %}" 
+                        <a href="{% if project %}{% url 'projects:my_project' %}{% else %}{% url 'dashboard:student_dashboard' %}{% endif %}" 
                            class="btn btn-outline-secondary">
                             <i class='bx bx-arrow-back'></i> Cancel
                         </a>
@@ -72,9 +102,30 @@
                             {% if project %}Update{% else %}Create{% endif %} Project
                         </button>
                     </div>
+                    {% endif %}
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function setResubmit(resubmit) {
+    document.getElementById('resubmitFlag').value = resubmit ? 'true' : 'false';
+}
+</script>
+
+<style>
+.alert-warning {
+    border-left: 4px solid #ffc107;
+}
+
+.alert-info {
+    border-left: 4px solid #0dcaf0;
+}
+
+.btn-group .btn {
+    margin-left: 8px;
+}
+</style>
 {% endblock %}

@@ -1,4 +1,4 @@
-# File: Desktop/Prime/projects/urls.py
+# File: projects/urls.py - COMPLETE WITH ALL ROUTES
 
 from django.urls import path
 from . import views
@@ -19,6 +19,14 @@ urlpatterns = [
     
     # Deliverable routes
     path('<int:pk>/deliverable/submit/', views.deliverable_submit, name='deliverable_submit'),
+    
+    # NEW: Wellness/Stress routes
+    path('<int:pk>/wellness/', views.project_wellness, name='project_wellness'),
+    path('<int:pk>/stress-analysis/', views.stress_analysis, name='stress_analysis'),
+    
+    # NEW: Team/Collaboration routes  
+    path('<int:pk>/team/', views.project_team, name='project_team'),
+    path('<int:pk>/collaboration/', views.project_collaboration, name='project_collaboration'),
     
     # Project list (role-based)
     path('', views.project_list, name='project_list'),

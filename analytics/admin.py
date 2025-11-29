@@ -1,4 +1,4 @@
-# File: analytics/admin.py
+# File: analytics/admin.py - COMPLETE FIXED VERSION
 
 from django.contrib import admin
 from django.utils.html import format_html
@@ -8,14 +8,16 @@ from .models import StressLevel, ProgressTracking, SupervisorMeetingLog, SystemA
 # ========== STRESS LEVEL ==========
 @admin.register(StressLevel)
 class StressLevelAdmin(admin.ModelAdmin):
-    list_display = ['student_name', 'level_badge', 'category_badge', 'timestamp', 'project_phase']
-    list_filter = ['project_phase', 'timestamp']
+    # FIXED: Changed all 'timestamp' references to 'calculated_at'
+    list_display = ['student_name', 'level_badge', 'category_badge', 'calculated_at', 'project_phase']
+    list_filter = ['project_phase', 'calculated_at']
     search_fields = ['student__username', 'student__first_name', 'student__last_name']
-    readonly_fields = ['timestamp']
-    date_hierarchy = 'timestamp'
+    readonly_fields = ['calculated_at', 'level', 'chat_sentiment_score', 'deadline_pressure', 
+                       'workload_score', 'social_isolation_score']
+    date_hierarchy = 'calculated_at'
 
     fieldsets = (
-        ('Student Information', {'fields': ('student', 'timestamp')}),
+        ('Student Information', {'fields': ('student', 'calculated_at')}),
         ('Stress Metrics', {
             'fields': (
                 'level', 'stress_category', 'chat_sentiment_score',
@@ -55,6 +57,10 @@ class StressLevelAdmin(admin.ModelAdmin):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>',
                            color, obj.stress_category.upper())
     category_badge.short_description = 'Category'
+    
+    def has_add_permission(self, request):
+        # Stress levels created by system only
+        return False
 
 
 # ========== PROGRESS TRACKING ==========
@@ -191,7 +197,7 @@ class SupervisorFeedbackAdmin(admin.ModelAdmin):
     def action_required_badge(self, obj):
         if obj.action_required:
             return format_html('<span style="color: #dc3545; font-weight: bold;">⚠️ Yes</span>')
-        return format_html('<span style="color: #28a745;">✓ No</span>')
+        return format_html('<span style="color: #28a745;">✔ No</span>')
     action_required_badge.short_description = 'Action Required'
 
     actions = ['calculate_sentiment_for_selected', 'mark_as_visible', 'mark_as_hidden']

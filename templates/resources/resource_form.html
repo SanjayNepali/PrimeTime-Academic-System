@@ -5,6 +5,43 @@
 
 {% block title %}{{ title }} - Resources{% endblock %}
 
+{% block extra_css %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+.select2-container--default .select2-selection--multiple {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    min-height: 42px;
+}
+
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #5568FE;
+    box-shadow: 0 0 0 0.2rem rgba(85, 104, 254, 0.25);
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background-color: #5568FE;
+    border-color: #5568FE;
+    color: white;
+    border-radius: 4px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: white;
+    margin-right: 4px;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: #ffcccc;
+}
+
+.tech-select-multiple {
+    height: auto !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
@@ -24,7 +61,7 @@
                             <!-- Title -->
                             <div class="col-md-12 mb-3">
                                 <label for="{{ form.title.id_for_label }}" class="form-label">
-                                    Title <span class="text-danger">*</span>
+                                    <i class='bx bx-text'></i> Title <span class="text-danger">*</span>
                                 </label>
                                 {{ form.title }}
                                 {% if form.title.errors %}
@@ -35,7 +72,7 @@
                             <!-- Description -->
                             <div class="col-md-12 mb-3">
                                 <label for="{{ form.description.id_for_label }}" class="form-label">
-                                    Description <span class="text-danger">*</span>
+                                    <i class='bx bx-detail'></i> Description <span class="text-danger">*</span>
                                 </label>
                                 {{ form.description }}
                                 {% if form.description.errors %}
@@ -46,7 +83,7 @@
                             <!-- Resource Type -->
                             <div class="col-md-6 mb-3">
                                 <label for="{{ form.resource_type.id_for_label }}" class="form-label">
-                                    Resource Type <span class="text-danger">*</span>
+                                    <i class='bx bx-cube'></i> Resource Type <span class="text-danger">*</span>
                                 </label>
                                 {{ form.resource_type }}
                                 {% if form.resource_type.errors %}
@@ -57,38 +94,48 @@
                             <!-- Category -->
                             <div class="col-md-6 mb-3">
                                 <label for="{{ form.category.id_for_label }}" class="form-label">
-                                    Category
+                                    <i class='bx bx-category'></i> Category
                                 </label>
                                 {{ form.category }}
+                                {% if form.category.errors %}
+                                    <div class="text-danger small">{{ form.category.errors.0 }}</div>
+                                {% endif %}
                             </div>
                             
                             <!-- Difficulty -->
                             <div class="col-md-6 mb-3">
                                 <label for="{{ form.difficulty.id_for_label }}" class="form-label">
-                                    Difficulty Level
+                                    <i class='bx bx-bar-chart'></i> Difficulty Level
                                 </label>
                                 {{ form.difficulty }}
+                                {% if form.difficulty.errors %}
+                                    <div class="text-danger small">{{ form.difficulty.errors.0 }}</div>
+                                {% endif %}
                             </div>
                             
                             <!-- Estimated Duration -->
                             <div class="col-md-6 mb-3">
                                 <label for="{{ form.estimated_duration.id_for_label }}" class="form-label">
-                                    Estimated Duration (minutes)
+                                    <i class='bx bx-time'></i> Estimated Duration
                                 </label>
                                 {{ form.estimated_duration }}
+                                {% if form.estimated_duration.errors %}
+                                    <div class="text-danger small">{{ form.estimated_duration.errors.0 }}</div>
+                                {% endif %}
+                                <small class="text-muted d-block mt-1">Time in minutes to complete</small>
                             </div>
                             
                             <!-- URL or File -->
                             <div class="col-md-12 mb-3">
                                 <label class="form-label">
-                                    Resource Content <span class="text-danger">*</span>
+                                    <i class='bx bx-link'></i> Resource Content <span class="text-danger">*</span>
                                 </label>
-                                <p class="text-muted small">Provide either a URL or upload a file</p>
+                                <p class="text-muted small mb-3">Provide either a URL or upload a file</p>
                                 
                                 <div class="row">
                                     <div class="col-md-6 mb-2">
                                         <label for="{{ form.url.id_for_label }}" class="form-label small">
-                                            URL (for external resources)
+                                            <i class='bx bx-globe'></i> URL (for external resources)
                                         </label>
                                         {{ form.url }}
                                         {% if form.url.errors %}
@@ -98,7 +145,7 @@
                                     
                                     <div class="col-md-6 mb-2">
                                         <label for="{{ form.file.id_for_label }}" class="form-label small">
-                                            File Upload (max 50MB)
+                                            <i class='bx bx-upload'></i> File Upload (max 50MB)
                                         </label>
                                         {{ form.file }}
                                         {% if form.file.errors %}
@@ -111,38 +158,55 @@
                             <!-- Thumbnail -->
                             <div class="col-md-12 mb-3">
                                 <label for="{{ form.thumbnail.id_for_label }}" class="form-label">
-                                    Thumbnail Image
+                                    <i class='bx bx-image'></i> Thumbnail Image
                                 </label>
                                 {{ form.thumbnail }}
                                 {% if resource and resource.thumbnail %}
                                 <div class="mt-2">
                                     <img src="{{ resource.thumbnail.url }}" alt="Current thumbnail" style="max-width: 200px; border-radius: 8px;">
+                                    <small class="text-muted d-block mt-1">Current thumbnail</small>
                                 </div>
                                 {% endif %}
+                                <small class="text-muted d-block mt-1">Optional: Add a cover image for your resource</small>
                             </div>
                             
                             <!-- Tags -->
                             <div class="col-md-12 mb-3">
-                                <label for="{{ form.tags.id_for_label }}" class="form-label">
-                                    Tags
+                                <label for="{{ form.tags_input.id_for_label }}" class="form-label">
+                                    <i class='bx bx-tag'></i> Tags
                                 </label>
-                                {{ form.tags }}
-                                <small class="text-muted d-block">Hold Ctrl/Cmd to select multiple tags</small>
+                                {{ form.tags_input }}
+                                <small class="text-muted d-block mt-1">
+                                    Enter comma-separated tags (e.g., "python, django, web development")
+                                </small>
+                                {% if form.tags_input.errors %}
+                                    <div class="text-danger small">{{ form.tags_input.errors.0 }}</div>
+                                {% endif %}
                             </div>
                             
-                            <!-- Programming Languages -->
+                            <!-- Technologies & Languages -->
                             <div class="col-md-12 mb-3">
                                 <label for="{{ form.programming_languages.id_for_label }}" class="form-label">
-                                    Technologies/Languages
+                                    <i class='bx bx-code-alt'></i> Technologies & Languages
                                 </label>
-                                {{ form.programming_languages }}
-                                <small class="text-muted d-block">Comma-separated (e.g., Python, Django, React)</small>
+                                <select class="form-control tech-select-multiple" 
+                                        name="{{ form.programming_languages.name }}" 
+                                        id="{{ form.programming_languages.id_for_label }}" 
+                                        multiple="multiple">
+                                    <!-- Options will be populated by Select2 -->
+                                </select>
+                                <small class="text-muted d-block mt-1">
+                                    <i class='bx bx-info-circle'></i> Start typing to search technologies. Select multiple by clicking or pressing Enter.
+                                </small>
+                                {% if form.programming_languages.errors %}
+                                    <div class="text-danger small">{{ form.programming_languages.errors.0 }}</div>
+                                {% endif %}
                             </div>
                         </div>
                         
                         {% if form.non_field_errors %}
                             <div class="alert alert-danger">
-                                {{ form.non_field_errors.0 }}
+                                <i class='bx bx-error'></i> {{ form.non_field_errors.0 }}
                             </div>
                         {% endif %}
                         
@@ -161,4 +225,350 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Load jQuery FIRST -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Then load Select2 -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+// Wait for jQuery to be fully loaded
+$(document).ready(function() {
+    console.log('=== DEBUG: jQuery and Select2 Loaded ===');
+    console.log('jQuery version:', $.fn.jquery);
+    console.log('Select2 version:', $.fn.select2.version);
+    
+    const $techInput = $('.tech-select-multiple');
+    console.log('Tech input found:', $techInput.length);
+    
+    if ($techInput.length === 0) {
+        console.error('Tech input not found!');
+        return;
+    }
+    
+    const technologyChoices = [
+        'Python', 'JavaScript', 'Java', 'C++', 'C#', 'PHP', 'Ruby', 'Go', 'Rust', 'Swift', 'Kotlin', 'TypeScript',
+        'Django', 'Flask', 'FastAPI', 'React', 'Vue.js', 'Angular', 'Express.js', 'Spring Boot', 'Laravel', 'Ruby on Rails',
+        'HTML/CSS', 'Bootstrap', 'Tailwind CSS', 'SASS/SCSS', 'jQuery',
+        'MySQL', 'PostgreSQL', 'MongoDB', 'SQLite', 'Redis', 'Firebase',
+        'React Native', 'Flutter', 'Android', 'iOS', 'Xamarin',
+        'AWS', 'Docker', 'Kubernetes', 'Azure', 'Google Cloud', 'CI/CD', 'Git', 'Linux',
+        'Machine Learning', 'Data Science', 'TensorFlow', 'PyTorch', 'Pandas', 'NumPy', 'R', 'Tableau', 'Power BI',
+        'REST API', 'GraphQL', 'WebSockets', 'Microservices', 'Blockchain', 'IoT', 'AR/VR', 'Unity', 'Unreal Engine',
+        'Node.js', 'WordPress', 'Shopify', 'Figma', 'Adobe XD', 'Photoshop', 'Blender',
+        'Jest', 'Cypress', 'Selenium', 'JUnit', 'pytest'
+    ];
+    
+    console.log('Initializing Select2 with', technologyChoices.length, 'technologies');
+    
+    // Convert to Select2 format
+    const select2Data = technologyChoices.map(tech => ({ id: tech, text: tech }));
+    
+    // Initialize Select2
+    $techInput.select2({
+        data: select2Data,
+        tags: true,
+        tokenSeparators: [','],
+        placeholder: "Start typing to select technologies...",
+        allowClear: true,
+        width: '100%',
+        dropdownParent: $('.modern-card') // Important for modal/card contexts
+    });
+    
+    console.log('Select2 initialized successfully!');
+    
+    // Pre-populate with existing values if editing
+    {% if form.programming_languages.value %}
+        var existingValue = '{{ form.programming_languages.value }}';
+        console.log('Existing value to pre-populate:', existingValue);
+        
+        if (existingValue && existingValue !== 'None') {
+            var existingTechs = existingValue.split(',').map(tech => tech.trim()).filter(tech => tech !== '');
+            console.log('Setting existing techs:', existingTechs);
+            $techInput.val(existingTechs).trigger('change');
+        }
+    {% endif %}
+    
+    // Test if it's working
+    setTimeout(function() {
+        console.log('Testing Select2 - try focusing on the input');
+        $techInput.select2('focus');
+    }, 500);
+});
+</script>
+
+<style>
+/* Select2 Container - Balanced Styling */
+.select2-container--default .select2-selection--multiple {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    min-height: 48px;
+    padding: 10px 16px;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #5568FE;
+    box-shadow: 0 0 0 2px rgba(85, 104, 254, 0.1);
+    background: #ffffff;
+}
+
+/* Selected Items - Bigger Text & More Padding */
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background: linear-gradient(135deg, rgba(86, 104, 254, 0.12), rgba(86, 104, 254, 0.08));
+    border: 1px solid rgba(86, 104, 254, 0.25);
+    border-radius: 20px;
+    color: #5568FE;
+    padding: 8px 18px 8px 16px;
+    margin: 5px 10px 5px 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(86, 104, 254, 0.1);
+    transition: all 0.2s ease;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice:hover {
+    background: linear-gradient(135deg, rgba(86, 104, 254, 0.18), rgba(86, 104, 254, 0.12));
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(86, 104, 254, 0.15);
+}
+
+/* Remove button (cross) - Larger */
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #5568FE;
+    margin-right: 10px;
+    border: none;
+    background: transparent;
+    font-size: 1.2rem;
+    font-weight: 400;
+    line-height: 1;
+    padding: 0;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    order: -1;
+    flex-shrink: 0;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+    color: #ffffff;
+    background: #ff4757;
+    transform: scale(1.1);
+}
+
+/* Search input - Larger */
+.select2-container--default .select2-search--inline {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
+    vertical-align: middle;
+}
+
+.select2-container--default .select2-search--inline .select2-search__field {
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #2d3748;
+    font-size: 1.05rem;
+    font-weight: 400;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: transparent !important;
+    min-width: 160px;
+    height: auto !important;
+    line-height: 1.5;
+    vertical-align: middle;
+}
+
+/* Perfectly centered placeholder */
+.select2-container--default .select2-search--inline .select2-search__field::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+    font-size: 1.05rem;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+/* Dropdown options - Larger */
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background: linear-gradient(135deg, #5568FE, #6c5ce7) !important;
+    color: white !important;
+    border-radius: 10px;
+    margin: 4px 6px;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.select2-container--default .select2-results__option[aria-selected=true] {
+    background: rgba(86, 104, 254, 0.08) !important;
+    color: #5568FE !important;
+    border-radius: 10px;
+    margin: 4px 6px;
+    padding: 12px 16px;
+    font-size: 1rem;
+    font-weight: 500;
+    border-left: 4px solid #5568FE;
+}
+
+.select2-container--default .select2-results__option {
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin: 4px 6px;
+    font-size: 1rem;
+    font-weight: 400;
+    color: #4a5568;
+    transition: all 0.2s ease;
+}
+
+.select2-container--default .select2-results__option:hover {
+    background: rgba(86, 104, 254, 0.06) !important;
+    color: #5568FE !important;
+}
+
+/* Dropdown container */
+.select2-container--default .select2-results > .select2-results__options {
+    max-height: 260px;
+    font-size: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    margin-top: 8px;
+}
+
+/* Clear button - Larger */
+.select2-container--default .select2-selection--multiple .select2-selection__clear {
+    margin-right: 10px;
+    margin-top: 14px;
+    color: #9ca3af;
+    font-size: 1.4rem;
+    font-weight: 300;
+    transition: all 0.2s ease;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__clear:hover {
+    color: #ff4757;
+}
+
+/* Dropdown positioning */
+.select2-container--open .select2-dropdown {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* FIX: Perfect alignment for all items */
+.select2-selection--multiple .select2-selection__rendered {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    min-height: 40px;
+    line-height: normal;
+}
+
+/* FIX: Ensure perfect vertical centering */
+.select2-container--default .select2-selection--multiple .select2-selection__rendered li {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    height: 36px;
+    margin-bottom: 0;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__rendered .select2-search--inline {
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+}
+
+/* FIX: Container alignment */
+.select2-container .select2-selection--multiple {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    min-height: 48px;
+}
+
+/* FIX: Input field perfect alignment */
+.select2-container--default .select2-search--inline .select2-search__field {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 3px !important;
+    align-self: center;
+}
+
+/* FIX: Make sure tags have proper breathing room */
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        padding: 7px 14px 7px 12px;
+        font-size: 0.9rem;
+        margin: 4px 8px 4px 0;
+        height: 34px;
+    }
+    
+    .select2-container--default .select2-selection--multiple {
+        min-height: 46px;
+        padding: 8px 14px;
+    }
+    
+    .select2-container--default .select2-search--inline .select2-search__field {
+        font-size: 1rem;
+    }
+}
+
+/* Custom scrollbar for dropdown */
+.select2-container--default .select2-results__options::-webkit-scrollbar {
+    width: 6px;
+}
+
+.select2-container--default .select2-results__options::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 3px;
+}
+
+.select2-container--default .select2-results__options::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+.select2-container--default .select2-results__options::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* FIX: Perfect vertical alignment for all content */
+.select2-container--default .select2-selection--multiple {
+    line-height: 1.4;
+}
+
+.select2-container--default .select2-selection--multiple * {
+    vertical-align: middle;
+}
+</style>
 {% endblock %}

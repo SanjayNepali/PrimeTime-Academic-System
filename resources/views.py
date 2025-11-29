@@ -11,7 +11,7 @@ import csv
 
 from .models import (
     Resource, ResourceCategory, ResourceTag, ResourceRating,
-    ResourceRecommendation, ResourceViewHistory
+    ResourceRecommendation, ResourceViewHistory, ResourceLike 
 )
 from .forms import ResourceForm, ResourceFilterForm, ResourceRatingForm, BulkResourceUploadForm
 from .recommender import ResourceRecommendationEngine
@@ -56,8 +56,8 @@ def resource_list(request):
             resources = resources.filter(difficulty=difficulty)
         
         if tags:
-            for tag in tags:
-                resources = resources.filter(tags=tag)
+            # Use __in for OR logic, or chain filters for AND logic
+            resources = resources.filter(tags__in=tags).distinct()
         
         resources = resources.order_by(sort_by)
     
@@ -66,8 +66,11 @@ def resource_list(request):
     page = request.GET.get('page')
     resources_page = paginator.get_page(page)
     
-    # Get categories and tags for sidebar
-    categories = ResourceCategory.objects.all()
+    # Get categories with annotated counts for sidebar
+    categories = ResourceCategory.objects.annotate(
+        total_resources=Count('resource', filter=Q(resource__is_approved=True))
+    ).order_by('order', 'name')
+    
     popular_tags = ResourceTag.objects.annotate(
         resource_count=Count('resource')
     ).order_by('-resource_count')[:15]
@@ -75,56 +78,91 @@ def resource_list(request):
     context = {
         'resources': resources_page,
         'filter_form': filter_form,
-        'categories': categories,
+        'categories': categories,  # This now has total_resources
         'popular_tags': popular_tags,
         'title': 'Learning Resources - PrimeTime'
     }
     return render(request, 'resources/resource_list.html', context)
 
 
-@login_required
 def resource_detail(request, pk):
-    """View resource details"""
-    
+    """
+    Display a single resource with all details, ratings, and similar resources.
+    """
+    # Get the resource or return 404
     resource = get_object_or_404(Resource, pk=pk)
     
-    # Log view
-    ResourceViewHistory.objects.create(
-        user=request.user,
-        resource=resource
-    )
-    resource.increment_views()
+    # Increment view count (only once per session)
+    resource.increment_view(request)
     
-    # Get user's rating if exists
+    # Get all ratings for this resource with user data
+    ratings = ResourceRating.objects.filter(resource=resource).select_related('user').order_by('-created_at')
+    
+    # Check if current user has rated this resource
     user_rating = None
-    try:
-        user_rating = ResourceRating.objects.get(user=request.user, resource=resource)
-    except ResourceRating.DoesNotExist:
-        pass
+    if request.user.is_authenticated:
+        user_rating = ResourceRating.objects.filter(
+            resource=resource, 
+            user=request.user
+        ).first()
     
-    # Get all ratings
-    ratings = resource.ratings.select_related('user').order_by('-created_at')[:10]
+    # Check if current user has liked this resource
+    user_has_liked = False
+    if request.user.is_authenticated:
+        user_has_liked = resource.user_has_liked(request.user)
     
-    # Get similar resources
+    # Get similar resources (same category, excluding current resource)
     similar_resources = Resource.objects.filter(
-        category=resource.category,
-        is_approved=True
-    ).exclude(pk=resource.pk)[:6]
+        category=resource.category
+    ).exclude(pk=resource.pk).select_related('author', 'category')[:6]
     
-    # Check if user has liked this resource
-    user_has_liked = resource.likes.filter(pk=request.user.pk).exists()
+    # If not enough similar resources from same category, get from same tags
+    if similar_resources.count() < 3 and resource.tags.exists():
+        similar_from_tags = Resource.objects.filter(
+            tags__in=resource.tags.all()
+        ).exclude(pk=resource.pk).distinct().select_related('author', 'category')[:6]
+        similar_resources = list(similar_resources) + list(similar_from_tags)
+        similar_resources = similar_resources[:6]
     
+    # Calculate rating distribution
+    rating_distribution = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+    for rating in ratings:
+        if rating.rating in rating_distribution:
+            rating_distribution[rating.rating] += 1
+    
+    # Calculate percentages for the rating bars
+    total_ratings = ratings.count()
+    rating_percentages = {}
+    for stars, count in rating_distribution.items():
+        if total_ratings > 0:
+            rating_percentages[stars] = (count / total_ratings) * 100
+        else:
+            rating_percentages[stars] = 0
+    
+    # Check if user can edit/delete this resource
+    can_edit = False
+    can_delete = False
+    if request.user.is_authenticated:
+        can_edit = (request.user == resource.author or 
+                   request.user.is_superuser or 
+                   request.user.is_admin)
+        can_delete = can_edit
+    
+    # Prepare context
     context = {
         'resource': resource,
-        'user_rating': user_rating,
         'ratings': ratings,
-        'similar_resources': similar_resources,
+        'user_rating': user_rating,
         'user_has_liked': user_has_liked,
-        'title': resource.title
+        'similar_resources': similar_resources,
+        'rating_distribution': rating_distribution,
+        'rating_percentages': rating_percentages,
+        'total_ratings': total_ratings,
+        'can_edit': can_edit,
+        'can_delete': can_delete,
     }
+    
     return render(request, 'resources/resource_detail.html', context)
-
-
 @login_required
 def resource_create(request):
     """Create a new resource"""
@@ -237,26 +275,33 @@ def resource_rate(request, pk):
 
 @login_required
 def resource_like(request, pk):
-    """Like/unlike a resource"""
-    
+    """
+    Toggle like/unlike for a resource.
+    POST request toggles the like status.
+    """
     resource = get_object_or_404(Resource, pk=pk)
     
-    if resource.likes.filter(pk=request.user.pk).exists():
-        resource.likes.remove(request.user)
-        liked = False
-    else:
-        resource.likes.add(request.user)
-        liked = True
+    if request.method == 'POST':
+        # Check if user already liked this resource
+        existing_like = ResourceLike.objects.filter(
+            resource=resource, 
+            user=request.user
+        ).first()
+        
+        if existing_like:
+            # Unlike: remove the like
+            existing_like.delete()
+            messages.success(request, 'Removed like from resource.')
+        else:
+            # Like: create new like
+            ResourceLike.objects.create(
+                resource=resource,
+                user=request.user
+            )
+            messages.success(request, 'Liked the resource!')
     
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({
-            'liked': liked,
-            'like_count': resource.like_count
-        })
-    
-    return redirect('resources:resource_detail', pk=pk)
-
-
+    # Redirect back to the resource detail page
+    return redirect('resources:resource_detail', pk=resource.pk)
 @login_required
 def resource_download(request, pk):
     """Download a resource file"""
@@ -334,8 +379,9 @@ def recommended_resources(request):
 def resource_categories(request):
     """View resources by category"""
     
+    # Use a different name for the annotated count to avoid property conflict
     categories = ResourceCategory.objects.annotate(
-        resource_count=Count('resource', filter=Q(resource__is_approved=True))
+        total_resources=Count('resource', filter=Q(resource__is_approved=True))
     ).order_by('order', 'name')
     
     context = {
@@ -343,7 +389,6 @@ def resource_categories(request):
         'title': 'Resource Categories'
     }
     return render(request, 'resources/categories.html', context)
-
 
 @login_required
 def category_resources(request, category_id):

@@ -154,7 +154,7 @@
                     <div class="mb-4">
                         <h5><i class='bx bx-code-alt'></i> Technologies Covered</h5>
                         <div class="tag-cloud">
-                            {% for lang in resource.programming_languages.split:',' %}
+                            {% for lang in resource.programming_languages.split|default:'' %}
                             <span class="badge bg-primary">{{ lang.strip }}</span>
                             {% endfor %}
                         </div>

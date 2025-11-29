@@ -349,3 +349,78 @@ class SupervisorFeedback(models.Model):
         if self.rating:
             return dict(self.RATING_CHOICES)[self.rating]
         return "Not Rated"
+class SystemActivity(models.Model):
+    """Track system-wide activities for admin dashboard"""
+    
+    ACTIVITY_TYPES = [
+        ('stress_analysis', 'Stress Analysis'),
+        ('feedback_added', 'Feedback Added'),
+        ('meeting_logged', 'Meeting Logged'),
+        ('project_created', 'Project Created'),
+        ('deliverable_submitted', 'Deliverable Submitted'),
+        ('deliverable_approved', 'Deliverable Approved'),
+        ('user_created', 'User Created'),
+        ('user_login', 'User Login'),
+        ('group_created', 'Group Created'),
+        ('system_event', 'System Event'),
+        ('analytics_run', 'Analytics Run'),
+    ]
+    
+    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES)
+    description = models.TextField()
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='activities')
+    target_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='targeted_activities')
+    project = models.ForeignKey('projects.Project', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Additional context
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name_plural = 'System Activities'
+        indexes = [
+            models.Index(fields=['activity_type', 'timestamp']),
+            models.Index(fields=['timestamp']),
+            models.Index(fields=['user', 'timestamp']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_activity_type_display()} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+    
+    @property
+    def icon_class(self):
+        """Get appropriate icon for activity type"""
+        icons = {
+            'stress_analysis': 'bx bx-heart-circle',
+            'feedback_added': 'bx bx-comment-detail',
+            'meeting_logged': 'bx bx-calendar-event',
+            'project_created': 'bx bx-briefcase',
+            'deliverable_submitted': 'bx bx-paper-plane',
+            'deliverable_approved': 'bx bx-check-circle',
+            'user_created': 'bx bx-user-plus',
+            'user_login': 'bx bx-log-in',
+            'group_created': 'bx bx-group',
+            'system_event': 'bx bx-cog',
+            'analytics_run': 'bx bx-bar-chart',
+        }
+        return icons.get(self.activity_type, 'bx bx-info-circle')
+    
+    @property
+    def badge_class(self):
+        """Get appropriate badge color for activity type"""
+        badges = {
+            'stress_analysis': 'bg-info',
+            'feedback_added': 'bg-warning',
+            'meeting_logged': 'bg-primary',
+            'project_created': 'bg-success',
+            'deliverable_submitted': 'bg-secondary',
+            'deliverable_approved': 'bg-success',
+            'user_created': 'bg-info',
+            'user_login': 'bg-secondary',
+            'group_created': 'bg-primary',
+            'system_event': 'bg-dark',
+            'analytics_run': 'bg-info',
+        }
+        return badges.get(self.activity_type, 'bg-secondary')

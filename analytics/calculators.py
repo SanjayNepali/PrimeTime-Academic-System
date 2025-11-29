@@ -333,10 +333,12 @@ class AnalyticsDashboard:
 
     @staticmethod
     def get_admin_analytics():
-        """Get system-wide analytics for admin"""
+        """Get system-wide analytics for admin WITH REAL CHART DATA"""
         from accounts.models import User
         from projects.models import Project
         from groups.models import Group
+        from analytics.models import StressLevel
+        from datetime import timedelta
 
         total_students = User.objects.filter(role='student', is_active=True).count()
         total_projects = Project.objects.count()
@@ -358,14 +360,10 @@ class AnalyticsDashboard:
         high_stress_list = StressCalculator.get_high_stress_students(threshold=70)
         high_stress_count = len(high_stress_list)
 
-        # Calculate completion rate
-        completed_count = 0
-        for status in status_distribution:
-            if status['status'] == 'completed':
-                completed_count = status['count']
-                break
-
-        completion_rate = (completed_count / total_projects * 100) if total_projects > 0 else 0
+        # NEW: REAL CHART DATA
+        progress_trend_data = AnalyticsDashboard._get_progress_trend_data()
+        stress_distribution_data = AnalyticsDashboard._get_stress_distribution_data()
+        department_performance_data = AnalyticsDashboard._get_department_performance_data()
 
         return {
             'total_students': total_students,
@@ -374,5 +372,227 @@ class AnalyticsDashboard:
             'average_progress': avg_progress,
             'high_stress_students': high_stress_count,
             'status_distribution': list(status_distribution),
-            'completion_rate': completion_rate
+            'completion_rate': AnalyticsDashboard._calculate_completion_rate(status_distribution, total_projects),
+            # REAL CHART DATA
+            'progress_trend_data': progress_trend_data,
+            'stress_distribution_data': stress_distribution_data,
+            'department_performance_data': department_performance_data,
+        }
+
+    @staticmethod
+    def _get_progress_trend_data():
+        """Get REAL progress trend data for the last 6 weeks"""
+        from projects.models import Project
+        from datetime import timedelta
+        
+        weekly_progress = []
+        labels = []
+        
+        # Calculate progress for each of the last 6 weeks
+        for week in range(6):
+            week_start = timezone.now() - timedelta(weeks=(6 - week))
+            week_end = week_start + timedelta(weeks=1)
+            
+            # Get projects that existed at this point in time
+            projects_in_week = Project.objects.filter(
+                created_at__lte=week_end
+            )
+            
+            # Calculate average progress for that week
+            progress_scores = []
+            for project in projects_in_week:
+                progress = ProgressCalculator.calculate_project_progress(project)
+                progress_scores.append(progress)
+            
+            avg_progress = np.mean(progress_scores) if progress_scores else 0
+            weekly_progress.append(round(avg_progress, 1))
+            labels.append(f"W{week+1}")
+        
+        return {
+            'labels': labels,
+            'actual_progress': weekly_progress,
+            'target_progress': [17, 33, 50, 67, 83, 100]  # Theoretical targets
+        }
+
+    @staticmethod
+    def _get_stress_distribution_data():
+        """Get REAL stress level distribution from database"""
+        from analytics.models import StressLevel
+        from accounts.models import User
+        
+        # Get latest stress level for each student
+        students = User.objects.filter(role='student', is_active=True)
+        stress_levels = []
+        
+        for student in students:
+            latest_stress = StressLevel.objects.filter(
+                student=student
+            ).order_by('-calculated_at').first()
+            
+            if latest_stress:
+                stress_levels.append(latest_stress.level)
+        
+        # Categorize based on actual student stress levels
+        low_count = len([s for s in stress_levels if s < 30])
+        moderate_count = len([s for s in stress_levels if 30 <= s < 60])
+        high_count = len([s for s in stress_levels if 60 <= s < 80])
+        critical_count = len([s for s in stress_levels if s >= 80])
+        
+        return {
+            'labels': ['Low (0-30)', 'Moderate (30-60)', 'High (60-80)', 'Critical (80-100)'],
+            'data': [low_count, moderate_count, high_count, critical_count]
+        }
+
+    @staticmethod
+    def _get_department_performance_data():
+        """Get REAL performance data by department"""
+        from accounts.models import User
+        from projects.models import Project
+        
+        departments = User.objects.filter(
+            role='student', 
+            department__isnull=False
+        ).values_list('department', flat=True).distinct()
+        
+        dept_performance = []
+        
+        for dept in departments[:5]:  # Limit to top 5 departments
+            students = User.objects.filter(role='student', department=dept)
+            dept_progress = []
+            
+            for student in students:
+                try:
+                    project = Project.objects.get(student=student)
+                    progress = ProgressCalculator.calculate_project_progress(project)
+                    dept_progress.append(progress)
+                except Project.DoesNotExist:
+                    continue
+            
+            avg_performance = np.mean(dept_progress) if dept_progress else 0
+            dept_performance.append({
+                'department': dept or 'Unknown',
+                'performance': round(avg_performance, 1)
+            })
+        
+        # Sort by performance and get top 5
+        dept_performance.sort(key=lambda x: x['performance'], reverse=True)
+        
+        return {
+            'labels': [dept['department'] for dept in dept_performance[:5]],
+            'data': [dept['performance'] for dept in dept_performance[:5]]
+        }
+
+    @staticmethod
+    def _calculate_completion_rate(status_distribution, total_projects):
+        """Calculate actual completion rate"""
+        completed_count = 0
+        for status in status_distribution:
+            if status['status'] == 'completed':
+                completed_count = status['count']
+                break
+        
+        return (completed_count / total_projects * 100) if total_projects > 0 else 0
+
+
+# NEW: DashboardCalculator class for dashboard-specific analytics
+class DashboardCalculator:
+    """Calculator for dashboard-specific analytics"""
+    
+    @staticmethod
+    def get_weekly_activity_data():
+        """Get REAL weekly activity data for dashboard"""
+        from accounts.models import User
+        from projects.models import Project
+        from datetime import timedelta
+        
+        # Get last 7 days
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=6)
+        
+        days = []
+        new_users_data = []
+        project_submissions_data = []
+        
+        # Calculate data for each of the last 7 days
+        for i in range(7):
+            current_date = start_date + timedelta(days=i)
+            day_name = current_date.strftime('%a')  # Mon, Tue, etc.
+            days.append(day_name)
+            
+            # Count new users for this day
+            new_users_count = User.objects.filter(
+                created_at__date=current_date
+            ).count()
+            new_users_data.append(new_users_count)
+            
+            # Count project submissions for this day
+            project_submissions_count = Project.objects.filter(
+                submitted_at__date=current_date
+            ).count()
+            project_submissions_data.append(project_submissions_count)
+        
+        return {
+            'labels': days,
+            'new_users': new_users_data,
+            'project_submissions': project_submissions_data
+        }
+    
+    @staticmethod
+    def get_user_distribution_data():
+        """Get REAL user distribution data"""
+        from accounts.models import User
+        
+        students_count = User.objects.filter(role='student').count()
+        supervisors_count = User.objects.filter(role='supervisor').count()
+        admins_count = User.objects.filter(role='admin').count()
+        
+        return {
+            'students': students_count,
+            'supervisors': supervisors_count,
+            'admins': admins_count
+        }
+    
+    @staticmethod
+    def get_system_health_metrics():
+        """Get REAL system health metrics"""
+        from projects.models import Project
+        from accounts.models import User
+        from analytics.models import StressLevel
+        
+        # Calculate average project progress
+        projects = Project.objects.all()
+        total_progress = 0
+        project_count = projects.count()
+        
+        for project in projects:
+            progress = ProgressCalculator.calculate_project_progress(project)
+            total_progress += progress
+        
+        avg_progress = total_progress / project_count if project_count > 0 else 0
+        
+        # Calculate stress statistics
+        stress_levels = StressLevel.objects.all()
+        total_stress = 0
+        stress_count = stress_levels.count()
+        
+        for stress in stress_levels:
+            total_stress += stress.level
+        
+        avg_stress = total_stress / stress_count if stress_count > 0 else 0
+        
+        # Calculate user engagement (users active in last 7 days)
+        week_ago = timezone.now() - timedelta(days=7)
+        active_users = User.objects.filter(
+            last_login_at__gte=week_ago
+        ).count()
+        
+        total_users = User.objects.count()
+        engagement_rate = (active_users / total_users * 100) if total_users > 0 else 0
+        
+        return {
+            'average_progress': round(avg_progress, 1),
+            'average_stress': round(avg_stress, 1),
+            'engagement_rate': round(engagement_rate, 1),
+            'active_users': active_users,
+            'total_users': total_users
         }

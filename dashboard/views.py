@@ -6,11 +6,12 @@ from django.contrib import messages
 from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import timedelta
+from django.http import JsonResponse 
 from accounts.models import User, UserProfile
 from projects.models import Project, ProjectDeliverable, ProjectActivity
 from groups.models import Group, GroupMembership
 from analytics.models import StressLevel
-
+from analytics.calculators import DashboardCalculator  
 
 @login_required
 def dashboard_home(request):
@@ -34,7 +35,7 @@ def dashboard_home(request):
 
 @login_required
 def admin_dashboard(request):
-    """Admin dashboard - UPDATED for new User model"""
+    """Admin dashboard - UPDATED for new User model with REAL chart data"""
     
     user = request.user
     
@@ -59,6 +60,11 @@ def admin_dashboard(request):
     recent_users = User.objects.filter(
         created_at__gte=timezone.now() - timedelta(days=7)
     ).exclude(is_superuser=True).order_by('-created_at')[:5]
+    
+    # NEW: Get REAL chart data for dashboard
+    weekly_activity_data = DashboardCalculator.get_weekly_activity_data()
+    user_distribution_data = DashboardCalculator.get_user_distribution_data()
+    system_health_metrics = DashboardCalculator.get_system_health_metrics()
     
     context = {
         'title': 'Admin Dashboard - PrimeTime',
@@ -92,9 +98,14 @@ def admin_dashboard(request):
         # Role context
         'is_admin': user.is_admin,
         'is_superuser': user.is_superuser,
+        
+        # NEW: REAL CHART DATA
+        'weekly_activity_data': weekly_activity_data,
+        'user_distribution_data': user_distribution_data,
+        'system_health_metrics': system_health_metrics,
     }
     
-    return render(request, 'dashboard/admin/home.html', context)
+    return render(request, 'dashboard/admin/home_enhanced.html', context)  # Use enhanced template
 
 
 @login_required
@@ -344,3 +355,17 @@ def user_profile(request):
     }
     
     return render(request, 'accounts/profile.html', context)
+
+
+# NEW: API endpoint for system health data
+@login_required
+def system_health_api(request):
+    """API endpoint for system health metrics (AJAX)"""
+    if not request.user.is_admin and not request.user.is_superuser:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    try:
+        system_health_metrics = DashboardCalculator.get_system_health_metrics()
+        return JsonResponse(system_health_metrics)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

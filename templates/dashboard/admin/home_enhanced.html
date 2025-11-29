@@ -155,12 +155,80 @@
         </div>
     </div>
 
-    <!-- System Analytics -->
+    <!-- System Health Overview - FIXED WITH CORRECT DATA -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class='bx bx-heart-circle'></i> System Health Overview (LIVE DATA)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <div class="health-metric">
+                                <div class="metric-value text-primary">
+                                    {{ system_health_metrics.average_progress }}%
+                                </div>
+                                <div class="metric-label">Avg Progress</div>
+                                <div class="metric-trend">
+                                    {% if system_health_metrics.average_progress > 50 %}
+                                        <i class="bx bx-trending-up text-success"></i> Good
+                                    {% else %}
+                                        <i class="bx bx-trending-down text-warning"></i> Needs attention
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="health-metric">
+                                <div class="metric-value text-warning">
+                                    {{ system_health_metrics.average_stress }}%
+                                </div>
+                                <div class="metric-label">Avg Stress</div>
+                                <div class="metric-trend">
+                                    {% if system_health_metrics.average_stress < 50 %}
+                                        <i class="bx bx-trending-down text-success"></i> Healthy
+                                    {% else %}
+                                        <i class="bx bx-trending-up text-danger"></i> High
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="health-metric">
+                                <div class="metric-value text-success">
+                                    {{ system_health_metrics.engagement_rate }}%
+                                </div>
+                                <div class="metric-label">Engagement</div>
+                                <div class="metric-trend">
+                                    {% if system_health_metrics.engagement_rate > 60 %}
+                                        <i class="bx bx-trending-up text-success"></i> Active
+                                    {% else %}
+                                        <i class="bx bx-trending-down text-warning"></i> Low
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="health-metric">
+                                <div class="metric-value text-info">
+                                    {{ system_health_metrics.active_users }}
+                                </div>
+                                <div class="metric-label">Active Users</div>
+                                <div class="metric-trend">Last 7 days</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- System Analytics - UPDATED WITH REAL DATA LABELS -->
     <div class="row mb-4">
         <div class="col-lg-8">
             <div class="modern-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class='bx bx-line-chart'></i> System Activity</h5>
+                    <h5 class="mb-0"><i class='bx bx-line-chart'></i> System Activity (LIVE DATA)</h5>
                     <div class="btn-group btn-group-sm" role="group">
                         <button type="button" class="btn btn-outline-primary active" onclick="updateChart('week')">Week</button>
                         <button type="button" class="btn btn-outline-primary" onclick="updateChart('month')">Month</button>
@@ -171,6 +239,9 @@
                     <div class="chart-container">
                         <canvas id="activityChart"></canvas>
                     </div>
+                    <div class="mt-2 text-center text-muted small">
+                        📊 Showing real data from your database
+                    </div>
                 </div>
             </div>
         </div>
@@ -178,7 +249,7 @@
         <div class="col-lg-4">
             <div class="modern-card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class='bx bx-pie-chart-alt-2'></i> User Distribution</h5>
+                    <h5 class="mb-0"><i class='bx bx-pie-chart-alt-2'></i> User Distribution (LIVE DATA)</h5>
                 </div>
                 <div class="card-body">
                     <div class="chart-container sm">
@@ -202,6 +273,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- Users with Initial Passwords -->
     {% if users_with_passwords %}
@@ -346,22 +418,22 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Activity Chart
+    // Activity Chart - REAL DATA
     const activityCtx = document.getElementById('activityChart').getContext('2d');
     new Chart(activityCtx, {
         type: 'line',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            labels: {{ weekly_activity_data.labels|safe }},
             datasets: [{
                 label: 'New Users',
-                data: [12, 19, 8, 15, 20, 12, 10],
+                data: {{ weekly_activity_data.new_users }},
                 borderColor: 'rgb(85, 104, 254)',
                 backgroundColor: 'rgba(85, 104, 254, 0.1)',
                 tension: 0.4,
                 fill: true
             }, {
                 label: 'Project Submissions',
-                data: [5, 10, 6, 12, 15, 8, 7],
+                data: {{ weekly_activity_data.project_submissions }},
                 borderColor: 'rgb(16, 185, 129)',
                 backgroundColor: 'rgba(16, 185, 129, 0.1)',
                 tension: 0.4,
@@ -380,14 +452,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // User Distribution Chart
+    // User Distribution Chart - REAL DATA
     const distCtx = document.getElementById('userDistChart').getContext('2d');
     new Chart(distCtx, {
         type: 'doughnut',
         data: {
             labels: ['Students', 'Supervisors', 'Admins'],
             datasets: [{
-                data: [{{ students_count }}, {{ supervisors_count }}, {{ admins_count }}],
+                data: [
+                    {{ user_distribution_data.students }},
+                    {{ user_distribution_data.supervisors }}, 
+                    {{ user_distribution_data.admins }}
+                ],
                 backgroundColor: [
                     'rgb(85, 104, 254)',
                     'rgb(59, 130, 246)',
@@ -431,5 +507,88 @@ function updateChart(period) {
     // Implement chart update logic
     console.log('Updating chart for period:', period);
 }
+
+// Load system health metrics dynamically
+function loadSystemHealthMetrics() {
+    fetch('/dashboard/api/system-health/')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('avg-progress').textContent = data.average_progress + '%';
+            document.getElementById('avg-stress').textContent = data.average_stress + '%';
+            document.getElementById('engagement-rate').textContent = data.engagement_rate + '%';
+            document.getElementById('active-users').textContent = data.active_users;
+            
+            updateTrendIndicators(data);
+        })
+        .catch(error => {
+            console.error('Error loading system health metrics:', error);
+        });
+}
+
+function updateTrendIndicators(data) {
+    const progressTrend = document.getElementById('progress-trend');
+    const stressTrend = document.getElementById('stress-trend');
+    const engagementTrend = document.getElementById('engagement-trend');
+    
+    if (data.average_progress > 50) {
+        progressTrend.innerHTML = '<i class="bx bx-trending-up text-success"></i> Good';
+    } else {
+        progressTrend.innerHTML = '<i class="bx bx-trending-down text-warning"></i> Needs attention';
+    }
+    
+    if (data.average_stress < 50) {
+        stressTrend.innerHTML = '<i class="bx bx-trending-down text-success"></i> Healthy';
+    } else {
+        stressTrend.innerHTML = '<i class="bx bx-trending-up text-danger"></i> High';
+    }
+    
+    if (data.engagement_rate > 60) {
+        engagementTrend.innerHTML = '<i class="bx bx-trending-up text-success"></i> Active';
+    } else {
+        engagementTrend.innerHTML = '<i class="bx bx-trending-down text-warning"></i> Low';
+    }
+}
+
+// Auto-refresh system health every 5 minutes
+setInterval(loadSystemHealthMetrics, 300000);
 </script>
+
+<style>
+.health-metric {
+    padding: 15px;
+    border-radius: 10px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.health-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.health-metric .metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.health-metric .metric-label {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.health-metric .metric-trend {
+    font-size: 0.8rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+.chart-container.sm {
+    height: 200px;
+}
+</style>
 {% endblock %}

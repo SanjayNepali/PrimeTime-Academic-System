@@ -303,16 +303,36 @@
         color: #5568FE;
         transform: translateY(-2px);
     }
+
+    /* CHART FIXES - ADDED */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    .col-lg-4 .chart-container {
+        height: 250px;
+    }
+
+    .col-lg-6 .chart-container {
+        height: 280px;
+    }
+
+    canvas {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+    }
 </style>
 {% endblock %}
-
 {% block content %}
 <div class="container-fluid py-4">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2><i class='bx bx-bar-chart-alt-2'></i> System Analytics Dashboard</h2>
-            <p class="text-muted">Comprehensive insights powered by ML algorithms</p>
+            <p class="text-muted">Comprehensive insights powered by REAL data</p>
         </div>
         <div class="export-section">
             <button class="export-btn" onclick="exportData('csv')">
@@ -329,8 +349,8 @@
 
     <!-- AI Insights Panel -->
     <div class="insights-panel">
-        <h4><i class='bx bx-brain'></i> AI-Powered Insights</h4>
-        <p class="mb-0" style="opacity: 0.9;">Real-time analysis of system health and student wellbeing</p>
+        <h4><i class='bx bx-brain'></i> Data-Driven Insights</h4>
+        <p class="mb-0" style="opacity: 0.9;">Real-time analysis based on actual system data</p>
         
         <div class="insights-grid">
             <div class="insight-item">
@@ -381,7 +401,7 @@
             </div>
             <div class="metric-change change-positive">
                 <i class='bx bx-trending-up'></i>
-                <span>12% from last month</span>
+                <span>Live Data</span>
             </div>
         </div>
 
@@ -397,7 +417,7 @@
             </div>
             <div class="metric-change change-positive">
                 <i class='bx bx-trending-up'></i>
-                <span>8% from last month</span>
+                <span>Live Data</span>
             </div>
         </div>
 
@@ -413,7 +433,7 @@
             </div>
             <div class="metric-change change-positive">
                 <i class='bx bx-trending-up'></i>
-                <span>5% from last month</span>
+                <span>Live Data</span>
             </div>
         </div>
 
@@ -448,7 +468,7 @@
                 <div class="chart-header">
                     <div class="chart-title">
                         <i class='bx bx-line-chart'></i>
-                        System-Wide Progress Trends
+                        System-Wide Progress Trends (REAL DATA)
                     </div>
                     <div class="chart-controls">
                         <button class="chart-btn active" onclick="changeTimeRange('week')">Week</button>
@@ -456,7 +476,9 @@
                         <button class="chart-btn" onclick="changeTimeRange('year')">Year</button>
                     </div>
                 </div>
-                <canvas id="progressTrendChart" height="80"></canvas>
+                <div class="chart-container">
+                    <canvas id="progressTrendChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -465,10 +487,12 @@
                 <div class="chart-header">
                     <div class="chart-title">
                         <i class='bx bx-pie-chart'></i>
-                        Project Status
+                        Project Status (REAL DATA)
                     </div>
                 </div>
-                <canvas id="statusDistributionChart" height="200"></canvas>
+                <div class="chart-container">
+                    <canvas id="statusDistributionChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -500,10 +524,12 @@
                 <div class="chart-header">
                     <div class="chart-title">
                         <i class='bx bx-heart-circle'></i>
-                        Stress Level Distribution
+                        Stress Level Distribution (REAL DATA)
                     </div>
                 </div>
-                <canvas id="stressDistributionChart" height="100"></canvas>
+                <div class="chart-container">
+                    <canvas id="stressDistributionChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -512,55 +538,125 @@
                 <div class="chart-header">
                     <div class="chart-title">
                         <i class='bx bx-bar-chart'></i>
-                        Average Performance by Department
+                        Average Performance by Department (REAL DATA)
                     </div>
                 </div>
-                <canvas id="departmentPerformanceChart" height="100"></canvas>
+                <div class="chart-container">
+                    <canvas id="departmentPerformanceChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Recent Activity Table -->
+    <!-- Recent Activity Table - IMPROVED -->
     <div class="chart-card">
         <div class="chart-header">
             <div class="chart-title">
                 <i class='bx bx-time-five'></i>
                 Recent System Activity
+                <span class="badge bg-primary ms-2">{{ recent_activities|length }} activities</span>
+            </div>
+            <div class="chart-controls">
+                <button class="chart-btn active" onclick="filterActivities('all')">All</button>
+                <button class="chart-btn" onclick="filterActivities('stress')">
+                    <i class='bx bx-heart'></i> Stress
+                </button>
+                <button class="chart-btn" onclick="filterActivities('feedback')">
+                    <i class='bx bx-comment'></i> Feedback
+                </button>
+                <button class="chart-btn" onclick="filterActivities('meeting')">
+                    <i class='bx bx-calendar'></i> Meetings
+                </button>
+                <button class="chart-btn" onclick="filterActivities('deliverable')">
+                    <i class='bx bx-paper-plane'></i> Deliverables
+                </button>
             </div>
         </div>
         <div class="table-responsive">
-            <table class="table-modern">
+            <table class="table-modern" id="activityTable">
                 <thead>
                     <tr>
-                        <th>Timestamp</th>
-                        <th>Activity Type</th>
+                        <th>Time</th>
+                        <th>Type</th>
                         <th>User</th>
-                        <th>Details</th>
+                        <th>Activity</th>
                         <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>{{ now|date:"M d, H:i" }}</td>
-                        <td><span class="badge bg-primary">Project Update</span></td>
-                        <td>John Doe</td>
-                        <td>Updated project deliverable</td>
-                        <td><span class="badge bg-success">Success</span></td>
+                    {% for activity in recent_activities %}
+                    <tr class="activity-row" data-type="{{ activity.activity_type }}">
+                        <td>
+                            <small class="text-muted">
+                                {% if activity.timestamp.date == now.date %}
+                                    {{ activity.timestamp|time }}
+                                {% else %}
+                                    {{ activity.timestamp|date:"M d" }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <span class="badge {{ activity.badge_class }}">
+                                <i class="{{ activity.icon_class }}"></i>
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if activity.user %}
+                                    <div class="avatar-sm bg-light rounded me-2 d-flex align-items-center justify-content-center">
+                                        <i class='bx bx-user text-muted'></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-medium">{{ activity.user.display_name }}</div>
+                                        <small class="text-muted">{{ activity.user.get_role_display }}</small>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">System</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="activity-description">
+                                {{ activity.description }}
+                                {% if activity.metadata.stress_level %}
+                                    <div class="progress mt-1" style="height: 4px;">
+                                        <div class="progress-bar {% if activity.metadata.stress_level >= 70 %}bg-danger{% elif activity.metadata.stress_level >= 40 %}bg-warning{% else %}bg-success{% endif %}" 
+                                            style="width: {{ activity.metadata.stress_level }}%">
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if activity.activity_type == 'stress_analysis' %}
+                                {% if activity.metadata.stress_level >= 70 %}
+                                    <span class="badge bg-danger">High Stress</span>
+                                {% elif activity.metadata.stress_level >= 40 %}
+                                    <span class="badge bg-warning">Moderate</span>
+                                {% else %}
+                                    <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            {% elif activity.activity_type == 'feedback_added' %}
+                                {% if activity.metadata.action_required %}
+                                    <span class="badge bg-danger">Action Required</span>
+                                {% else %}
+                                    <span class="badge bg-success">Reviewed</span>
+                                {% endif %}
+                            {% elif activity.activity_type == 'meeting_logged' %}
+                                <span class="badge bg-info">Completed</span>
+                            {% elif activity.activity_type == 'deliverable_submitted' %}
+                                <span class="badge bg-secondary">Submitted</span>
+                            {% endif %}
+                        </td>
                     </tr>
+                    {% empty %}
                     <tr>
-                        <td>{{ now|date:"M d, H:i" }}</td>
-                        <td><span class="badge bg-info">Stress Analysis</span></td>
-                        <td>System</td>
-                        <td>Completed stress analysis for 50 students</td>
-                        <td><span class="badge bg-success">Completed</span></td>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class='bx bx-info-circle'></i> No recent activity data available
+                            <br>
+                            <small>Activities will appear as users interact with the system</small>
+                        </td>
                     </tr>
-                    <tr>
-                        <td>{{ now|date:"M d, H:i" }}</td>
-                        <td><span class="badge bg-warning">Feedback Added</span></td>
-                        <td>Supervisor Smith</td>
-                        <td>Added feedback for 5 students</td>
-                        <td><span class="badge bg-success">Success</span></td>
-                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -571,16 +667,16 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Progress Trend Chart
+// Progress Trend Chart - REAL DATA
 const progressCtx = document.getElementById('progressTrendChart').getContext('2d');
 new Chart(progressCtx, {
     type: 'line',
     data: {
-        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+        labels: {{ analytics.progress_trend_data.labels|safe }},
         datasets: [
             {
-                label: 'Average Progress',
-                data: [15, 28, 42, 58, 72, {{ analytics.average_progress|floatformat:0 }}],
+                label: 'Actual Progress',
+                data: {{ analytics.progress_trend_data.actual_progress }},
                 borderColor: '#5568FE',
                 backgroundColor: 'rgba(85, 104, 254, 0.1)',
                 tension: 0.4,
@@ -588,7 +684,7 @@ new Chart(progressCtx, {
             },
             {
                 label: 'Target Progress',
-                data: [20, 35, 50, 65, 80, 90],
+                data: {{ analytics.progress_trend_data.target_progress }},
                 borderColor: '#10B981',
                 backgroundColor: 'transparent',
                 borderDash: [5, 5],
@@ -618,7 +714,7 @@ new Chart(progressCtx, {
     }
 });
 
-// Status Distribution Chart
+// Status Distribution Chart - REAL DATA
 const statusCtx = document.getElementById('statusDistributionChart').getContext('2d');
 new Chart(statusCtx, {
     type: 'doughnut',
@@ -648,15 +744,15 @@ new Chart(statusCtx, {
     }
 });
 
-// Stress Distribution Chart
+// Stress Distribution Chart - REAL DATA
 const stressCtx = document.getElementById('stressDistributionChart').getContext('2d');
 new Chart(stressCtx, {
     type: 'bar',
     data: {
-        labels: ['Low (0-30)', 'Moderate (30-60)', 'High (60-80)', 'Critical (80-100)'],
+        labels: {{ analytics.stress_distribution_data.labels|safe }},
         datasets: [{
             label: 'Number of Students',
-            data: [45, 32, 18, {{ analytics.high_stress_students }}],
+            data: {{ analytics.stress_distribution_data.data }},
             backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#DC2626']
         }]
     },
@@ -674,15 +770,15 @@ new Chart(stressCtx, {
     }
 });
 
-// Department Performance Chart
+// Department Performance Chart - REAL DATA
 const deptCtx = document.getElementById('departmentPerformanceChart').getContext('2d');
 new Chart(deptCtx, {
     type: 'bar',
     data: {
-        labels: ['Computer Science', 'Engineering', 'Business', 'Arts', 'Science'],
+        labels: {{ analytics.department_performance_data.labels|safe }},
         datasets: [{
             label: 'Average Performance',
-            data: [78, 72, 68, 75, 70],
+            data: {{ analytics.department_performance_data.data }},
             backgroundColor: '#5568FE'
         }]
     },
@@ -716,6 +812,35 @@ function changeTimeRange(range) {
 function exportData(format) {
     alert('Exporting data as ' + format.toUpperCase() + '...');
     // Implement actual export logic here
+}
+
+// Enhanced activity filtering
+function filterActivities(type) {
+    const rows = document.querySelectorAll('.activity-row');
+    const buttons = document.querySelectorAll('.chart-btn');
+    
+    // Update active button
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Filter rows
+    rows.forEach(row => {
+        const rowType = row.dataset.type;
+        
+        if (type === 'all') {
+            row.style.display = '';
+        } else if (type === 'stress' && rowType.includes('stress')) {
+            row.style.display = '';
+        } else if (type === 'feedback' && rowType.includes('feedback')) {
+            row.style.display = '';
+        } else if (type === 'meeting' && rowType.includes('meeting')) {
+            row.style.display = '';
+        } else if (type === 'deliverable' && rowType.includes('deliverable')) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
 }
 </script>
 {% endblock %}

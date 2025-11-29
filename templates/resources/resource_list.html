@@ -1,269 +1,55 @@
 <!-- File: Desktop/Prime/templates/resources/resource_list.html -->
 
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Learning Resources - PrimeTime{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class='bx bx-book-content'></i> Learning Resources</h2>
-            <p class="text-muted mb-0">Discover curated learning materials for your projects</p>
-        </div>
-        <div class="d-flex gap-2">
-            {% if user.is_student %}
-            <a href="{% url 'resources:recommended_resources' %}" class="btn btn-outline-primary">
-                <i class='bx bx-brain'></i> AI Recommendations
-            </a>
-            {% endif %}
-            <a href="{% url 'resources:resource_create' %}" class="btn btn-primary">
-                <i class='bx bx-plus'></i> Share Resource
-            </a>
-        </div>
-    </div>
-
-    <div class="row">
-        <!-- Sidebar Filters -->
-        <div class="col-lg-3">
-            <div class="card modern-card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class='bx bx-filter'></i> Filters</h5>
-                </div>
-                <div class="card-body">
-                    <form method="get">
-                        <!-- Search -->
-                        <div class="mb-3">
-                            <label class="form-label">Search</label>
-                            {{ filter_form.search }}
-                        </div>
-
-                        <!-- Resource Type -->
-                        <div class="mb-3">
-                            <label class="form-label">Type</label>
-                            {{ filter_form.resource_type }}
-                        </div>
-
-                        <!-- Category -->
-                        <div class="mb-3">
-                            <label class="form-label">Category</label>
-                            {{ filter_form.category }}
-                        </div>
-
-                        <!-- Difficulty -->
-                        <div class="mb-3">
-                            <label class="form-label">Difficulty</label>
-                            {{ filter_form.difficulty }}
-                        </div>
-
-                        <!-- Sort -->
-                        <div class="mb-3">
-                            <label class="form-label">Sort By</label>
-                            {{ filter_form.sort_by }}
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100 mb-2">
-                            <i class='bx bx-search'></i> Apply Filters
-                        </button>
-                        <a href="{% url 'resources:resource_list' %}" class="btn btn-outline-secondary w-100">
-                            <i class='bx bx-reset'></i> Reset
-                        </a>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Categories Quick Access -->
-            <div class="card modern-card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class='bx bx-category'></i> Categories</h5>
-                </div>
-                <div class="card-body">
-                    {% for category in categories %}
-                    <a href="{% url 'resources:category_resources' category.id %}" 
-                       class="d-flex justify-content-between align-items-center text-decoration-none text-dark mb-2 p-2 rounded hover-bg">
-                        <span>
-                            <i class='{{ category.icon }}' style="color: {{ category.color }};"></i>
-                            {{ category.name }}
-                        </span>
-                        <span class="badge bg-secondary">{{ category.resource_count }}</span>
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Popular Tags -->
-            <div class="card modern-card mt-3">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class='bx bx-tag'></i> Popular Tags</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-flex flex-wrap gap-2">
-                        {% for tag in popular_tags %}
-                        <a href="?tags={{ tag.id }}" class="badge bg-primary text-decoration-none">
-                            {{ tag.name }}
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Resources Grid -->
-        <div class="col-lg-9">
-            {% if resources %}
-            <div class="row">
-                {% for resource in resources %}
-                <div class="col-md-6 col-xl-4 mb-4">
-                    <div class="card resource-card h-100">
-                        <!-- Resource Thumbnail -->
-                        <div class="resource-thumbnail">
-                            {% if resource.thumbnail %}
-                                <img src="{{ resource.thumbnail.url }}" alt="{{ resource.title }}">
-                            {% else %}
-                                <div class="thumbnail-placeholder" style="background: linear-gradient(135deg, {{ resource.category.color }}22, {{ resource.category.color }}44);">
-                                    <i class='{{ resource.category.icon }}' style="font-size: 3rem; color: {{ resource.category.color }};"></i>
-                                </div>
-                            {% endif %}
-                            
-                            <!-- Featured Badge -->
-                            {% if resource.is_featured %}
-                            <span class="badge bg-warning position-absolute top-0 end-0 m-2">
-                                <i class='bx bx-star'></i> Featured
-                            </span>
-                            {% endif %}
-                            
-                            <!-- Type Badge -->
-                            <span class="badge bg-primary position-absolute top-0 start-0 m-2">
-                                {{ resource.get_resource_type_display }}
-                            </span>
-                        </div>
-
-                        <div class="card-body">
-                            <h5 class="card-title mb-2">
-                                <a href="{% url 'resources:resource_detail' resource.pk %}" class="text-decoration-none text-dark">
-                                    {{ resource.title|truncatechars:60 }}
-                                </a>
-                            </h5>
-                            
-                            <p class="card-text text-muted small">
-                                {{ resource.description|truncatechars:100 }}
-                            </p>
-
-                            <!-- Metadata -->
-                            <div class="resource-meta mb-3">
-                                <span class="badge bg-light text-dark">
-                                    <i class='bx bx-bar-chart'></i> {{ resource.get_difficulty_display }}
-                                </span>
-                                {% if resource.estimated_duration %}
-                                <span class="badge bg-light text-dark">
-                                    <i class='bx bx-time'></i> {{ resource.display_duration }}
-                                </span>
-                                {% endif %}
-                                {% if resource.average_rating > 0 %}
-                                <span class="badge bg-warning text-dark">
-                                    <i class='bx bxs-star'></i> {{ resource.average_rating|floatformat:1 }}
-                                </span>
-                                {% endif %}
-                            </div>
-
-                            <!-- Tags -->
-                            <div class="resource-tags mb-3">
-                                {% for tag in resource.tags.all|slice:":3" %}
-                                <span class="badge bg-primary">{{ tag.name }}</span>
-                                {% endfor %}
-                            </div>
-
-                            <!-- Footer -->
-                            <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted">
-                                    <i class='bx bx-user'></i> {{ resource.author.display_name }}
-                                </small>
-                                <div class="d-flex gap-2">
-                                    <span class="text-muted small">
-                                        <i class='bx bx-show'></i> {{ resource.views }}
-                                    </span>
-                                    <span class="text-muted small">
-                                        <i class='bx bx-heart'></i> {{ resource.like_count }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-
-            <!-- Pagination -->
-            {% if resources.has_other_pages %}
-            <nav aria-label="Resource pagination">
-                <ul class="pagination justify-content-center">
-                    {% if resources.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ resources.previous_page_number }}">
-                            <i class='bx bx-chevron-left'></i>
-                        </a>
-                    </li>
-                    {% endif %}
-
-                    {% for num in resources.paginator.page_range %}
-                    {% if resources.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                    {% elif num > resources.number|add:'-3' and num < resources.number|add:'3' %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
-                    {% endif %}
-                    {% endfor %}
-
-                    {% if resources.has_next %}
-                    <li class="page-item">
-                        <a class="page-link" href="?page={{ resources.next_page_number }}">
-                            <i class='bx bx-chevron-right'></i>
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </nav>
-            {% endif %}
-
-            {% else %}
-            <div class="text-center py-5">
-                <i class='bx bx-book-open' style="font-size: 5rem; color: #6c757d;"></i>
-                <h4 class="mt-3">No Resources Found</h4>
-                <p class="text-muted">Try adjusting your filters or be the first to share a resource!</p>
-                <a href="{% url 'resources:resource_create' %}" class="btn btn-primary">
-                    <i class='bx bx-plus'></i> Share Resource
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
+{% block extra_css %}
 <style>
 .resource-card {
     border: none;
     border-radius: 16px;
-    transition: all 0.3s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    cursor: pointer;
+    position: relative;
 }
 
 .resource-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    transform: translateY(-8px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+}
+
+.card-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    height: 100%;
+}
+
+.card-link:hover {
+    color: inherit;
+    text-decoration: none;
 }
 
 .resource-thumbnail {
-    height: 180px;
+    height: 200px;
     overflow: hidden;
     position: relative;
-    background: var(--secondary);
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 }
 
 .resource-thumbnail img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.resource-card:hover .resource-thumbnail img {
+    transform: scale(1.1);
 }
 
 .thumbnail-placeholder {
@@ -272,31 +58,549 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.thumbnail-placeholder i {
+    opacity: 0.8;
 }
 
 .resource-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 
+.resource-tech,
 .resource-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
 }
 
 .hover-bg:hover {
-    background: var(--secondary);
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
 }
 
 .pagination {
-    margin-top: 2rem;
+    margin-top: 3rem;
 }
 
 .page-link {
-    border-radius: 8px;
-    margin: 0 2px;
+    border-radius: 12px;
+    margin: 0 4px;
+    border: none;
+    color: #5568FE;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: all 0.3s;
+}
+
+.page-item.active .page-link {
+    background: linear-gradient(135deg, #5568FE 0%, #6c5ce7 100%);
+    border-color: #5568FE;
+    color: white;
+}
+
+.page-link:hover {
+    background: linear-gradient(135deg, #5568FE 0%, #6c5ce7 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(85, 104, 254, 0.3);
+}
+
+/* Badge styles */
+.badge {
+    border-radius: 20px;
+    padding: 0.5rem 0.8rem;
+    font-weight: 500;
+    font-size: 0.75rem;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.badge.bg-primary {
+    background: linear-gradient(135deg, #5568FE 0%, #6c5ce7 100%) !important;
+}
+
+.badge.bg-warning {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
+}
+
+.badge.bg-info {
+    background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%) !important;
+}
+
+.badge.bg-light {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+/* Card body styling */
+.card-body {
+    padding: 1.5rem;
+    background: white;
+}
+
+.card-title {
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 0.75rem;
+    color: #1a1d26;
+}
+
+.card-text {
+    line-height: 1.5;
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+/* Footer stats */
+.resource-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f3f4;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.stat-item i {
+    font-size: 1rem;
+}
+
+/* Position badges */
+.position-absolute {
+    z-index: 3;
+}
+
+/* Modern card styling */
+.modern-card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.modern-card .card-header {
+    background: white;
+    border-bottom: 1px solid #f1f3f4;
+    padding: 1.25rem 1.5rem;
+    border-radius: 16px 16px 0 0 !important;
+}
+
+.modern-card .card-body {
+    padding: 1.5rem;
+}
+
+/* Loading animation */
+.resource-card.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Click feedback */
+.card-link:active .resource-card {
+    transform: scale(0.98);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .resource-thumbnail {
+        height: 160px;
+    }
+    
+    .card-body {
+        padding: 1.25rem;
+    }
+    
+    .resource-meta {
+        gap: 0.375rem;
+    }
+    
+    .badge {
+        padding: 0.375rem 0.625rem;
+        font-size: 0.7rem;
+    }
 }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="display-6 fw-bold text-dark mb-2">
+                        <i class='bx bx-book-content me-3' style="color: #5568FE;"></i>
+                        Learning Resources
+                    </h1>
+                    <p class="lead text-muted mb-0">
+                        Discover curated learning materials, tutorials, and tools for your academic projects
+                    </p>
+                </div>
+                <div class="d-flex gap-3">
+                    {% if user.is_student %}
+                    <a href="{% url 'resources:recommended_resources' %}" class="btn btn-lg btn-outline-primary px-4">
+                        <i class='bx bx-brain me-2'></i>AI Recommendations
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'resources:resource_create' %}" class="btn btn-lg btn-primary px-4 shadow-sm">
+                        <i class='bx bx-plus me-2'></i>Share Resource
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sidebar Filters -->
+        <div class="col-lg-3">
+            <!-- Filters Card -->
+            <div class="card modern-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0 fw-semibold"><i class='bx bx-filter me-2'></i>Filters & Search</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <!-- Search -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Search Resources</label>
+                            {{ filter_form.search }}
+                        </div>
+
+                        <!-- Resource Type -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Resource Type</label>
+                            {{ filter_form.resource_type }}
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Category</label>
+                            {{ filter_form.category }}
+                        </div>
+
+                        <!-- Difficulty -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Difficulty Level</label>
+                            {{ filter_form.difficulty }}
+                        </div>
+
+                        <!-- Sort -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Sort By</label>
+                            {{ filter_form.sort_by }}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class='bx bx-search me-2'></i>Apply Filters
+                            </button>
+                            <a href="{% url 'resources:resource_list' %}" class="btn btn-outline-secondary">
+                                <i class='bx bx-reset me-2'></i>Reset All
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Categories Quick Access -->
+            <div class="card modern-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0 fw-semibold"><i class='bx bx-category me-2'></i>Browse Categories</h5>
+                </div>
+                <div class="card-body">
+                    {% for category in categories %}
+                    <a href="{% url 'resources:category_resources' category.id %}" 
+                       class="d-flex justify-content-between align-items-center text-decoration-none text-dark mb-3 p-3 rounded hover-bg">
+                        <span class="d-flex align-items-center">
+                            <i class='{{ category.icon }} me-3' style="font-size: 1.25rem; color: {{ category.color }};"></i>
+                            <span class="fw-medium">{{ category.name }}</span>
+                        </span>
+                        <span class="badge bg-primary rounded-pill">{{ category.total_resources }}</span>
+                    </a>
+                    {% empty %}
+                    <p class="text-muted text-center mb-0">No categories available</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Popular Tags -->
+            <div class="card modern-card">
+                <div class="card-header">
+                    <h5 class="mb-0 fw-semibold"><i class='bx bx-tag me-2'></i>Popular Tags</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for tag in popular_tags %}
+                        <a href="?tags={{ tag.id }}" class="badge bg-primary text-decoration-none">
+                            {{ tag.name }}
+                        </a>
+                        {% empty %}
+                        <p class="text-muted text-center w-100 mb-0">No tags available</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resources Grid -->
+        <div class="col-lg-9">
+            <!-- Results Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="fw-semibold mb-1">
+                        {% if resources.paginator.count %}
+                            {{ resources.paginator.count }} Resource{{ resources.paginator.count|pluralize }} Found
+                        {% else %}
+                            No Resources Found
+                        {% endif %}
+                    </h4>
+                    {% if request.GET %}
+                    <p class="text-muted mb-0">Filtered results</p>
+                    {% endif %}
+                </div>
+                
+                {% if resources.paginator.count > 0 %}
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-muted">
+                        Page {{ resources.number }} of {{ resources.paginator.num_pages }}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if resources %}
+            <!-- Resources Grid -->
+            <div class="row g-4">
+                {% for resource in resources %}
+                <div class="col-md-6 col-xl-4">
+                    <!-- Entire Card is Clickable -->
+                    <a href="{% url 'resources:resource_detail' resource.pk %}" class="card-link" data-resource-id="{{ resource.pk }}">
+                        <div class="card resource-card h-100">
+                            <!-- Resource Thumbnail -->
+                            <div class="resource-thumbnail">
+                                {% if resource.thumbnail %}
+                                    <img src="{{ resource.thumbnail.url }}" alt="{{ resource.title }}" loading="lazy">
+                                {% else %}
+                                    <div class="thumbnail-placeholder">
+                                        <i class='{{ resource.category.icon|default:"bx bx-book" }}' style="font-size: 3.5rem; color: white;"></i>
+                                    </div>
+                                {% endif %}
+                                
+                                <!-- Featured Badge -->
+                                {% if resource.is_featured %}
+                                <span class="badge bg-warning position-absolute top-0 end-0 m-3">
+                                    <i class='bx bx-star me-1'></i> Featured
+                                </span>
+                                {% endif %}
+                                
+                                <!-- Type Badge -->
+                                <span class="badge bg-primary position-absolute top-0 start-0 m-3">
+                                    {{ resource.get_resource_type_display }}
+                                </span>
+
+                                <!-- Difficulty Badge -->
+                                <span class="badge position-absolute bottom-0 start-0 m-3 
+                                    {% if resource.difficulty == 'beginner' %}bg-success
+                                    {% elif resource.difficulty == 'intermediate' %}bg-warning text-dark
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ resource.get_difficulty_display }}
+                                </span>
+                            </div>
+
+                            <div class="card-body d-flex flex-column">
+                                <!-- Title -->
+                                <h5 class="card-title mb-3 text-dark">
+                                    {{ resource.title }}
+                                </h5>
+                                
+                                <!-- Description -->
+                                <p class="card-text text-muted flex-grow-1">
+                                    {{ resource.description|truncatechars:120 }}
+                                </p>
+
+                                <!-- Technologies -->
+                                {% if resource.programming_languages %}
+                                <div class="resource-tech mb-3">
+                                    {% for lang in resource.get_programming_languages_list|slice:":3" %}
+                                    <span class="badge bg-info text-dark">
+                                        <i class='bx bx-code me-1'></i>{{ lang }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if resource.get_programming_languages_list|length > 3 %}
+                                    <span class="badge bg-secondary">
+                                        +{{ resource.get_programming_languages_list|length|add:"-3" }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+
+                                <!-- Tags -->
+                                {% if resource.tags.all %}
+                                <div class="resource-tags mb-4">
+                                    {% for tag in resource.tags.all|slice:":2" %}
+                                    <span class="badge bg-primary">{{ tag.name }}</span>
+                                    {% endfor %}
+                                    {% if resource.tags.all|length > 2 %}
+                                    <span class="badge bg-secondary">
+                                        +{{ resource.tags.all|length|add:"-2" }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+
+                                <!-- Footer Stats -->
+                                <div class="resource-stats mt-auto">
+                                    <div class="stat-item">
+                                        <i class='bx bx-user'></i>
+                                        <span>{{ resource.author.display_name }}</span>
+                                    </div>
+                                    <div class="d-flex gap-3">
+                                        <div class="stat-item">
+                                            <i class='bx bx-show'></i>
+                                            <span>{{ resource.views }}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <i class='bx bx-heart'></i>
+                                            <span>{{ resource.like_count }}</span>
+                                        </div>
+                                        {% if resource.file %}
+                                        <div class="stat-item">
+                                            <i class='bx bx-download'></i>
+                                            <span>{{ resource.downloads }}</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if resources.has_other_pages %}
+            <nav aria-label="Resource pagination" class="mt-5">
+                <ul class="pagination justify-content-center">
+                    {% if resources.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ resources.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class='bx bx-chevron-left'></i> Previous
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in resources.paginator.page_range %}
+                        {% if resources.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > resources.number|add:'-3' and num < resources.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                                {{ num }}
+                            </a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if resources.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ resources.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            Next <i class='bx bx-chevron-right'></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5 my-5">
+                <div class="empty-state-icon mb-4">
+                    <i class='bx bx-book-open' style="font-size: 5rem; color: #dee2e6;"></i>
+                </div>
+                <h3 class="fw-semibold text-muted mb-3">No Resources Found</h3>
+                <p class="text-muted mb-4">Try adjusting your search filters or be the first to share a resource with the community!</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{% url 'resources:resource_list' %}" class="btn btn-outline-secondary">
+                        <i class='bx bx-reset me-2'></i>Clear Filters
+                    </a>
+                    <a href="{% url 'resources:resource_create' %}" class="btn btn-primary">
+                        <i class='bx bx-plus me-2'></i>Share Resource
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click tracking and smooth transitions
+    const resourceCards = document.querySelectorAll('.card-link');
+    
+    resourceCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Add loading state
+            const resourceCard = this.querySelector('.resource-card');
+            resourceCard.classList.add('loading');
+            
+            // Optional: Track click for analytics
+            const resourceId = this.getAttribute('data-resource-id');
+            console.log('Navigating to resource:', resourceId);
+            
+            // Let the default link behavior handle navigation
+            // Remove loading state if navigation is cancelled
+            setTimeout(() => {
+                resourceCard.classList.remove('loading');
+            }, 2000);
+        });
+    });
+
+    // Add filter form enhancements
+    const filterForm = document.getElementById('filterForm');
+    if (filterForm) {
+        // Add loading state on form submission
+        filterForm.addEventListener('submit', function() {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="bx bx-loader bx-spin me-2"></i>Applying...';
+                submitBtn.disabled = true;
+            }
+        });
+    }
+
+    // Add hover effects for better UX
+    const cards = document.querySelectorAll('.resource-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-8px)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -51,21 +51,22 @@
             </div>
         </div>
 
+        <!-- Updated Stress Level Card -->
         <div class="col-xl-3 col-md-6 mb-3">
-            <div class="stat-card {% if stress_level < 30 %}stat-success{% elif stress_level < 60 %}stat-warning{% else %}stat-danger{% endif %}">
+            <div class="stat-card {% if stress_level < 30 %}stat-success{% elif stress_level < 60 %}stat-warning{% else %}stat-danger{% endif %}" 
+                 data-stress-student="{{ user.id }}">
                 <div class="card-body d-flex align-items-center justify-content-between">
                     <div>
-                        <div class="stat-label">Stress Level</div>
-                        <div class="stat-value">{{ stress_level }}%</div>
+                        <div class="stat-label">Current Stress Level</div>
+                        <div class="stat-value stress-value">{{ stress_level|floatformat:1 }}%</div>
                         <div class="small">
-                            {% if stress_level < 30 %}
-                                <span class="text-success">Low - Keep it up!</span>
-                            {% elif stress_level < 60 %}
-                                <span class="text-warning">Moderate</span>
-                            {% else %}
-                                <span class="text-danger">High - Take a break</span>
-                            {% endif %}
+                            <span class="stress-category badge bg-{% if stress_level < 30 %}success{% elif stress_level < 60 %}warning{% else %}danger{% endif %}">
+                                {% if stress_level < 30 %}Low{% elif stress_level < 60 %}Moderate{% else %}High{% endif %}
+                            </span>
                         </div>
+                        <small class="stress-timestamp text-muted">
+                            {% if latest_stress %}Updated: {{ latest_stress.calculated_at|timesince }} ago{% endif %}
+                        </small>
                     </div>
                     <div class="stat-icon {% if stress_level < 30 %}success-icon{% elif stress_level < 60 %}warning-icon{% else %}danger-icon{% endif %}">
                         <i class='bx bx-heart'></i>

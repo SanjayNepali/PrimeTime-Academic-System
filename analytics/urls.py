@@ -25,4 +25,6 @@ urlpatterns = [
     
     # Debug URL (optional)
     path('debug-stress/', views.debug_stress_calculation, name='debug_stress'),
+    # Real-time stress API
+    path('api/stress/<int:student_id>/', views.get_realtime_stress, name='api_realtime_stress'),
 ]

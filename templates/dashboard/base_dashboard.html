@@ -366,6 +366,287 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
+
+<script>
+// ============================================
+// REAL-TIME STRESS UPDATE CLIENT
+// ============================================
+
+class StressUpdateClient {
+    constructor() {
+        this.socket = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectDelay = 3000;
+        this.isConnected = false;
+        this.stressData = {};
+    }
+    
+    connect() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = protocol + '//' + window.location.host + '/ws/stress/';
+        
+        console.log('📡 Connecting to stress update WebSocket...');
+        
+        this.socket = new WebSocket(wsUrl);
+        
+        this.socket.onopen = (e) => {
+            console.log('✅ Stress update WebSocket connected');
+            this.isConnected = true;
+            this.reconnectAttempts = 0;
+            this.showConnectionStatus('connected');
+        };
+        
+        this.socket.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                this.handleStressUpdate(data);
+            } catch (error) {
+                console.error('❌ Error parsing stress update:', error);
+            }
+        };
+        
+        this.socket.onclose = (e) => {
+            console.log('🔴 Stress update WebSocket closed');
+            this.isConnected = false;
+            this.showConnectionStatus('disconnected');
+            
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.reconnectAttempts++;
+                console.log(`🔄 Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                setTimeout(() => this.connect(), this.reconnectDelay);
+            }
+        };
+        
+        this.socket.onerror = (e) => {
+            console.error('❌ Stress update WebSocket error:', e);
+        };
+    }
+    
+    handleStressUpdate(data) {
+        console.log('📨 Stress update received:', data);
+        
+        if (data.type === 'initial_data') {
+            data.data.forEach(stress => {
+                this.stressData[stress.student_id] = stress;
+                this.updateStressUI(stress);
+            });
+        } else if (data.type === 'stress_update') {
+            this.stressData[data.student_id] = data;
+            this.updateStressUI(data);
+            this.showStressNotification(data);
+        }
+    }
+    
+    updateStressUI(stress) {
+        // Update stress elements with data-stress-student attribute
+        const stressElements = document.querySelectorAll(`[data-stress-student="${stress.student_id}"]`);
+        
+        stressElements.forEach(element => {
+            // Update stress value with animation
+            const valueElement = element.querySelector('.stress-value');
+            if (valueElement) {
+                const currentValue = parseFloat(valueElement.textContent) || 0;
+                this.animateValue(valueElement, currentValue, stress.stress_level, 1000);
+            }
+            
+            // Update stress category badge
+            const categoryElement = element.querySelector('.stress-category');
+            if (categoryElement) {
+                categoryElement.textContent = stress.stress_category;
+                categoryElement.className = `stress-category badge bg-${this.getStressColor(stress.stress_level)}`;
+            }
+            
+            // Update progress bar
+            const progressBar = element.querySelector('.stress-progress-bar');
+            if (progressBar) {
+                progressBar.style.width = stress.stress_level + '%';
+                progressBar.className = `stress-progress-bar progress-bar bg-${this.getStressColor(stress.stress_level)}`;
+            }
+            
+            // Update breakdown factors
+            this.updateFactorBar(element, 'chat-sentiment', stress.chat_sentiment);
+            this.updateFactorBar(element, 'deadline-pressure', stress.deadline_pressure);
+            this.updateFactorBar(element, 'workload', stress.workload);
+            this.updateFactorBar(element, 'social-isolation', stress.social_isolation);
+            
+            // Update timestamp
+            const timestampElement = element.querySelector('.stress-timestamp');
+            if (timestampElement) {
+                timestampElement.textContent = 'Updated: ' + this.formatTimestamp(stress.timestamp);
+            }
+            
+            // Add pulse animation
+            element.classList.add('stress-updated');
+            setTimeout(() => element.classList.remove('stress-updated'), 1000);
+        });
+        
+        // Update charts if they exist
+        this.updateStressCharts(stress);
+    }
+    
+    updateFactorBar(parentElement, factorName, value) {
+        const factorBar = parentElement.querySelector(`[data-factor="${factorName}"]`);
+        if (factorBar) {
+            const progressBar = factorBar.querySelector('.progress-bar');
+            if (progressBar) {
+                // Convert sentiment from -1 to 1 scale to 0-100 for display
+                let displayValue = value;
+                if (factorName === 'chat-sentiment') {
+                    displayValue = ((value + 1) / 2) * 100;
+                }
+                progressBar.style.width = displayValue + '%';
+            }
+            
+            const valueText = factorBar.querySelector('.factor-value');
+            if (valueText) {
+                valueText.textContent = value.toFixed(1);
+            }
+        }
+    }
+    
+    animateValue(element, start, end, duration) {
+        const range = end - start;
+        const increment = range / (duration / 16);
+        let current = start;
+        
+        const timer = setInterval(() => {
+            current += increment;
+            if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+                current = end;
+                clearInterval(timer);
+            }
+            element.textContent = current.toFixed(1) + '%';
+        }, 16);
+    }
+    
+    updateStressCharts(stress) {
+        // Update Chart.js charts if they exist
+        if (window.stressCharts && window.stressCharts[stress.student_id]) {
+            const chart = window.stressCharts[stress.student_id];
+            
+            // Add new data point
+            const timestamp = this.formatTimestamp(stress.timestamp);
+            chart.data.labels.push(timestamp);
+            chart.data.datasets[0].data.push(stress.stress_level);
+            
+            // Keep only last 10 data points
+            if (chart.data.labels.length > 10) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+            
+            chart.update('none');
+        }
+    }
+    
+    showStressNotification(stress) {
+        // Only show notification for high stress or significant changes
+        if (stress.stress_level >= 70) {
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-warning alert-dismissible fade show stress-notification';
+            notification.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 9999; min-width: 350px; animation: slideInRight 0.5s;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class='bx bx-error-circle' style="font-size: 24px; margin-right: 12px;"></i>
+                    <div>
+                        <strong>🚨 High Stress Alert</strong>
+                        <p class="mb-0">${stress.student_name}: ${stress.stress_level.toFixed(1)}% (${stress.stress_category})</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                notification.remove();
+            }, 10000);
+        }
+    }
+    
+    showConnectionStatus(status) {
+        const indicator = document.getElementById('stressConnectionIndicator');
+        if (indicator) {
+            if (status === 'connected') {
+                indicator.className = 'badge bg-success';
+                indicator.innerHTML = '<i class="bx bx-wifi"></i> Live';
+            } else {
+                indicator.className = 'badge bg-danger';
+                indicator.innerHTML = '<i class="bx bx-wifi-off"></i> Offline';
+            }
+        }
+    }
+    
+    getStressColor(level) {
+        if (level >= 70) return 'danger';
+        if (level >= 40) return 'warning';
+        return 'success';
+    }
+    
+    formatTimestamp(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        
+        if (diff < 60) return 'Just now';
+        if (diff < 3600) return Math.floor(diff / 60) + ' min ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + ' hours ago';
+        return date.toLocaleDateString();
+    }
+    
+    requestUpdate(studentId) {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: 'request_stress_update',
+                student_id: studentId
+            }));
+        }
+    }
+    
+    disconnect() {
+        if (this.socket) {
+            this.socket.close();
+        }
+    }
+}
+
+// Global instance
+window.stressClient = new StressUpdateClient();
+
+// Auto-connect on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initializing real-time stress updates...');
+    window.stressClient.connect();
+});
+
+// Cleanup on unload
+window.addEventListener('beforeunload', function() {
+    window.stressClient.disconnect();
+});
+
+// Add animations CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .stress-updated {
+        animation: pulseHighlight 1s;
+    }
+    
+    @keyframes pulseHighlight {
+        0%, 100% { background-color: transparent; }
+        50% { background-color: rgba(85, 104, 254, 0.1); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+
 <script>
     // Initialize tooltips
     document.addEventListener('DOMContentLoaded', function() {

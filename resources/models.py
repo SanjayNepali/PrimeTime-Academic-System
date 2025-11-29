@@ -4,7 +4,8 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from accounts.models import User
-
+from django.core.exceptions import ValidationError
+from django.conf import settings 
 
 class ResourceCategory(models.Model):
     """Categories for organizing resources"""
@@ -88,7 +89,7 @@ class Resource(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     # Engagement Metrics
-    views = models.IntegerField(default=0)
+    views = models.PositiveIntegerField(default=0)
     likes = models.ManyToManyField(User, blank=True, related_name='liked_resources')
     downloads = models.IntegerField(default=0)
     
@@ -108,19 +109,35 @@ class Resource(models.Model):
     
     def __str__(self):
         return self.title
-    
-    def increment_views(self):
-        self.views += 1
-        self.save(update_fields=['views'])
-    
+    def increment_view(self, request):
+        """Increment view count only if user hasn't viewed this resource in current session"""
+        session_key = f'viewed_resource_{self.id}'
+        
+        if not request.session.get(session_key, False):
+            self.views += 1
+            self.save()
+            request.session[session_key] = True
+            return True
+        return False
     def increment_downloads(self):
         self.downloads += 1
         self.save(update_fields=['downloads'])
+    def get_programming_languages_list(self):
+        """Return programming languages as a list"""
+        if self.programming_languages:
+            return [lang.strip() for lang in self.programming_languages.split(',') if lang.strip()]
+        return []
     
     @property
     def like_count(self):
-        return self.likes.count()
+        """Return the number of likes for this resource"""
+        return self.resource_likes.count()  # Changed from 'likes' to 'resource_likes'
     
+    def user_has_liked(self, user):
+        """Check if a specific user has liked this resource"""
+        if not user.is_authenticated:
+            return False
+        return self.resource_likes.filter(user=user).exists()  # Changed from 'likes' to 'resource_likes'
     @property
     def is_external_link(self):
         return bool(self.url) and not self.file
@@ -136,7 +153,48 @@ class Resource(models.Model):
                 return f"{hours}h {minutes}min"
         return ""
 
+class ResourceLike(models.Model):
+    """
+    Model to track user likes for resources.
+    Each user can like a resource only once (enforced by unique_together).
+    """
+    resource = models.ForeignKey(
+        'Resource', 
+        on_delete=models.CASCADE, 
+        related_name='resource_likes'  # Changed from 'likes' to avoid conflict
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='resource_likes'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['resource', 'user']  # Prevent duplicate likes
+        indexes = [
+            models.Index(fields=['resource', 'user']),
+            models.Index(fields=['created_at']),
+        ]
+        verbose_name = 'Resource Like'
+        verbose_name_plural = 'Resource Likes'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.display_name} likes {self.resource.title}"
 
+    def save(self, *args, **kwargs):
+        """Ensure no duplicate likes can be created"""
+        # Check if this like already exists
+        if ResourceLike.objects.filter(resource=self.resource, user=self.user).exists():
+            # If we're updating an existing instance, allow it
+            if self.pk:
+                super().save(*args, **kwargs)
+            else:
+                # If creating new but duplicate exists, don't save
+                return
+        else:
+            super().save(*args, **kwargs)
 class ResourceRating(models.Model):
     """User ratings for resources"""
     user = models.ForeignKey(User, on_delete=models.CASCADE)

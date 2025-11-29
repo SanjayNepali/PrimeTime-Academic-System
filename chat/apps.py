@@ -1,4 +1,7 @@
-# File: chat/apps.py
+# ============================================
+# File: chat/apps.py (MODIFY THIS FILE)
+# PURPOSE: Register signals
+# ============================================
 
 from django.apps import AppConfig
 

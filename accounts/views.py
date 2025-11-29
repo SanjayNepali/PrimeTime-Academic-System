@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.db import transaction
 import csv
 from io import TextIOWrapper
+from analytics.utils import log_user_created, log_user_login
 
 from .forms import (
     RoleBasedAuthenticationForm, PasswordChangeForm,
@@ -52,6 +53,10 @@ def custom_login(request):
             
             user.save()
             
+            # Log significant login (first login or admin/supervisor)
+            if not user.password_changed or user.role in ['admin', 'supervisor']:
+                log_user_login(user)
+            
             # Set session role
             selected_role = form.cleaned_data['role']
             request.session['active_role'] = selected_role
@@ -67,16 +72,7 @@ def custom_login(request):
             
             # Redirect to dashboard
             return redirect('dashboard:home')
-    else:
-        form = RoleBasedAuthenticationForm()
-    
-    context = {
-        'form': form,
-        'title': 'Login to PrimeTime'
-    }
-    return render(request, 'accounts/login.html', context)
-
-
+        
 @login_required
 def custom_logout(request):
     """Logout view"""
@@ -254,21 +250,16 @@ def create_user(request):
         form = UserCreationByIDForm(request.POST)
         if form.is_valid():
             user, initial_password = form.save(created_by=request.user)
+            
+            # Log user creation activity
+            log_user_created(request.user, user)
+            
             messages.success(
                 request,
                 f'User {user.display_name} created successfully! '
                 f'Initial password: {initial_password}'
             )
             return redirect('accounts:user_list')
-    else:
-        form = UserCreationByIDForm()
-    
-    context = {
-        'form': form,
-        'title': 'Create New User - PrimeTime'
-    }
-    return render(request, 'accounts/create_user.html', context)
-
 
 @login_required
 def lookup_user_by_id(request):

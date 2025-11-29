@@ -13,6 +13,11 @@ from .calculators import StressCalculator, ProgressCalculator, PerformanceCalcul
 from .forms import SupervisorFeedbackForm
 from accounts.models import User
 from projects.models import Project
+# Add at the top of analytics/views.py
+from .utils import (
+    log_stress_analysis, log_feedback_added, log_meeting_logged,
+    log_analytics_run, log_system_activity
+)
 
 
 @login_required
@@ -74,11 +79,41 @@ def admin_analytics(request):
 
     analytics = AnalyticsDashboard.get_admin_analytics()
 
+    # DON'T log every dashboard view - too noisy!
+    # Only log if it's the first view today or if there are important alerts
+    from datetime import date
+    today = date.today()
+    
+    # Check if we've already logged today's first view
+    from .models import SystemActivity
+    today_views = SystemActivity.objects.filter(
+        activity_type='analytics_run',
+        user=request.user,
+        timestamp__date=today
+    ).exists()
+    
+    if not today_views:
+        from .utils import log_system_activity
+        log_system_activity(
+            activity_type='analytics_run',
+            description=f"Admin dashboard viewed by {request.user.display_name}",
+            user=request.user,
+            check_duplicates=False
+        )
+
+    # Get recent system activities - exclude noisy analytics_run entries
+    recent_activities = SystemActivity.objects.select_related(
+        'user', 'target_user', 'project'
+    ).exclude(
+        activity_type='analytics_run'  # Exclude analytics run entries
+    ).order_by('-timestamp')[:25]
+
     context = {
         'analytics': analytics,
+        'recent_activities': recent_activities,
+        'now': timezone.now(),
     }
     return render(request, 'analytics/admin_analytics.html', context)
-
 
 @login_required
 def student_stress_detail(request, student_id):
@@ -136,6 +171,30 @@ def run_stress_analysis(request):
                 'message': 'Not enough data available for stress analysis. Please ensure you have a project with deliverables and some chat activity.'
             })
 
+        # Log the stress analysis activity (only if significant)
+        from .utils import log_stress_analysis, log_high_stress_alert
+        
+        # Get previous stress level to detect trends
+        from .models import StressLevel
+        previous_stress = StressLevel.objects.filter(
+            student=request.user
+        ).exclude(id=stress_record.id).order_by('-calculated_at').first()
+        
+        # Log high stress alerts
+        if stress_record.level >= 70:
+            log_high_stress_alert(
+                student=request.user,
+                stress_level=stress_record.level,
+                previous_level=previous_stress.level if previous_stress else None
+            )
+        else:
+            # Only log moderate/high stress, not low stress
+            log_stress_analysis(
+                student=request.user,
+                stress_level=stress_record.level,
+                category=stress_record.stress_category
+            )
+
         return JsonResponse({
             'success': True,
             'stress_level': stress_record.level,
@@ -147,6 +206,7 @@ def run_stress_analysis(request):
         logger = logging.getLogger(__name__)
         logger.error(f"Stress analysis error: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+    
 # ========== SUPERVISOR STUDENT MONITORING VIEWS ==========
 
 @login_required
@@ -261,6 +321,14 @@ def supervisor_add_feedback(request, student_id):
             # Calculate sentiment
             feedback.calculate_sentiment()
 
+            # Log the feedback activity
+            log_feedback_added(
+                supervisor=request.user,
+                student=student,
+                rating=feedback.rating,
+                action_required=feedback.action_required
+            )
+
             messages.success(request, f"Feedback added successfully for {student.display_name}")
             return redirect('analytics:supervisor_view_student', student_id=student_id)
     else:
@@ -272,7 +340,6 @@ def supervisor_add_feedback(request, student_id):
         'project': project,
     }
     return render(request, 'analytics/add_feedback.html', context)
-
 
 @login_required
 def student_view_feedback(request):
@@ -377,3 +444,43 @@ def admin_view_all_logsheets(request):
         'avg_stress': avg_stress,
     }
     return render(request, 'analytics/admin_all_logsheets.html', context)
+
+@login_required
+def get_realtime_stress(request, student_id):
+    """
+    API endpoint to get real-time stress for a student
+    Used by dashboard to show live updates
+    """
+    if request.user.role not in ['admin', 'supervisor']:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    try:
+        student = User.objects.get(id=student_id, role='student')
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'Student not found'}, status=404)
+    
+    # Get latest stress record
+    latest_stress = StressLevel.objects.filter(
+        student=student
+    ).order_by('-calculated_at').first()
+    
+    if latest_stress:
+        return JsonResponse({
+            'student_id': student.id,
+            'student_name': student.display_name,
+            'stress_level': latest_stress.level,
+            'chat_sentiment': latest_stress.chat_sentiment_score,
+            'deadline_pressure': latest_stress.deadline_pressure,
+            'workload': latest_stress.workload_score,
+            'social_isolation': latest_stress.social_isolation_score,
+            'calculated_at': latest_stress.calculated_at.isoformat(),
+            'status': 'high' if latest_stress.level >= 70 else 'medium' if latest_stress.level >= 40 else 'low'
+        })
+    else:
+        return JsonResponse({
+            'student_id': student.id,
+            'student_name': student.display_name,
+            'stress_level': None,
+            'status': 'no_data',
+            'message': 'No stress data available yet'
+        })

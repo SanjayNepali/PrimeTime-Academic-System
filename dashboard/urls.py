@@ -14,4 +14,6 @@ urlpatterns = [
     # Add these missing routes for new features
     path('switch-role/', views.switch_role, name='switch_role'),
     path('profile/', views.user_profile, name='user_profile'),
+
+    path('api/system-health/', views.system_health_api, name='system_health_api'),
 ]

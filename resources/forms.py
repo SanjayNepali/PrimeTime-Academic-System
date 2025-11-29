@@ -8,45 +8,172 @@ from .models import Resource, ResourceRating, ResourceCategory, ResourceTag
 class ResourceForm(forms.ModelForm):
     """Form for creating and editing resources"""
     
+    # Free text input for tags
+    tags_input = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'python, django, web development, tutorial'
+        }),
+        help_text="Enter comma-separated tags"
+    )
+    
+    # Change to MultipleChoiceField for proper Select2 handling
+    programming_languages = forms.MultipleChoiceField(
+        required=False,
+        choices=[],  # Will be populated in __init__
+        widget=forms.SelectMultiple(attrs={
+            'class': 'form-control tech-select-multiple',
+            'multiple': 'multiple',
+        }),
+        help_text="Type to search technologies, press Enter or click to select"
+    )
+    
+    # Static list of technologies for Select2
+    TECHNOLOGY_CHOICES = [
+        ('Python', 'Python'),
+        ('JavaScript', 'JavaScript'),
+        ('Java', 'Java'),
+        ('C++', 'C++'),
+        ('C#', 'C#'),
+        ('PHP', 'PHP'),
+        ('Ruby', 'Ruby'),
+        ('Go', 'Go'),
+        ('Rust', 'Rust'),
+        ('Swift', 'Swift'),
+        ('Kotlin', 'Kotlin'),
+        ('TypeScript', 'TypeScript'),
+        ('Django', 'Django'),
+        ('Flask', 'Flask'),
+        ('FastAPI', 'FastAPI'),
+        ('React', 'React'),
+        ('Vue.js', 'Vue.js'),
+        ('Angular', 'Angular'),
+        ('Express.js', 'Express.js'),
+        ('Spring Boot', 'Spring Boot'),
+        ('Laravel', 'Laravel'),
+        ('Ruby on Rails', 'Ruby on Rails'),
+        ('HTML/CSS', 'HTML/CSS'),
+        ('Bootstrap', 'Bootstrap'),
+        ('Tailwind CSS', 'Tailwind CSS'),
+        ('SASS/SCSS', 'SASS/SCSS'),
+        ('jQuery', 'jQuery'),
+        ('MySQL', 'MySQL'),
+        ('PostgreSQL', 'PostgreSQL'),
+        ('MongoDB', 'MongoDB'),
+        ('SQLite', 'SQLite'),
+        ('Redis', 'Redis'),
+        ('Firebase', 'Firebase'),
+        ('React Native', 'React Native'),
+        ('Flutter', 'Flutter'),
+        ('Android', 'Android'),
+        ('iOS', 'iOS'),
+        ('Xamarin', 'Xamarin'),
+        ('AWS', 'AWS'),
+        ('Docker', 'Docker'),
+        ('Kubernetes', 'Kubernetes'),
+        ('Azure', 'Azure'),
+        ('Google Cloud', 'Google Cloud'),
+        ('CI/CD', 'CI/CD'),
+        ('Git', 'Git'),
+        ('Linux', 'Linux'),
+        ('Machine Learning', 'Machine Learning'),
+        ('Data Science', 'Data Science'),
+        ('TensorFlow', 'TensorFlow'),
+        ('PyTorch', 'PyTorch'),
+        ('Pandas', 'Pandas'),
+        ('NumPy', 'NumPy'),
+        ('R', 'R'),
+        ('Tableau', 'Tableau'),
+        ('Power BI', 'Power BI'),
+        ('REST API', 'REST API'),
+        ('GraphQL', 'GraphQL'),
+        ('WebSockets', 'WebSockets'),
+        ('Microservices', 'Microservices'),
+        ('Blockchain', 'Blockchain'),
+        ('IoT', 'IoT'),
+        ('AR/VR', 'AR/VR'),
+        ('Unity', 'Unity'),
+        ('Unreal Engine', 'Unreal Engine'),
+        ('Node.js', 'Node.js'),
+        ('WordPress', 'WordPress'),
+        ('Shopify', 'Shopify'),
+        ('Figma', 'Figma'),
+        ('Adobe XD', 'Adobe XD'),
+        ('Photoshop', 'Photoshop'),
+        ('Blender', 'Blender'),
+        ('Jest', 'Jest'),
+        ('Cypress', 'Cypress'),
+        ('Selenium', 'Selenium'),
+        ('JUnit', 'JUnit'),
+        ('pytest', 'pytest')
+    ]
+    
     class Meta:
         model = Resource
         fields = [
             'title', 'description', 'resource_type', 'category', 'difficulty',
-            'url', 'file', 'thumbnail', 'tags', 'programming_languages', 'estimated_duration'
+            'url', 'file', 'thumbnail', 'estimated_duration'
         ]
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter resource title'
+                'placeholder': 'Enter a descriptive title for your resource...'
             }),
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 4,
-                'placeholder': 'Describe the resource...'
+                'placeholder': 'Describe what this resource covers and how it helps students...'
             }),
-            'resource_type': forms.Select(attrs={'class': 'form-control'}),
-            'category': forms.Select(attrs={'class': 'form-control'}),
-            'difficulty': forms.Select(attrs={'class': 'form-control'}),
+            'resource_type': forms.Select(attrs={
+                'class': 'form-control',
+            }),
+            'category': forms.Select(attrs={
+                'class': 'form-control',
+            }),
+            'difficulty': forms.Select(attrs={
+                'class': 'form-control',
+            }),
             'url': forms.URLInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'https://example.com/resource'
+                'placeholder': 'https://example.com/your-resource'
             }),
-            'file': forms.FileInput(attrs={'class': 'form-control'}),
-            'thumbnail': forms.FileInput(attrs={'class': 'form-control'}),
-            'tags': forms.SelectMultiple(attrs={
+            'file': forms.FileInput(attrs={
                 'class': 'form-control',
-                'size': 8
+                'placeholder': 'Choose a file to upload...'
             }),
-            'programming_languages': forms.TextInput(attrs={
+            'thumbnail': forms.FileInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'e.g., Python, Django, React (comma-separated)'
+                'placeholder': 'Optional: Add a thumbnail image...'
             }),
             'estimated_duration': forms.NumberInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Duration in minutes',
+                'placeholder': 'Estimated time in minutes to complete',
                 'min': 1
             })
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Add placeholder texts to dropdowns
+        self.fields['resource_type'].empty_label = 'Select resource type...'
+        self.fields['category'].empty_label = 'Choose a category...'
+        self.fields['difficulty'].empty_label = 'Select difficulty level...'
+        
+        # Set choices for programming_languages
+        self.fields['programming_languages'].choices = self.TECHNOLOGY_CHOICES
+        
+        # Pre-populate tags_input for editing
+        if self.instance and self.instance.pk:
+            tag_names = [tag.name for tag in self.instance.tags.all()]
+            self.fields['tags_input'].initial = ', '.join(tag_names)
+            
+            # Pre-populate programming_languages for editing
+            if self.instance.programming_languages:
+                # Convert comma-separated string to list for initial data
+                tech_list = [tech.strip() for tech in self.instance.programming_languages.split(',') if tech.strip()]
+                self.initial['programming_languages'] = tech_list
     
     def clean(self):
         cleaned_data = super().clean()
@@ -73,6 +200,45 @@ class ResourceForm(forms.ModelForm):
                 raise ValidationError('File type not allowed. Allowed: PDF, DOC, DOCX, PPT, PPTX, ZIP, MP4, MP3')
         
         return file
+    
+    def save(self, commit=True):
+        # Get the tags data BEFORE saving
+        tags_input = self.cleaned_data.get('tags_input', '')
+        tag_names = []
+        if tags_input:
+            tag_names = [name.strip().lower() for name in tags_input.split(',') if name.strip()]
+        
+        # Get programming languages data
+        programming_languages = self.cleaned_data.get('programming_languages', [])
+        
+        # Save the resource instance first
+        resource = super().save(commit=False)
+        
+        # Set programming_languages as comma-separated string
+        if programming_languages:
+            resource.programming_languages = ', '.join(programming_languages)
+        else:
+            resource.programming_languages = ''
+        
+        if commit:
+            # Save the resource to get an ID
+            resource.save()
+            
+            # NOW handle tags after resource has been saved and has an ID
+            if tag_names:
+                # Clear existing tags (for editing existing resources)
+                if self.instance and self.instance.pk:
+                    resource.tags.clear()
+                
+                # Create/get tags and add them
+                for tag_name in tag_names:
+                    tag, created = ResourceTag.objects.get_or_create(name=tag_name)
+                    resource.tags.add(tag)
+            
+            # Save many-to-many relationships
+            self.save_m2m()
+        
+        return resource
 
 
 class ResourceFilterForm(forms.Form):
@@ -108,7 +274,7 @@ class ResourceFilterForm(forms.Form):
     tags = forms.ModelMultipleChoiceField(
         required=False,
         queryset=ResourceTag.objects.all(),
-        widget=forms.CheckboxSelectMultiple
+        widget=forms.SelectMultiple(attrs={'class': 'form-control'})  
     )
     
     sort_by = forms.ChoiceField(

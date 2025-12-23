@@ -1,0 +1,173 @@
+<mxfile host="65bd71144e">
+    <diagram id="CLyi9s62jkCObJtsjGgi" name="Core Class Diagram">
+        <mxGraphModel dx="1080" dy="571" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="298" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;User&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- username: string&lt;br&gt;- email: string&lt;br&gt;- password: string&lt;br&gt;- role: string&lt;br&gt;- full_name: string&lt;br&gt;- department: string&lt;br&gt;- batch_year: int&lt;br&gt;- user_id: string&lt;br&gt;- password_changed: boolean&lt;br&gt;- is_enabled: boolean&lt;br&gt;- created_at: datetime&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ login(): void&lt;br&gt;+ logout(): void&lt;br&gt;+ change_password(): bool&lt;br&gt;+ get_dashboard(): array&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="360" width="200" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="299" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Group&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- supervisor_id: int&lt;br&gt;- name: string&lt;br&gt;- batch_year: int&lt;br&gt;- max_students: int&lt;br&gt;- min_students: int&lt;br&gt;- is_active: boolean&lt;br&gt;- is_full: boolean&lt;br&gt;- created_at: datetime&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ add_student(id: int): bool&lt;br&gt;+ remove_student(id: int): void&lt;br&gt;+ can_start(): boolean&lt;br&gt;+ get_student_count(): int&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="50" width="220" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="300" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Event&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- title: string&lt;br&gt;- event_type: string&lt;br&gt;- start_datetime: datetime&lt;br&gt;- end_datetime: datetime&lt;br&gt;- location: string&lt;br&gt;- is_mandatory: boolean&lt;br&gt;- batch_year: int&lt;br&gt;- created_at: datetime&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ cancel(reason: string): void&lt;br&gt;+ is_upcoming(): boolean&lt;br&gt;+ is_past(): boolean&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="400" y="60" width="220" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="301" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Project&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- student_id: int&lt;br&gt;- supervisor_id: int&lt;br&gt;- title: string&lt;br&gt;- description: text&lt;br&gt;- status: string&lt;br&gt;- programming_languages: string&lt;br&gt;- progress_percentage: int&lt;br&gt;- batch_year: int&lt;br&gt;- submitted_at: datetime&lt;br&gt;- rejection_reason: text&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ submit_for_review(): void&lt;br&gt;+ approve(user_id: int): void&lt;br&gt;+ reject(reason: string): void&lt;br&gt;+ assign_supervisor(id: int): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="340" y="360" width="240" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="302" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;ProjectDeliverable&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- project_id: int&lt;br&gt;- stage: string&lt;br&gt;- document: file&lt;br&gt;- is_approved: boolean&lt;br&gt;- marks: int&lt;br&gt;- feedback: text&lt;br&gt;- submitted_at: datetime&lt;br&gt;- reviewed_at: datetime&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ approve_with_marks(int): void&lt;br&gt;+ update_project_progress(): void&lt;br&gt;+ get_stage_display(): string&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="670" y="420" width="240" height="230" as="geometry"/>
+                </mxCell>
+                <mxCell id="303" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;SupervisorMeeting&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- project_id: int&lt;br&gt;- meeting_type: string&lt;br&gt;- scheduled_date: datetime&lt;br&gt;- duration_minutes: int&lt;br&gt;- status: string&lt;br&gt;- student_attended: boolean&lt;br&gt;- created_at: datetime&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ mark_completed(): void&lt;br&gt;+ is_upcoming(): boolean&lt;br&gt;+ cancel(): void&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="610" y="720" width="220" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="304" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;StressLevel&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- student_id: int&lt;br&gt;- level: float&lt;br&gt;- chat_sentiment_score: float&lt;br&gt;- deadline_pressure: float&lt;br&gt;- workload_score: float&lt;br&gt;- social_isolation_score: float&lt;br&gt;- positive_messages: int&lt;br&gt;- negative_messages: int&lt;br&gt;- calculated_at: datetime&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ get_stress_category(): string&lt;br&gt;+ is_high_stress(): boolean&lt;br&gt;+ get_stress_label(): string&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="720" width="220" height="250" as="geometry"/>
+                </mxCell>
+                <mxCell id="305" value="&lt;p style=&quot;margin:0px;margin-top:4px;text-align:center;&quot;&gt;&lt;b&gt;Resource&lt;/b&gt;&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;- id: int&lt;br&gt;- author_id: int&lt;br&gt;- title: string&lt;br&gt;- resource_type: string&lt;br&gt;- url: string&lt;br&gt;- difficulty: string&lt;br&gt;- views: int&lt;br&gt;- average_rating: float&lt;/p&gt;&lt;hr size=&quot;1&quot;&gt;&lt;p style=&quot;margin:0px;margin-left:4px;&quot;&gt;+ increment_view(): void&lt;br&gt;+ increment_downloads(): void&lt;br&gt;+ user_has_liked(int): bool&lt;/p&gt;" style="verticalAlign=top;align=left;overflow=fill;fontSize=12;fontFamily=Helvetica;html=1;" vertex="1" parent="1">
+                    <mxGeometry x="340" y="720" width="220" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="306" edge="1" parent="1" source="298" target="299">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="130" y="320"/>
+                            <mxPoint x="120" y="290"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="307" value="" style="endArrow=diamondThin;endFill=1;endSize=16;html=1;" edge="1" parent="1" source="298" target="299">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="280" y="420"/>
+                            <mxPoint x="270" y="300"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="308" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="307">
+                    <mxGeometry x="-0.85" y="1" relative="1" as="geometry">
+                        <mxPoint x="-10" y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="309" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="307">
+                    <mxGeometry x="0.85" y="1" relative="1" as="geometry">
+                        <mxPoint x="15" y="-3" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="310" value="" style="endArrow=none;html=1;endFill=0;startArrow=diamondThin;startFill=1;startSize=16;" edge="1" parent="1" source="299" target="300">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="150"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="311" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="310">
+                    <mxGeometry x="-0.7" y="1" relative="1" as="geometry">
+                        <mxPoint x="5" y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="312" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="310">
+                    <mxGeometry x="0.7" y="1" relative="1" as="geometry">
+                        <mxPoint x="-5" y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="313" value="" style="endArrow=none;html=1;endFill=0;" edge="1" parent="1" source="298" target="301">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="290" y="500"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="314" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="313">
+                    <mxGeometry x="-0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="315" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="313">
+                    <mxGeometry x="0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="316" value="supervises" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="313">
+                    <mxGeometry y="-20" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="317" value="" style="endArrow=none;html=1;endFill=0;startArrow=diamondThin;startFill=0;startSize=16;" edge="1" parent="1" source="301" target="302">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="620" y="510"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="318" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="317">
+                    <mxGeometry x="-0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="319" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="317">
+                    <mxGeometry x="0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="320" value="" style="endArrow=none;html=1;endFill=0;startArrow=diamondThin;startFill=1;startSize=16;" edge="1" parent="1" source="301" target="303">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="640" y="680"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="321" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="320">
+                    <mxGeometry x="-0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="322" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="320">
+                    <mxGeometry x="0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="-10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="323" value="" style="endArrow=none;html=1;endFill=0;" edge="1" parent="1" source="298" target="304">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="180" y="670"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="324" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="323">
+                    <mxGeometry x="-0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="325" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="323">
+                    <mxGeometry x="0.7" y="1" relative="1" as="geometry">
+                        <mxPoint y="10" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="326" value="" style="endArrow=none;html=1;endFill=0;startArrow=diamondThin;startFill=0;startSize=16;" edge="1" parent="1" source="298" target="305">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="270" y="620"/>
+                            <mxPoint x="310" y="670"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="327" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="326">
+                    <mxGeometry x="-0.85" y="1" relative="1" as="geometry">
+                        <mxPoint x="15" y="5" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="328" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="326">
+                    <mxGeometry x="0.85" y="1" relative="1" as="geometry">
+                        <mxPoint x="-20" y="5" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="329" value="shares" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="326">
+                    <mxGeometry y="-15" relative="1" as="geometry">
+                        <mxPoint x="15" as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

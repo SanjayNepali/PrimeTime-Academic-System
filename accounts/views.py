@@ -72,7 +72,13 @@ def custom_login(request):
             
             # Redirect to dashboard
             return redirect('dashboard:home')
-        
+        else:
+            # Form is invalid - render login page with errors
+            return render(request, 'accounts/login.html', {'form': form})
+    else:
+        # GET request - show empty login form
+        form = RoleBasedAuthenticationForm()
+        return render(request, 'accounts/login.html', {'form': form})
 @login_required
 def custom_logout(request):
     """Logout view"""

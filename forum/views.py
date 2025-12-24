@@ -1,15 +1,16 @@
-# File: Desktop/Prime/forum/views.py
+# File: forum/views.py
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q, Count, F
+from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.core.paginator import Paginator
+from django.utils.html import format_html 
 from django.utils import timezone
 
 from .models import ForumPost, ForumReply, ForumCategory, ForumTag, ForumNotification
-from .forms import ForumPostForm, ForumReplyForm, ForumSearchForm, FlagPostForm, ModeratePostForm
+from .forms import ForumPostForm, ForumReplyForm, ForumSearchForm, FlagPostForm
 from analytics.sentiment import InappropriateContentDetector
 from accounts.models import User
 
@@ -32,7 +33,6 @@ def forum_home(request):
         category = search_form.cleaned_data.get('category')
         post_type = search_form.cleaned_data.get('post_type')
         status = search_form.cleaned_data.get('status')
-        tags = search_form.cleaned_data.get('tags')
         sort_by = search_form.cleaned_data.get('sort_by') or '-last_activity'
         
         if search:
@@ -56,10 +56,6 @@ def forum_home(request):
             elif status == 'pinned':
                 posts = posts.filter(is_pinned=True)
         
-        if tags:
-            for tag in tags:
-                posts = posts.filter(tags=tag)
-        
         posts = posts.order_by(sort_by)
     else:
         posts = posts.order_by('-is_pinned', '-last_activity')
@@ -71,9 +67,11 @@ def forum_home(request):
     
     # Get categories and popular tags
     categories = ForumCategory.objects.filter(is_active=True)
+    
+    # FIXED: Use different annotation name to avoid conflict with property
     popular_tags = ForumTag.objects.annotate(
-        post_count=Count('forumpost')
-    ).order_by('-post_count')[:15]
+        posts_count=Count('forumpost')  # Changed from post_count to posts_count
+    ).order_by('-posts_count')[:15]
     
     # Get statistics
     stats = {
@@ -93,46 +91,171 @@ def forum_home(request):
     }
     return render(request, 'forum/forum_home.html', context)
 
+@login_required
+def post_create(request):
+    """Create a new forum post with enhanced moderation"""
+    
+    if request.method == 'POST':
+        form = ForumPostForm(request.POST)
+        
+        if form.is_valid():
+            # Enhanced content moderation
+            detector = InappropriateContentDetector()
+            content_to_check = f"{form.cleaned_data['title']} {form.cleaned_data['content']}"
+            analysis = detector.analyze_content(content_to_check, content_type='forum')
+            
+            if analysis['is_inappropriate']:
+                # Show specific issues
+                error_msg = '<strong>Your post contains inappropriate content:</strong><ul>'
+                for issue in analysis['inappropriate_issues']:
+                    error_msg += f'<li>{issue}</li>'
+                error_msg += '</ul>'
+                
+                # Add suggestions
+                suggestions = detector.get_clean_text_suggestions(content_to_check)
+                if suggestions:
+                    error_msg += '<br><strong>Suggestions:</strong><ul>'
+                    for suggestion in suggestions:
+                        error_msg += f'<li>{suggestion}</li>'
+                    error_msg += '</ul>'
+                
+                messages.error(request, format_html(error_msg))
+                return render(request, 'forum/post_form.html', {
+                    'form': form,
+                    'title': 'Create New Post'
+                })
+            
+            # Create the post
+            post = form.save(commit=False)
+            post.author = request.user
+            post.save()
+            form.save_m2m()
+            
+            # Flag suspicious content
+            if analysis['is_suspicious']:
+                post.is_flagged = True
+                post.flag_reason = f"Auto-flagged: {', '.join(analysis['suspicious_issues'])}"
+                post.save()
+                messages.warning(
+                    request,
+                    'Your post has been submitted but flagged for review due to suspicious content.'
+                )
+            else:
+                messages.success(request, 'Post created successfully!')
+            
+            return redirect('forum:post_detail', pk=post.pk)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = ForumPostForm()
+    
+    context = {
+        'form': form,
+        'title': 'Create New Post - PrimeTime Forum'
+    }
+    return render(request, 'forum/post_form.html', context)
 
 @login_required
-def post_detail(request, pk):
-    """View a forum post with replies"""
+def post_update(request, pk):
+    """Update a forum post"""
     
     post = get_object_or_404(ForumPost, pk=pk)
     
-    # Check if post is hidden and user is not admin
+    # Check permissions
+    if request.user != post.author and request.user.role != 'admin':
+        messages.error(request, "You don't have permission to edit this post")
+        return redirect('forum:post_detail', pk=pk)
+    
+    if request.method == 'POST':
+        form = ForumPostForm(request.POST, instance=post)
+        if form.is_valid():
+            # Check for inappropriate content
+            detector = InappropriateContentDetector()
+            content_to_check = f"{form.cleaned_data['title']} {form.cleaned_data['content']}"
+            analysis = detector.analyze_content(content_to_check, content_type='forum')
+            
+            if analysis['is_inappropriate']:
+                messages.error(
+                    request,
+                    f'Your post contains inappropriate content: {", ".join(analysis["inappropriate_issues"])}'
+                )
+                return render(request, 'forum/post_form.html', {'form': form, 'post': post, 'title': f'Edit: {post.title}'})
+            
+            form.save()
+            messages.success(request, 'Post updated successfully!')
+            return redirect('forum:post_detail', pk=pk)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = ForumPostForm(instance=post)
+    
+    context = {
+        'form': form,
+        'post': post,
+        'title': f'Edit: {post.title}'
+    }
+    return render(request, 'forum/post_form.html', context)
+
+
+@login_required
+def post_detail(request, pk):
+    """View a forum post with replies - Enhanced with better moderation"""
+    
+    post = get_object_or_404(ForumPost, pk=pk)
+    
     if post.is_hidden and request.user.role != 'admin':
         messages.error(request, 'This post is not available')
         return redirect('forum:forum_home')
     
     # Increment views
-    post.increment_views()
+    session_key = f'viewed_post_{post.pk}'
+    if not request.session.get(session_key):
+        post.increment_views()
+        request.session[session_key] = True
     
-    # Handle reply submission
+    # Handle reply submission with enhanced moderation
     if request.method == 'POST' and 'reply_submit' in request.POST:
         reply_form = ForumReplyForm(request.POST)
+        
         if reply_form.is_valid():
-            # Check for inappropriate content
+            # Enhanced content moderation for replies
             detector = InappropriateContentDetector()
-            analysis = detector.analyze_content(reply_form.cleaned_data['content'], content_type='forum')
+            analysis = detector.analyze_content(
+                reply_form.cleaned_data['content'],
+                content_type='comment'
+            )
             
             if analysis['is_inappropriate']:
-                messages.error(
-                    request,
-                    f'Your reply contains inappropriate content: {", ".join(analysis["inappropriate_issues"])}'
-                )
+                error_msg = '<strong>Your reply contains inappropriate content:</strong><ul>'
+                for issue in analysis['inappropriate_issues']:
+                    error_msg += f'<li>{issue}</li>'
+                error_msg += '</ul>'
+                
+                suggestions = detector.get_clean_text_suggestions(reply_form.cleaned_data['content'])
+                if suggestions:
+                    error_msg += '<br><strong>Suggestions:</strong><ul>'
+                    for suggestion in suggestions:
+                        error_msg += f'<li>{suggestion}</li>'
+                    error_msg += '</ul>'
+                
+                messages.error(request, format_html(error_msg))
             else:
                 reply = reply_form.save(commit=False)
                 reply.post = post
                 reply.author = request.user
                 reply.save()
                 
-                # Flag suspicious content
+                # Flag suspicious replies
                 if analysis['is_suspicious']:
+                    reply.is_hidden = True
+                    reply.hidden_reason = f"Auto-flagged: {', '.join(analysis['suspicious_issues'])}"
+                    reply.save()
                     messages.warning(
                         request,
-                        'Your reply has been submitted but flagged for review due to suspicious content.'
+                        'Your reply has been submitted but flagged for review.'
                     )
+                else:
+                    messages.success(request, 'Reply posted successfully!')
                 
                 # Notify post author
                 if post.author != request.user:
@@ -154,24 +277,24 @@ def post_detail(request, pk):
                         actor=request.user
                     )
                 
-                messages.success(request, 'Reply posted successfully!')
                 return redirect('forum:post_detail', pk=pk)
     else:
         reply_form = ForumReplyForm()
     
-    # Get replies
-    replies = post.replies.filter(is_hidden=False).select_related(
-        'author'
-    ).prefetch_related('upvotes').order_by('created_at')
+    # Get replies (exclude hidden ones unless admin)
+    if request.user.role == 'admin':
+        replies = post.replies.all()
+    else:
+        replies = post.replies.filter(is_hidden=False)
     
-    # Check if user has upvoted
+    replies = replies.select_related('author').prefetch_related('upvotes').order_by('created_at')
+    
+    # Check upvote status
     user_has_upvoted = post.upvotes.filter(pk=request.user.pk).exists()
     user_is_following = post.followers.filter(pk=request.user.pk).exists()
     
     # Get reply upvote status
-    reply_upvotes = {}
-    for reply in replies:
-        reply_upvotes[reply.id] = reply.upvotes.filter(pk=request.user.pk).exists()
+    reply_upvotes = {reply.id: reply.upvotes.filter(pk=request.user.pk).exists() for reply in replies}
     
     context = {
         'post': post,
@@ -185,80 +308,8 @@ def post_detail(request, pk):
         'title': post.title
     }
     return render(request, 'forum/post_detail.html', context)
-
-
-@login_required
-def post_create(request):
-    """Create a new forum post"""
-    
-    if request.method == 'POST':
-        form = ForumPostForm(request.POST)
-        if form.is_valid():
-            # Check for inappropriate content
-            detector = InappropriateContentDetector()
-            content_to_check = f"{form.cleaned_data['title']} {form.cleaned_data['content']}"
-            analysis = detector.analyze_content(content_to_check, content_type='forum')
-            
-            if analysis['is_inappropriate']:
-                messages.error(
-                    request,
-                    f'Your post contains inappropriate content: {", ".join(analysis["inappropriate_issues"])}'
-                )
-            else:
-                post = form.save(commit=False)
-                post.author = request.user
-                post.save()
-                form.save_m2m()  # Save tags
-                
-                # Flag suspicious content
-                if analysis['is_suspicious']:
-                    post.is_flagged = True
-                    post.flag_reason = f"Auto-flagged: {', '.join(analysis['suspicious_issues'])}"
-                    post.save()
-                    messages.warning(
-                        request,
-                        'Your post has been submitted but flagged for review due to suspicious content.'
-                    )
-                
-                messages.success(request, 'Post created successfully!')
-                return redirect('forum:post_detail', pk=post.pk)
-    else:
-        form = ForumPostForm()
-    
-    context = {
-        'form': form,
-        'title': 'Create New Post'
-    }
-    return render(request, 'forum/post_form.html', context)
-
-
-@login_required
-def post_update(request, pk):
-    """Update a forum post"""
-    
-    post = get_object_or_404(ForumPost, pk=pk)
-    
-    # Check permissions
-    if request.user != post.author and request.user.role != 'admin':
-        messages.error(request, "You don't have permission to edit this post")
-        return redirect('forum:post_detail', pk=pk)
-    
-    if request.method == 'POST':
-        form = ForumPostForm(request.POST, instance=post)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Post updated successfully!')
-            return redirect('forum:post_detail', pk=pk)
-    else:
-        form = ForumPostForm(instance=post)
-    
-    context = {
-        'form': form,
-        'post': post,
-        'title': f'Edit: {post.title}'
-    }
-    return render(request, 'forum/post_form.html', context)
-
+# Continue with rest of views.py (post_delete, post_upvote, etc.) - they remain the same
+# Include all remaining functions from your original views.py file
 
 @login_required
 def post_delete(request, pk):
@@ -279,56 +330,6 @@ def post_delete(request, pk):
     
     return render(request, 'forum/post_confirm_delete.html', {'post': post})
 
-
-@login_required
-def project_forum(request, project_id):
-    """Forum/discussion for a specific project"""
-    from projects.models import Project
-    
-    project = get_object_or_404(Project, pk=project_id)
-    
-    # Check if user has access to this project
-    if not (request.user == project.student or 
-            request.user == project.supervisor or 
-            request.user.role == 'admin'):
-        messages.error(request, "You don't have access to this project's forum")
-        return redirect('forum:forum_home')
-    
-    # Get posts related to this project
-    posts = ForumPost.objects.filter(
-        project=project,
-        is_hidden=False
-    ).select_related('author', 'category').prefetch_related('tags', 'upvotes').order_by('-created_at')
-    
-    # Get project statistics
-    project_stats = {
-        'total_posts': posts.count(),
-        'solved_posts': posts.filter(is_solved=True).count(),
-        'total_replies': ForumReply.objects.filter(post__project=project).count(),
-    }
-    
-    # Get categories and popular tags for sidebar
-    categories = ForumCategory.objects.filter(is_active=True)
-    popular_tags = ForumTag.objects.annotate(
-        post_count=Count('forumpost')
-    ).order_by('-post_count')[:10]
-    
-    # Safe supervisor name
-    supervisor_name = "Not assigned"
-    if project.supervisor:
-        supervisor_name = project.supervisor.get_full_name() or project.supervisor.username
-    
-    context = {
-        'project': project,
-        'posts': posts,
-        'project_stats': project_stats,
-        'categories': categories,
-        'popular_tags': popular_tags,
-        'supervisor_name': supervisor_name,  # Pass safe name to template
-        'title': f'Project Forum: {project.title}'
-    }
-    
-    return render(request, 'forum/project_forum.html', context)
 
 @login_required
 def post_upvote(request, pk):
@@ -392,7 +393,53 @@ def reply_upvote(request, pk):
     
     return redirect('forum:post_detail', pk=reply.post.pk)
 
-
+@login_required
+def reply_to_reply(request, reply_id):
+    """Reply to a specific reply (nested replies)"""
+    
+    parent_reply = get_object_or_404(ForumReply, pk=reply_id)
+    post = parent_reply.post
+    
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        
+        if len(content) < 5:
+            messages.error(request, 'Reply must be at least 5 characters long.')
+            return redirect('forum:post_detail', pk=post.pk)
+        
+        # Enhanced content moderation
+        detector = InappropriateContentDetector()
+        analysis = detector.analyze_content(content, content_type='comment')
+        
+        if analysis['is_inappropriate']:
+            error_msg = '<strong>Your reply contains inappropriate content:</strong><ul>'
+            for issue in analysis['inappropriate_issues']:
+                error_msg += f'<li>{issue}</li>'
+            error_msg += '</ul>'
+            messages.error(request, format_html(error_msg))
+            return redirect('forum:post_detail', pk=post.pk)
+        
+        # Create nested reply
+        reply = ForumReply.objects.create(
+            post=post,
+            author=request.user,
+            content=content,
+            parent=parent_reply  # Set parent for nested reply
+        )
+        
+        # Notify parent reply author
+        if parent_reply.author != request.user:
+            ForumNotification.objects.create(
+                user=parent_reply.author,
+                notification_type='reply',
+                post=post,
+                reply=reply,
+                actor=request.user
+            )
+        
+        messages.success(request, 'Reply posted successfully!')
+    
+    return redirect('forum:post_detail', pk=post.pk)
 @login_required
 def post_follow(request, pk):
     """Follow/unfollow a post"""
@@ -512,8 +559,6 @@ def mark_notification_read(request, pk):
     return redirect('forum:notifications')
 
 
-# Admin actions
-
 @login_required
 def flag_post(request, pk):
     """Flag a post as inappropriate"""
@@ -558,8 +603,6 @@ def flagged_posts(request):
     return render(request, 'forum/flagged_posts.html', context)
 
 
-# AJAX endpoints
-
 @login_required
 def get_unread_notifications(request):
     """AJAX endpoint for unread notifications"""
@@ -575,3 +618,48 @@ def get_unread_notifications(request):
         'unread_count': unread_count,
         'notifications': notifications
     })
+
+
+@login_required
+def project_forum(request, project_id):
+    """Forum/discussion for a specific project"""
+    from projects.models import Project
+    
+    project = get_object_or_404(Project, pk=project_id)
+    
+    # Check if user has access to this project
+    if not (request.user == project.student or 
+            request.user == project.supervisor or 
+            request.user.role == 'admin'):
+        messages.error(request, "You don't have access to this project's forum")
+        return redirect('forum:forum_home')
+    
+    # Get posts related to this project
+    posts = ForumPost.objects.filter(
+        project=project,
+        is_hidden=False
+    ).select_related('author', 'category').prefetch_related('tags', 'upvotes').order_by('-created_at')
+    
+    # Get project statistics
+    project_stats = {
+        'total_posts': posts.count(),
+        'solved_posts': posts.filter(is_solved=True).count(),
+        'total_replies': ForumReply.objects.filter(post__project=project).count(),
+    }
+    
+    # Get categories and popular tags for sidebar
+    categories = ForumCategory.objects.filter(is_active=True)
+    popular_tags = ForumTag.objects.annotate(
+        post_count=Count('forumpost')
+    ).order_by('-post_count')[:10]
+    
+    context = {
+        'project': project,
+        'posts': posts,
+        'project_stats': project_stats,
+        'categories': categories,
+        'popular_tags': popular_tags,
+        'title': f'Project Forum: {project.title}'
+    }
+    
+    return render(request, 'forum/project_forum.html', context)

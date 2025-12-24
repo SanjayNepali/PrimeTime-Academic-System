@@ -1,4 +1,4 @@
-# File: Desktop/Prime/forum/forms.py
+# File: forum/forms.py
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -7,6 +7,13 @@ from .models import ForumPost, ForumReply, ForumCategory, ForumTag
 
 class ForumPostForm(forms.ModelForm):
     """Form for creating and editing forum posts"""
+    
+    tags = forms.ModelMultipleChoiceField(
+        queryset=ForumTag.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Select relevant tags (maximum 5)"
+    )
     
     class Meta:
         model = ForumPost
@@ -18,37 +25,54 @@ class ForumPostForm(forms.ModelForm):
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter your question or discussion topic...',
-                'minlength': 10
+                'maxlength': 200,
+                'required': True
             }),
             'content': forms.Textarea(attrs={
                 'class': 'form-control',
-                'rows': 8,
+                'rows': 10,
                 'placeholder': 'Provide details, context, and what you\'ve tried...',
-                'minlength': 20
+                'required': True
             }),
-            'post_type': forms.Select(attrs={'class': 'form-control'}),
-            'category': forms.Select(attrs={'class': 'form-control'}),
-            'tags': forms.SelectMultiple(attrs={
+            'post_type': forms.Select(attrs={
                 'class': 'form-control',
-                'size': 6
+                'required': True
+            }),
+            'category': forms.Select(attrs={
+                'class': 'form-control',
+                'required': True
             }),
             'programming_languages': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'e.g., Python, Django, JavaScript (comma-separated)'
             })
         }
+        labels = {
+            'title': 'Title',
+            'content': 'Content',
+            'post_type': 'Post Type',
+            'category': 'Category',
+            'tags': 'Tags',
+            'programming_languages': 'Programming Languages / Technologies'
+        }
     
     def clean_title(self):
-        title = self.cleaned_data.get('title')
+        title = self.cleaned_data.get('title', '').strip()
         if len(title) < 10:
             raise ValidationError('Title must be at least 10 characters long.')
         return title
     
     def clean_content(self):
-        content = self.cleaned_data.get('content')
+        content = self.cleaned_data.get('content', '').strip()
         if len(content) < 20:
             raise ValidationError('Content must be at least 20 characters long.')
         return content
+    
+    def clean_tags(self):
+        tags = self.cleaned_data.get('tags')
+        if tags and tags.count() > 5:
+            raise ValidationError('You can select a maximum of 5 tags.')
+        return tags
 
 
 class ForumReplyForm(forms.ModelForm):
@@ -60,14 +84,17 @@ class ForumReplyForm(forms.ModelForm):
         widgets = {
             'content': forms.Textarea(attrs={
                 'class': 'form-control',
-                'rows': 4,
+                'rows': 5,
                 'placeholder': 'Share your answer or thoughts...',
-                'minlength': 5
+                'required': True
             })
+        }
+        labels = {
+            'content': 'Your Reply'
         }
     
     def clean_content(self):
-        content = self.cleaned_data.get('content')
+        content = self.cleaned_data.get('content', '').strip()
         if len(content) < 5:
             raise ValidationError('Reply must be at least 5 characters long.')
         return content
@@ -108,12 +135,6 @@ class ForumSearchForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     
-    tags = forms.ModelMultipleChoiceField(
-        required=False,
-        queryset=ForumTag.objects.all(),
-        widget=forms.CheckboxSelectMultiple
-    )
-    
     sort_by = forms.ChoiceField(
         required=False,
         choices=[
@@ -121,7 +142,6 @@ class ForumSearchForm(forms.Form):
             ('-created_at', 'Newest First'),
             ('created_at', 'Oldest First'),
             ('-views', 'Most Viewed'),
-            ('-upvotes__count', 'Most Upvoted')
         ],
         initial='-last_activity',
         widget=forms.Select(attrs={'class': 'form-control'})
@@ -139,7 +159,7 @@ class FlagPostForm(forms.Form):
             ('irrelevant', 'Off-Topic or Irrelevant'),
             ('other', 'Other')
         ],
-        widget=forms.RadioSelect
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
     )
     
     details = forms.CharField(
@@ -148,29 +168,5 @@ class FlagPostForm(forms.Form):
             'class': 'form-control',
             'rows': 3,
             'placeholder': 'Additional details (optional)...'
-        })
-    )
-
-
-class ModeratePostForm(forms.Form):
-    """Form for moderating posts (admin only)"""
-    
-    action = forms.ChoiceField(
-        choices=[
-            ('approve', 'Approve Post'),
-            ('hide', 'Hide Post'),
-            ('delete', 'Delete Post'),
-            ('pin', 'Pin Post'),
-            ('unpin', 'Unpin Post')
-        ],
-        widget=forms.RadioSelect
-    )
-    
-    reason = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 2,
-            'placeholder': 'Reason for action (optional)...'
         })
     )

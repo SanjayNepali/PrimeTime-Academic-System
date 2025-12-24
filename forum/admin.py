@@ -1,4 +1,4 @@
-# File: Desktop/Prime/forum/admin.py
+# File: forum/admin.py
 
 from django.contrib import admin
 from django.utils.html import format_html
@@ -8,7 +8,7 @@ from .models import ForumCategory, ForumTag, ForumPost, ForumReply, ForumNotific
 
 @admin.register(ForumCategory)
 class ForumCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'icon_display', 'color_display', 'order', 'post_count', 'is_active']
+    list_display = ['name', 'icon_display', 'color_display', 'order', 'post_count_display', 'is_active']
     list_editable = ['order', 'is_active']
     search_fields = ['name', 'description']
     
@@ -22,18 +22,25 @@ class ForumCategoryAdmin(admin.ModelAdmin):
             obj.color
         )
     color_display.short_description = 'Color'
+    
+    def post_count_display(self, obj):
+        """Display post count"""
+        count = obj.forumpost_set.count()
+        return format_html('<span class="badge bg-primary">{}</span>', count)
+    post_count_display.short_description = 'Posts'
 
 
 @admin.register(ForumTag)
 class ForumTagAdmin(admin.ModelAdmin):
-    list_display = ['name', 'created_at', 'post_count']
+    list_display = ['name', 'created_at', 'post_count_display']
     search_fields = ['name', 'description']
     readonly_fields = ['created_at']
     
-    def post_count(self, obj):
+    def post_count_display(self, obj):
+        """Display post count"""
         count = obj.forumpost_set.count()
         return format_html('<span class="badge bg-primary">{}</span>', count)
-    post_count.short_description = 'Posts'
+    post_count_display.short_description = 'Posts'
 
 
 @admin.register(ForumPost)

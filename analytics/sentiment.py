@@ -457,68 +457,178 @@ class AdvancedSentimentAnalyzer:
 
 
 class InappropriateContentDetector:
-    """Enhanced inappropriate content detection"""
+    """Enhanced content detection with comprehensive profanity and abuse detection"""
     
     def __init__(self):
-        self.INAPPROPRIATE_PATTERNS = [
-            (r'\b(spam|scam|fake|phishing)\b', 'Spam content'),
-            (r'\b(hate|racist|sexist|discriminat)\b', 'Hate speech'),
-            (r'\b(violence|threat|harm|kill|attack)\b', 'Violent content'),
-            (r'\b(cheat|plagiar|copy|steal)\b', 'Academic dishonesty'),
-            (r'\b(profanity|curse|swear)\b', 'Inappropriate language'),
+        # Profanity and offensive words (masked for documentation)
+        self.PROFANITY_WORDS = {
+            'fuck', 'shit', 'damn', 'hell', 'bitch', 'bastard', 'asshole', 
+            'crap', 'piss', 'dick', 'cock', 'pussy', 'whore', 'slut',
+            'retard', 'idiot', 'moron', 'dumb', 'stupid', 'loser',
+            # Add more as needed
+        }
+        
+        # Hate speech and discrimination
+        self.HATE_SPEECH = {
+            'racist', 'sexist', 'homophobic', 'transphobic', 'bigot',
+            'discrimination', 'prejudice', 'supremacist'
+        }
+        
+        # Violence and threats
+        self.VIOLENCE_WORDS = {
+            'kill', 'murder', 'death', 'attack', 'harm', 'hurt', 'destroy',
+            'threat', 'violence', 'assault', 'abuse', 'torture'
+        }
+        
+        # Harassment and bullying
+        self.HARASSMENT_WORDS = {
+            'harass', 'bully', 'stalk', 'intimidate', 'terrorize',
+            'humiliate', 'degrade', 'insult', 'mock', 'ridicule'
+        }
+        
+        # Spam indicators
+        self.SPAM_PATTERNS = [
+            (r'\b(click here|buy now|limited time|act fast)\b', 'Spam content'),
             (r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', 'Suspicious links'),
+            (r'\b(free money|earn fast|get rich|make \$\d+)\b', 'Suspicious offers'),
         ]
         
+        # Suspicious patterns
         self.SUSPICIOUS_PATTERNS = [
-            (r'\b(password|login|credit.?card|social.?security)\b', 'Sensitive information'),
-            (r'\b(free.?money|earn.?fast|get.?rich)\b', 'Suspicious offers'),
+            (r'\b(password|login|credit.?card|social.?security|bank.?account)\b', 'Sensitive information'),
         ]
     
     def analyze_content(self, text, content_type='forum'):
-        """Comprehensive content analysis"""
-        text_lower = text.lower()
+        """
+        Comprehensive content analysis with enhanced detection
         
-        # Check for inappropriate content
+        Args:
+            text: Content to analyze
+            content_type: Type of content ('forum', 'chat', 'comment')
+            
+        Returns:
+            dict: Analysis results with flags and detected issues
+        """
+        text_lower = text.lower()
+        text_words = set(re.findall(r'\b\w+\b', text_lower))
+        
         inappropriate_issues = []
-        for pattern, reason in self.INAPPROPRIATE_PATTERNS:
+        suspicious_issues = []
+        severity_level = 'none'
+        
+        # 1. Check for profanity
+        profanity_found = text_words.intersection(self.PROFANITY_WORDS)
+        if profanity_found:
+            inappropriate_issues.append(f"Profanity detected: {', '.join(list(profanity_found)[:3])}")
+            severity_level = 'high'
+        
+        # 2. Check for hate speech
+        hate_speech_found = text_words.intersection(self.HATE_SPEECH)
+        if hate_speech_found:
+            inappropriate_issues.append("Hate speech or discrimination detected")
+            severity_level = 'critical'
+        
+        # 3. Check for violence/threats
+        violence_found = text_words.intersection(self.VIOLENCE_WORDS)
+        if violence_found and self._check_violent_context(text_lower):
+            inappropriate_issues.append("Violent or threatening content detected")
+            severity_level = 'critical'
+        
+        # 4. Check for harassment
+        harassment_found = text_words.intersection(self.HARASSMENT_WORDS)
+        if harassment_found:
+            inappropriate_issues.append("Harassment or bullying language detected")
+            severity_level = 'high'
+        
+        # 5. Check for spam patterns
+        for pattern, reason in self.SPAM_PATTERNS:
             if re.search(pattern, text_lower, re.IGNORECASE):
                 inappropriate_issues.append(reason)
+                if severity_level == 'none':
+                    severity_level = 'medium'
         
-        # Check for suspicious content
-        suspicious_issues = []
+        # 6. Check for suspicious patterns
         for pattern, reason in self.SUSPICIOUS_PATTERNS:
             if re.search(pattern, text_lower, re.IGNORECASE):
                 suspicious_issues.append(reason)
         
-        # Sentiment analysis for extreme negativity
+        # 7. Sentiment analysis for extreme negativity
         blob = TextBlob(text)
-        if blob.sentiment.polarity < -0.7:
-            inappropriate_issues.append("Extremely negative/hostile content")
+        sentiment_score = blob.sentiment.polarity
         
-        # Length check for spam
-        if len(text.strip()) < 10 and content_type == 'forum':
-            inappropriate_issues.append("Very short content - possible spam")
+        if sentiment_score < -0.7:
+            suspicious_issues.append("Extremely negative sentiment detected")
         
-        # Multiple exclamation marks
-        if text.count('!') > 5:
-            suspicious_issues.append("Excessive excitement - possible spam")
+        # 8. Check for excessive caps (yelling)
+        if len(text) > 20:
+            caps_ratio = sum(1 for c in text if c.isupper()) / len(text)
+            if caps_ratio > 0.7:
+                suspicious_issues.append("Excessive use of capital letters (appears to be yelling)")
+        
+        # 9. Check for excessive punctuation
+        if text.count('!') > 5 or text.count('?') > 5:
+            suspicious_issues.append("Excessive punctuation detected")
+        
+        # 10. Check for very short content (potential spam)
+        if content_type == 'forum' and len(text.strip()) < 5:
+            inappropriate_issues.append("Content too short - possible spam")
+        
+        # 11. Check for repeated characters (spam pattern)
+        if re.search(r'(.)\1{5,}', text):
+            suspicious_issues.append("Repeated characters detected")
         
         return {
             'is_inappropriate': len(inappropriate_issues) > 0,
             'is_suspicious': len(suspicious_issues) > 0,
             'inappropriate_issues': inappropriate_issues,
             'suspicious_issues': suspicious_issues,
-            'sentiment_score': blob.sentiment.polarity,
-            'severity_level': self._calculate_severity(inappropriate_issues, suspicious_issues)
+            'sentiment_score': sentiment_score,
+            'severity_level': severity_level,
+            'profanity_count': len(profanity_found),
+            'safe_to_post': len(inappropriate_issues) == 0
         }
     
-    def _calculate_severity(self, inappropriate_issues, suspicious_issues):
-        """Calculate severity level of detected issues"""
-        if any(issue in ['Hate speech', 'Violent content'] for issue in inappropriate_issues):
-            return 'high'
-        elif inappropriate_issues:
-            return 'medium'
-        elif suspicious_issues:
-            return 'low'
-        else:
-            return 'none'
+    def _check_violent_context(self, text):
+        """
+        Check if violence words are used in threatening context
+        Returns False if used in legitimate context (e.g., "kill the bug", "destroy the error")
+        """
+        # Legitimate contexts
+        legitimate_patterns = [
+            r'kill.*bug', r'kill.*process', r'destroy.*error',
+            r'attack.*problem', r'fix.*issue'
+        ]
+        
+        for pattern in legitimate_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                return False
+        
+        # Check for actual threats
+        threat_patterns = [
+            r'(kill|harm|hurt|attack)\s+(you|them|him|her)',
+            r'going to (kill|harm|hurt|destroy)',
+            r'will (kill|harm|hurt|attack)'
+        ]
+        
+        for pattern in threat_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                return True
+        
+        return False
+    
+    def get_clean_text_suggestions(self, text):
+        """Suggest cleaner alternatives for inappropriate content"""
+        suggestions = []
+        text_lower = text.lower()
+        
+        if any(word in text_lower for word in self.PROFANITY_WORDS):
+            suggestions.append("Consider removing profanity and using professional language")
+        
+        if any(word in text_lower for word in self.HARASSMENT_WORDS):
+            suggestions.append("Please be respectful and avoid harassment or bullying language")
+        
+        blob = TextBlob(text)
+        if blob.sentiment.polarity < -0.5:
+            suggestions.append("Try to frame your question or comment more constructively")
+        
+        return suggestions

@@ -5,6 +5,170 @@
 
 {% block title %}{{ post.title }} - Forum{% endblock %}
 
+{% block extra_css %}
+<style>
+    .avatar-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    .avatar-circle img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-circle-sm {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .avatar-circle-sm img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .post-content {
+        font-size: 16px;
+        line-height: 1.8;
+        margin: 20px 0;
+    }
+
+    .reply-item {
+        padding: 20px 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .reply-item:last-child {
+        border-bottom: none;
+    }
+
+    .reply-item.accepted-reply {
+        background: rgba(16, 185, 129, 0.05);
+        border-left: 4px solid #10B981;
+        padding-left: 16px;
+        margin-left: -20px;
+        padding-right: 16px;
+        margin-right: -20px;
+        border-radius: 8px;
+    }
+
+    /* Nested replies */
+    .nested-replies {
+        margin-left: 60px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .nested-reply {
+        padding: 16px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .nested-reply:last-child {
+        border-bottom: none;
+    }
+
+    .reply-votes {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 50px;
+    }
+
+    .upvote-btn, .reply-upvote-btn {
+        transition: all 0.2s;
+    }
+
+    .upvote-btn:hover, .reply-upvote-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .badge-question { background: #3B82F6; }
+    .badge-discussion { background: #10B981; }
+    .badge-help { background: #F59E0B; }
+    .badge-announcement { background: #EF4444; }
+    .badge-tutorial { background: #8B5CF6; }
+    .badge-showcase { background: #EC4899; }
+
+    .modern-card {
+        background: white;
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Reply form styles */
+    .inline-reply-form {
+        display: none;
+        margin-top: 16px;
+        padding: 16px;
+        background: #f9fafb;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .inline-reply-form.show {
+        display: block;
+        animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    .animate-upvote {
+        animation: pulse 0.3s ease;
+    }
+
+    .btn-reply {
+        font-size: 14px;
+        padding: 4px 12px;
+        background: transparent;
+        border: 1px solid #e5e7eb;
+        color: #6b7280;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+
+    .btn-reply:hover {
+        background: #f3f4f6;
+        color: #111827;
+        border-color: #5568FE;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4">
     <!-- Back Navigation -->
@@ -76,13 +240,13 @@
                                 {% if post.author.profile.profile_picture %}
                                 <img src="{{ post.author.profile.profile_picture.url }}" alt="Avatar">
                                 {% else %}
-                                <i class='bx bx-user'></i>
+                                {{ post.author.display_name|first|upper }}
                                 {% endif %}
                             </div>
                             <div>
                                 <strong>{{ post.author.display_name }}</strong>
                                 <small class="text-muted d-block">
-                                    {{ post.created_at|timesince }} ago
+                                    Posted {{ post.created_at|timesince }} ago
                                     {% if post.updated_at != post.created_at %}
                                     • Edited {{ post.updated_at|timesince }} ago
                                     {% endif %}
@@ -92,7 +256,7 @@
                     </div>
 
                     <!-- Post Content -->
-                    <div class="post-content mb-4">
+                    <div class="post-content">
                         {{ post.content|linebreaks }}
                     </div>
 
@@ -117,7 +281,7 @@
                     {% endif %}
 
                     <!-- Post Actions -->
-                    <div class="post-actions d-flex justify-content-between align-items-center">
+                    <div class="post-actions d-flex justify-content-between align-items-center pt-3 border-top">
                         <div class="d-flex gap-3">
                             <!-- Upvote Button -->
                             <button class="btn btn-sm {% if user_has_upvoted %}btn-primary{% else %}btn-outline-primary{% endif %} upvote-btn"
@@ -128,13 +292,15 @@
                             </button>
 
                             <!-- Reply Count -->
-                            <div class="text-muted">
-                                <i class='bx bx-comment'></i> {{ post.reply_count }} replies
+                            <div class="text-muted d-flex align-items-center">
+                                <i class='bx bx-comment me-1'></i>
+                                <span>{{ post.reply_count }} replies</span>
                             </div>
 
                             <!-- Views -->
-                            <div class="text-muted">
-                                <i class='bx bx-show'></i> {{ post.views }} views
+                            <div class="text-muted d-flex align-items-center">
+                                <i class='bx bx-show me-1'></i>
+                                <span>{{ post.views }} views</span>
                             </div>
                         </div>
 
@@ -143,97 +309,154 @@
                                 data-post-id="{{ post.pk }}"
                                 data-following="{{ user_is_following|yesno:'true,false' }}">
                             <i class='bx {% if user_is_following %}bx-check{% else %}bx-bell{% endif %}'></i>
-                            {% if user_is_following %}Following{% else %}Follow{% endif %}
+                            <span class="follow-text">{% if user_is_following %}Following{% else %}Follow{% endif %}</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Replies Section -->
-            <div class="card modern-card">
+            <!-- Comments Section -->
+            <div class="card modern-card mb-4">
                 <div class="card-header bg-white">
                     <h5 class="mb-0">
                         <i class='bx bx-comment-detail'></i> 
-                        {{ replies.count }} {% if replies.count == 1 %}Reply{% else %}Replies{% endif %}
+                        {{ replies.count }} {% if replies.count == 1 %}Comment{% else %}Comments{% endif %}
                     </h5>
                 </div>
                 <div class="card-body">
                     {% if replies %}
-                    {% for reply in replies %}
-                    <div class="reply-item {% if reply.is_accepted %}accepted-reply{% endif %}" id="reply-{{ reply.pk }}">
-                        <div class="d-flex">
-                            <!-- Upvote Column -->
-                            <div class="reply-votes me-3">
-                                <button class="btn btn-sm {% if reply.pk in reply_upvotes and reply_upvotes|get_item:reply.pk %}btn-primary{% else %}btn-outline-primary{% endif %} reply-upvote-btn"
-                                        data-reply-id="{{ reply.pk }}">
-                                    <i class='bx bx-up-arrow-alt'></i>
-                                    <span class="reply-upvote-count">{{ reply.upvote_count }}</span>
-                                </button>
-                            </div>
-
-                            <!-- Reply Content -->
-                            <div class="flex-grow-1">
-                                <!-- Author Info -->
-                                <div class="d-flex align-items-center mb-2">
-                                    <div class="avatar-circle-sm me-2">
-                                        {% if reply.author.profile.profile_picture %}
-                                        <img src="{{ reply.author.profile.profile_picture.url }}" alt="Avatar">
-                                        {% else %}
-                                        <i class='bx bx-user'></i>
-                                        {% endif %}
+                        {% for reply in replies %}
+                            {% if not reply.parent %}  {# Only show top-level comments #}
+                            <div class="reply-item {% if reply.is_accepted %}accepted-reply{% endif %}" id="reply-{{ reply.pk }}">
+                                <div class="d-flex">
+                                    <!-- Upvote Column -->
+                                    <div class="reply-votes me-3">
+                                        <button class="btn btn-sm {% if reply.pk in reply_upvotes %}btn-primary{% else %}btn-outline-primary{% endif %} reply-upvote-btn"
+                                                data-reply-id="{{ reply.pk }}">
+                                            <i class='bx bx-up-arrow-alt'></i>
+                                            <div class="reply-upvote-count">{{ reply.upvote_count }}</div>
+                                        </button>
                                     </div>
-                                    <div>
-                                        <strong>{{ reply.author.display_name }}</strong>
-                                        {% if reply.author == post.author %}
-                                        <span class="badge bg-info badge-sm ms-1">Author</span>
+
+                                    <!-- Reply Content -->
+                                    <div class="flex-grow-1">
+                                        <!-- Author Info -->
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="avatar-circle-sm me-2">
+                                                {% if reply.author.profile.profile_picture %}
+                                                <img src="{{ reply.author.profile.profile_picture.url }}" alt="Avatar">
+                                                {% else %}
+                                                {{ reply.author.display_name|first|upper }}
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <strong>{{ reply.author.display_name }}</strong>
+                                                {% if reply.author == post.author %}
+                                                <span class="badge bg-info badge-sm ms-1">Author</span>
+                                                {% endif %}
+                                                {% if reply.is_accepted %}
+                                                <span class="badge bg-success badge-sm ms-1">
+                                                    <i class='bx bx-check'></i> Accepted Answer
+                                                </span>
+                                                {% endif %}
+                                                <small class="text-muted d-block">
+                                                    {{ reply.created_at|timesince }} ago
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Reply Content -->
+                                        <div class="reply-content mb-3">
+                                            {{ reply.content|linebreaks }}
+                                        </div>
+
+                                        <!-- Reply Actions -->
+                                        <div class="reply-actions d-flex gap-2">
+                                            {% if can_mark_solved and not post.is_solved %}
+                                            <a href="{% url 'forum:mark_solved_reply' post.pk reply.pk %}" 
+                                               class="btn btn-sm btn-outline-success">
+                                                <i class='bx bx-check-circle'></i> Mark as Solution
+                                            </a>
+                                            {% endif %}
+                                            
+                                            <!-- Reply Button -->
+                                            <button class="btn btn-sm btn-reply" 
+                                                    onclick="toggleReplyForm({{ reply.pk }})">
+                                                <i class='bx bx-reply'></i> Reply
+                                            </button>
+                                        </div>
+
+                                        <!-- Inline Reply Form -->
+                                        <div class="inline-reply-form" id="reply-form-{{ reply.pk }}">
+                                            <form method="post" action="{% url 'forum:reply_to_reply' reply.pk %}">
+                                                {% csrf_token %}
+                                                <textarea name="content" 
+                                                          class="form-control mb-2" 
+                                                          rows="3" 
+                                                          placeholder="Write your reply..." 
+                                                          required></textarea>
+                                                <div class="d-flex justify-content-end gap-2">
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-outline-secondary"
+                                                            onclick="toggleReplyForm({{ reply.pk }})">
+                                                        Cancel
+                                                    </button>
+                                                    <button type="submit" class="btn btn-sm btn-primary">
+                                                        <i class='bx bx-send'></i> Post Reply
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <!-- Nested Replies -->
+                                        {% with nested_replies=reply.child_replies.all %}
+                                        {% if nested_replies %}
+                                        <div class="nested-replies">
+                                            {% for nested in nested_replies %}
+                                            <div class="nested-reply">
+                                                <div class="d-flex">
+                                                    <div class="avatar-circle-sm me-2" style="width: 32px; height: 32px; font-size: 14px;">
+                                                        {% if nested.author.profile.profile_picture %}
+                                                        <img src="{{ nested.author.profile.profile_picture.url }}" alt="Avatar">
+                                                        {% else %}
+                                                        {{ nested.author.display_name|first|upper }}
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <div class="mb-1">
+                                                            <strong>{{ nested.author.display_name }}</strong>
+                                                            <small class="text-muted">{{ nested.created_at|timesince }} ago</small>
+                                                        </div>
+                                                        <div class="text-sm">
+                                                            {{ nested.content|linebreaks }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
                                         {% endif %}
-                                        {% if reply.is_accepted %}
-                                        <span class="badge bg-success badge-sm ms-1">
-                                            <i class='bx bx-check'></i> Accepted Answer
-                                        </span>
-                                        {% endif %}
-                                        <small class="text-muted d-block">
-                                            {{ reply.created_at|timesince }} ago
-                                        </small>
+                                        {% endwith %}
                                     </div>
                                 </div>
-
-                                <!-- Reply Content -->
-                                <div class="reply-content mb-3">
-                                    {{ reply.content|linebreaks }}
-                                </div>
-
-                                <!-- Reply Actions -->
-                                <div class="reply-actions">
-                                    {% if can_mark_solved and not post.is_solved %}
-                                    <a href="{% url 'forum:mark_solved' post.pk reply.pk %}" 
-                                       class="btn btn-sm btn-outline-success">
-                                        <i class='bx bx-check-circle'></i> Mark as Solution
-                                    </a>
-                                    {% endif %}
-                                </div>
                             </div>
-                        </div>
-                    </div>
-                    {% if not forloop.last %}
-                    <hr>
-                    {% endif %}
-                    {% endfor %}
+                            {% endif %}
+                        {% endfor %}
                     {% else %}
-                    <div class="text-center py-5">
-                        <i class='bx bx-comment-x' style="font-size: 3rem; color: #ccc;"></i>
-                        <p class="text-muted mt-3">No replies yet. Be the first to respond!</p>
-                    </div>
+                        <div class="text-center py-5">
+                            <i class='bx bx-comment-x' style="font-size: 3rem; color: #ccc;"></i>
+                            <p class="text-muted mt-3">No comments yet. Be the first to comment!</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Reply Form -->
+            <!-- Add Comment Form -->
             {% if user.is_authenticated %}
-            <div class="card modern-card mt-4">
+            <div class="card modern-card">
                 <div class="card-header bg-white">
                     <h5 class="mb-0">
-                        <i class='bx bx-reply'></i> Add Your Reply
+                        <i class='bx bx-message-square-add'></i> Add Comment
                     </h5>
                 </div>
                 <div class="card-body">
@@ -242,32 +465,32 @@
                         <input type="hidden" name="reply_submit" value="1">
                         
                         <div class="mb-3">
-                            {{ reply_form.content }}
-                            {% if reply_form.content.errors %}
-                            <div class="text-danger small mt-1">
-                                {{ reply_form.content.errors.0 }}
-                            </div>
-                            {% endif %}
+                            <textarea name="content" 
+                                      id="reply-content"
+                                      class="form-control"
+                                      rows="5"
+                                      placeholder="Share your thoughts or answer..."
+                                      required></textarea>
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center">
                             <small class="text-muted">
                                 <i class='bx bx-info-circle'></i> 
-                                Be respectful and constructive in your replies
+                                Be respectful and constructive
                             </small>
-                            <button type="submit" class="btn btn-primary">
-                                <i class='bx bx-send'></i> Post Reply
+                            <button type="submit" class="btn btn-primary" id="reply-submit-btn">
+                                <i class='bx bx-send'></i> Post Comment
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
             {% else %}
-            <div class="card modern-card mt-4">
+            <div class="card modern-card">
                 <div class="card-body text-center">
                     <p class="mb-0">
                         <a href="{% url 'accounts:login' %}?next={{ request.path }}">Log in</a> 
-                        to reply to this post
+                        to comment on this post
                     </p>
                 </div>
             </div>
@@ -282,13 +505,13 @@
                     <h6 class="mb-0">About This Post</h6>
                 </div>
                 <div class="card-body">
-                    <div class="info-item">
+                    <div class="info-item mb-3">
                         <small class="text-muted">Category</small>
-                        <p class="mb-2">{{ post.category.name }}</p>
+                        <p class="mb-0"><strong>{{ post.category.name }}</strong></p>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item mb-3">
                         <small class="text-muted">Status</small>
-                        <p class="mb-2">
+                        <p class="mb-0">
                             <span class="badge bg-{{ post.status }}">
                                 {{ post.get_status_display }}
                             </span>
@@ -300,116 +523,55 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Related Posts -->
-            <div class="card modern-card">
-                <div class="card-header bg-white">
-                    <h6 class="mb-0">Related Discussions</h6>
-                </div>
-                <div class="card-body">
-                    <div class="related-posts">
-                        <div class="text-muted text-center py-3">
-                            <small>No related posts found</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
-<style>
-.avatar-circle {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: var(--primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 24px;
-    overflow: hidden;
-}
-
-.avatar-circle img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.avatar-circle-sm {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    background: var(--primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 16px;
-    overflow: hidden;
-}
-
-.avatar-circle-sm img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.post-content {
-    font-size: 16px;
-    line-height: 1.8;
-}
-
-.reply-item {
-    padding: 20px 0;
-}
-
-.reply-item.accepted-reply {
-    background: rgba(16, 185, 129, 0.05);
-    border-left: 4px solid var(--success);
-    padding-left: 16px;
-    margin-left: -20px;
-    padding-right: 16px;
-    margin-right: -20px;
-    border-radius: 8px;
-}
-
-.reply-votes {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.badge-question { background: #3B82F6; }
-.badge-discussion { background: #10B981; }
-.badge-help { background: #F59E0B; }
-.badge-announcement { background: #EF4444; }
-.badge-tutorial { background: #8B5CF6; }
-.badge-showcase { background: #EC4899; }
-
-.info-item {
-    margin-bottom: 15px;
-}
-
-.info-item:last-child {
-    margin-bottom: 0;
-}
-</style>
-
 <script>
+// Toggle inline reply form
+function toggleReplyForm(replyId) {
+    const form = document.getElementById(`reply-form-${replyId}`);
+    if (form.classList.contains('show')) {
+        form.classList.remove('show');
+    } else {
+        // Hide all other forms
+        document.querySelectorAll('.inline-reply-form').forEach(f => {
+            f.classList.remove('show');
+        });
+        form.classList.add('show');
+        form.querySelector('textarea').focus();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
     // Upvote post
-    document.querySelectorAll('.upvote-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+    const upvoteBtn = document.querySelector('.upvote-btn');
+    if (upvoteBtn) {
+        upvoteBtn.addEventListener('click', function() {
             const postId = this.dataset.postId;
-            const isUpvoted = this.dataset.upvoted === 'true';
             
             fetch(`/forum/post/${postId}/upvote/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-CSRFToken': csrftoken,
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
@@ -425,20 +587,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.classList.remove('btn-primary');
                     this.classList.add('btn-outline-primary');
                 }
+                
+                this.classList.add('animate-upvote');
+                setTimeout(() => this.classList.remove('animate-upvote'), 300);
             });
         });
-    });
+    }
 
     // Follow post
-    document.querySelectorAll('.follow-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+    const followBtn = document.querySelector('.follow-btn');
+    if (followBtn) {
+        followBtn.addEventListener('click', function() {
             const postId = this.dataset.postId;
-            const isFollowing = this.dataset.following === 'true';
             
             fetch(`/forum/post/${postId}/follow/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-CSRFToken': csrftoken,
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
@@ -446,7 +611,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 this.dataset.following = data.following;
                 const icon = this.querySelector('i');
-                const text = this.querySelector('span') || this;
+                const text = this.querySelector('.follow-text');
                 
                 if (data.following) {
                     icon.className = 'bx bx-check';
@@ -461,9 +626,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
-    });
+    }
 
-    // Upvote reply
+    // Upvote replies
     document.querySelectorAll('.reply-upvote-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const replyId = this.dataset.replyId;
@@ -471,7 +636,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`/forum/reply/${replyId}/upvote/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-CSRFToken': csrftoken,
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
@@ -486,24 +651,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.classList.remove('btn-primary');
                     this.classList.add('btn-outline-primary');
                 }
+                
+                this.classList.add('animate-upvote');
+                setTimeout(() => this.classList.remove('animate-upvote'), 300);
             });
         });
     });
 });
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
 </script>
 {% endblock %}

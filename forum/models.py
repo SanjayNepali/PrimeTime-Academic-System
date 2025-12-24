@@ -1,10 +1,10 @@
-# File: Desktop/Prime/forum/models.py
+# File: forum/models.py
 
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinLengthValidator
 from accounts.models import User
-from projects.models import Project 
+
 
 class ForumCategory(models.Model):
     """Forum categories"""
@@ -22,8 +22,9 @@ class ForumCategory(models.Model):
     def __str__(self):
         return self.name
     
+    # Renamed to avoid potential conflicts
     @property
-    def post_count(self):
+    def total_posts(self):
         return self.forumpost_set.count()
 
 
@@ -38,6 +39,11 @@ class ForumTag(models.Model):
     
     def __str__(self):
         return self.name
+    
+    # Renamed to avoid conflict with annotation
+    @property
+    def total_posts(self):
+        return self.forumpost_set.count()
 
 
 class ForumPost(models.Model):
@@ -74,6 +80,7 @@ class ForumPost(models.Model):
         blank=True,
         related_name='forum_posts'
     )
+    
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     is_solved = models.BooleanField(default=False)
@@ -135,6 +142,13 @@ class ForumPost(models.Model):
     def follower_count(self):
         return self.followers.count()
     
+    @property
+    def languages_list(self):
+        """Return programming languages as a list"""
+        if self.programming_languages:
+            return [lang.strip() for lang in self.programming_languages.split(',') if lang.strip()]
+        return []
+    
     def increment_views(self):
         self.views += 1
         self.save(update_fields=['views'])
@@ -160,7 +174,7 @@ class ForumReply(models.Model):
     content = models.TextField(validators=[MinLengthValidator(5)])
     
     # Parent reply for threading
-    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='replies')
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='child_replies')
     
     # Engagement
     upvotes = models.ManyToManyField(User, blank=True, related_name='upvoted_replies')

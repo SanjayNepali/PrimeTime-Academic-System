@@ -1,4 +1,4 @@
-# File: Desktop/Prime/forum/urls.py
+# File: forum/urls.py
 
 from django.urls import path
 from . import views
@@ -16,20 +16,17 @@ urlpatterns = [
     path('post/<int:pk>/delete/', views.post_delete, name='post_delete'),
     
     # Project-specific forum
-    path('project/<int:project_id>/', views.project_forum, name='project_forum'),  # ADD THIS LINE
+    path('project/<int:project_id>/', views.project_forum, name='project_forum'),
     
-    # Post CRUD
-    path('post/create/', views.post_create, name='post_create'),
-    path('post/<int:pk>/', views.post_detail, name='post_detail'),
-
     # Post interactions
     path('post/<int:pk>/upvote/', views.post_upvote, name='post_upvote'),
     path('post/<int:pk>/follow/', views.post_follow, name='post_follow'),
     path('post/<int:pk>/solved/', views.mark_solved, name='mark_solved'),
-    path('post/<int:pk>/solved/<int:reply_id>/', views.mark_solved, name='mark_solved_reply'),
+    path('post/<int:pk>/solved/<int:reply_id>/', views.mark_solved, name='mark_solved_reply'),  # FIX: Added reply_id
     
     # Reply interactions
     path('reply/<int:pk>/upvote/', views.reply_upvote, name='reply_upvote'),
+    path('reply/<int:reply_id>/reply/', views.reply_to_reply, name='reply_to_reply'),  # NEW: Reply to reply
     
     # User posts
     path('my-posts/', views.my_posts, name='my_posts'),

@@ -2,11 +2,35 @@
 
 /**
  * Forum JavaScript Enhancements
+ * Enhanced with Real-time Content Moderation
  * Integrates with backend sentiment analysis and content detection algorithms
  */
 
 class ForumEnhancements {
     constructor() {
+        // Enhanced content moderation patterns
+        this.profanityWords = new Set([
+            'shit', 'fuck', 'damn', 'hell', 'bitch', 'bastard', 
+            'asshole', 'crap', 'piss', 'dick', 'idiot', 'stupid', 
+            'dumb', 'moron', 'loser', 'nigger', 'nigga', 'chink',
+            'spic', 'kike', 'retard', 'fag', 'faggot'
+        ]);
+        
+        this.harassmentWords = new Set([
+            'kill', 'die', 'death', 'hate', 'attack', 'threat', 
+            'harm', 'hurt', 'destroy', 'murder', 'suicide', 'stab',
+            'shoot', 'bomb', 'assault', 'rape', 'abuse'
+        ]);
+
+        this.suspiciousPatterns = [
+            /\b(password|login|credentials|account)\b/i,
+            /\b(free.?money|earn.?fast|make.?money|work.?from.?home)\b/i,
+            /\b(click.?here|limited.?time|special.?offer)\b/i,
+            /(http|https|www\.|\.[a-z]{2,})/i, // URLs
+            /\b(wire.?transfer|bitcoin|crypto|paypal|bank)\b/i,
+            /\d{10,}/g, // Long numbers (potential personal info)
+        ];
+
         this.init();
     }
 
@@ -18,6 +42,7 @@ class ForumEnhancements {
         this.setupNotificationPolling();
         this.setupSearchEnhancements();
         this.setupKeyboardShortcuts();
+        this.setupContentModeration();
     }
 
     /**
@@ -29,16 +54,11 @@ class ForumEnhancements {
         
         if (contentFields.length === 0) return;
 
-        // Inappropriate keywords (simplified version)
+        // Inappropriate keywords patterns
         const inappropriatePatterns = [
-            /\b(spam|scam|fake)\b/i,
-            /\b(hate|racist)\b/i,
-            /\b(cheat|plagiar)\b/i
-        ];
-
-        const suspiciousPatterns = [
-            /\b(password|login)\b/i,
-            /\b(free.?money|earn.?fast)\b/i
+            /\b(spam|scam|fake|phishing|fraud)\b/i,
+            /\b(cheat|plagiar|copy|steal)\b/i,
+            /\b(virus|malware|hack|crack)\b/i
         ];
 
         contentFields.forEach(field => {
@@ -48,10 +68,164 @@ class ForumEnhancements {
             field.addEventListener('input', () => {
                 clearTimeout(analysisTimeout);
                 analysisTimeout = setTimeout(() => {
-                    this.analyzeContent(field.value, feedbackDiv, inappropriatePatterns, suspiciousPatterns);
+                    this.analyzeContent(field.value, feedbackDiv, inappropriatePatterns, this.suspiciousPatterns);
                 }, 500);
             });
         });
+    }
+
+    /**
+     * Enhanced content moderation system
+     */
+    setupContentModeration() {
+        const contentFields = document.querySelectorAll('textarea[name="content"], input[name="title"]');
+        
+        contentFields.forEach(field => {
+            let moderationTimeout;
+            
+            field.addEventListener('input', () => {
+                clearTimeout(moderationTimeout);
+                moderationTimeout = setTimeout(() => {
+                    this.checkContentModeration(field);
+                }, 500);
+            });
+        });
+    }
+
+    checkContentModeration(field) {
+        const text = field.value.toLowerCase();
+        const words = text.match(/\b\w+\b/g) || [];
+        
+        let issues = [];
+        let suggestions = [];
+        let severity = 'none';
+
+        // Check for profanity
+        const foundProfanity = words.filter(word => this.profanityWords.has(word));
+        if (foundProfanity.length > 0) {
+            issues.push(`Profanity detected: ${foundProfanity.slice(0, 3).join(', ')}`);
+            suggestions.push('Please remove profanity and use professional language');
+            severity = 'high';
+        }
+
+        // Check for harassment
+        const foundHarassment = words.filter(word => this.harassmentWords.has(word));
+        if (foundHarassment.length > 0) {
+            issues.push('Potentially threatening or harassing language detected');
+            suggestions.push('Be respectful and constructive in your communication');
+            severity = 'high';
+        }
+
+        // Check for hate speech patterns
+        const hatePatterns = [
+            /\b(all\s*(white|black|asian|jewish|muslim|gay)s?\s*(are|is)\s*(stupid|bad|evil|wrong))\b/i,
+            /\b(I\s*hate\s*(all|every)\s*(white|black|asian|jewish|muslim|gay|trans))\b/i,
+            /\b(die\s*(all|every)\s*(white|black|asian|jewish|muslim|gay|trans))\b/i
+        ];
+        
+        hatePatterns.forEach(pattern => {
+            if (pattern.test(text)) {
+                issues.push('Hate speech detected');
+                suggestions.push('Hate speech is strictly prohibited. Please review community guidelines.');
+                severity = 'high';
+            }
+        });
+
+        // Check for excessive caps
+        if (text.length > 20) {
+            const capsRatio = (text.match(/[A-Z]/g) || []).length / text.length;
+            if (capsRatio > 0.7) {
+                issues.push('Excessive use of capital letters (appears to be yelling)');
+                suggestions.push('Use normal case for better readability');
+                severity = severity === 'none' ? 'medium' : severity;
+            }
+        }
+
+        // Check for excessive punctuation
+        if ((text.match(/!/g) || []).length > 5 || (text.match(/\?/g) || []).length > 5) {
+            issues.push('Too many exclamation or question marks');
+            suggestions.push('Use punctuation moderately for clear communication');
+            severity = severity === 'none' ? 'low' : severity;
+        }
+
+        // Check for spam patterns
+        if (text.includes('$$$') || text.includes('!!!') || text.includes('???')) {
+            issues.push('Spam-like patterns detected');
+            suggestions.push('Avoid excessive special characters');
+            severity = severity === 'none' ? 'medium' : severity;
+        }
+
+        // Check for repeated words
+        const wordCounts = {};
+        words.forEach(word => {
+            wordCounts[word] = (wordCounts[word] || 0) + 1;
+        });
+        
+        const repeatedWords = Object.entries(wordCounts).filter(([word, count]) => count > 5);
+        if (repeatedWords.length > 0) {
+            issues.push(`Repeated words detected (${repeatedWords.map(([w]) => w).join(', ')})`);
+            suggestions.push('Avoid repeating the same words multiple times');
+            severity = severity === 'none' ? 'low' : severity;
+        }
+
+        // Display moderation feedback
+        this.displayModerationFeedback(field, issues, suggestions, severity);
+    }
+
+    displayModerationFeedback(field, issues, suggestions, severity) {
+        // Remove existing moderation feedback
+        const existingFeedback = field.parentElement.querySelector('.content-moderation-feedback');
+        if (existingFeedback) {
+            existingFeedback.remove();
+        }
+
+        if (issues.length === 0 && suggestions.length === 0) {
+            return;
+        }
+
+        // Create feedback element
+        const feedback = document.createElement('div');
+        feedback.className = `content-moderation-feedback alert mt-2 ${severity === 'high' ? 'alert-danger' : severity === 'medium' ? 'alert-warning' : 'alert-info'}`;
+        
+        let html = '';
+        
+        if (issues.length > 0) {
+            html += '<strong><i class="bx bx-error"></i> Content Issues:</strong><ul class="mb-1">';
+            issues.forEach(issue => {
+                html += `<li>${issue}</li>`;
+            });
+            html += '</ul>';
+        }
+        
+        if (suggestions.length > 0) {
+            html += '<strong class="d-block mt-2"><i class="bx bx-info-circle"></i> Suggestions:</strong><ul class="mb-0">';
+            suggestions.forEach(suggestion => {
+                html += `<li>${suggestion}</li>`;
+            });
+            html += '</ul>';
+        }
+        
+        feedback.innerHTML = html;
+        field.parentElement.appendChild(feedback);
+
+        // Disable submit if severe issues
+        const form = field.closest('form');
+        const submitBtn = form?.querySelector('button[type="submit"]');
+        if (submitBtn && severity === 'high') {
+            submitBtn.disabled = true;
+            submitBtn.title = 'Content contains prohibited language';
+            submitBtn.innerHTML = '<i class="bx bx-block"></i> Content Blocked';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-danger');
+        } else if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.title = '';
+            submitBtn.classList.remove('btn-danger');
+            submitBtn.classList.add('btn-primary');
+            const originalText = submitBtn.dataset.originalText || submitBtn.innerHTML;
+            submitBtn.dataset.originalText = originalText;
+            submitBtn.innerHTML = originalText.includes('Create') ? '<i class="bx bx-send"></i> Create Post' : '<i class="bx bx-send"></i> Post Reply';
+        }
     }
 
     createFeedbackDiv(field) {
@@ -110,6 +284,14 @@ class ForumEnhancements {
             });
         }
 
+        // Check for very short content
+        if (text.length < 20 && text.split(' ').length < 5) {
+            issues.push({
+                type: 'warning',
+                message: 'Content appears very short. Consider adding more details.'
+            });
+        }
+
         // Display feedback
         if (issues.length > 0) {
             feedbackDiv.innerHTML = issues.map(issue => `
@@ -154,9 +336,11 @@ class ForumEnhancements {
                             this.classList.remove('btn-outline-primary');
                             this.classList.add('btn-primary');
                             this.classList.add('animate-vote');
+                            showToast('Success', 'Post upvoted!', 'success');
                         } else {
                             this.classList.remove('btn-primary');
                             this.classList.add('btn-outline-primary');
+                            showToast('Success', 'Upvote removed', 'info');
                         }
 
                         setTimeout(() => this.classList.remove('animate-vote'), 300);
@@ -200,6 +384,7 @@ class ForumEnhancements {
                     }
                 } catch (error) {
                     console.error('Error upvoting reply:', error);
+                    showToast('Error', 'Failed to upvote reply', 'error');
                 }
             });
         });
@@ -272,6 +457,7 @@ class ForumEnhancements {
             if (confirm('You have an unsaved draft. Would you like to restore it?')) {
                 titleInput.value = draft.title;
                 contentInput.value = draft.content;
+                showToast('Draft Restored', 'Your draft has been loaded. Remember to save!', 'info');
             } else {
                 this.clearDraft(AUTOSAVE_KEY);
             }
@@ -296,6 +482,15 @@ class ForumEnhancements {
         form.addEventListener('submit', () => {
             this.clearDraft(AUTOSAVE_KEY);
         });
+
+        // Warn before leaving if there's a draft
+        window.addEventListener('beforeunload', (e) => {
+            const draft = this.loadDraft(AUTOSAVE_KEY);
+            if (draft && (draft.title || draft.content)) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            }
+        });
     }
 
     saveDraft(key, data) {
@@ -303,6 +498,7 @@ class ForumEnhancements {
             localStorage.setItem(key, JSON.stringify(data));
         } catch (e) {
             console.error('Error saving draft:', e);
+            showToast('Error', 'Failed to save draft', 'error');
         }
     }
 
@@ -349,6 +545,7 @@ class ForumEnhancements {
             transition: opacity 0.3s;
             opacity: 0;
             z-index: 9999;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         `;
         document.body.appendChild(indicator);
         return indicator;
@@ -361,28 +558,43 @@ class ForumEnhancements {
         const notificationBadge = document.querySelector('.notification-badge');
         if (!notificationBadge) return;
 
-        // Poll every 30 seconds
-        setInterval(async () => {
-            try {
-                const response = await fetch('/forum/api/unread-notifications/', {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
+        // Initial check
+        this.checkNotifications(notificationBadge);
 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.unread_count > 0) {
-                        notificationBadge.textContent = data.unread_count;
-                        notificationBadge.style.display = 'block';
-                    } else {
-                        notificationBadge.style.display = 'none';
-                    }
-                }
-            } catch (error) {
-                console.error('Error polling notifications:', error);
-            }
+        // Poll every 30 seconds
+        setInterval(() => {
+            this.checkNotifications(notificationBadge);
         }, 30000);
+    }
+
+    async checkNotifications(notificationBadge) {
+        try {
+            const response = await fetch('/forum/api/unread-notifications/', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.unread_count > 0) {
+                    notificationBadge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                    notificationBadge.style.display = 'block';
+                    
+                    // Show notification alert if new notifications
+                    if (data.new_notifications && data.new_notifications.length > 0) {
+                        data.new_notifications.forEach(notification => {
+                            showToast('New Notification', notification.message, 'info');
+                        });
+                    }
+                } else {
+                    notificationBadge.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error('Error polling notifications:', error);
+        }
     }
 
     /**
@@ -393,13 +605,69 @@ class ForumEnhancements {
         if (!searchInput) return;
 
         let searchTimeout;
+        const suggestionsContainer = this.createSearchSuggestions(searchInput);
+
         searchInput.addEventListener('input', function() {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                // Could implement search suggestions here
-                console.log('Searching for:', this.value);
+            suggestionsContainer.style.display = 'none';
+            
+            if (this.value.length < 2) return;
+            
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/forum/api/search-suggestions/?q=${encodeURIComponent(this.value)}`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const suggestions = await response.json();
+                        if (suggestions.length > 0) {
+                            suggestionsContainer.innerHTML = suggestions.map(suggestion => 
+                                `<div class="search-suggestion" data-suggestion="${suggestion}">
+                                    <i class="bx bx-search"></i> ${suggestion}
+                                </div>`
+                            ).join('');
+                            suggestionsContainer.style.display = 'block';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching suggestions:', error);
+                }
             }, 300);
         });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+                suggestionsContainer.style.display = 'none';
+            }
+        });
+    }
+
+    createSearchSuggestions(searchInput) {
+        const container = document.createElement('div');
+        container.className = 'search-suggestions';
+        container.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        `;
+        
+        searchInput.parentElement.style.position = 'relative';
+        searchInput.parentElement.appendChild(container);
+        
+        return container;
     }
 
     /**
@@ -411,15 +679,36 @@ class ForumEnhancements {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
                 const searchInput = document.querySelector('input[name="search"]');
-                if (searchInput) searchInput.focus();
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
             }
 
             // Ctrl/Cmd + Enter: Submit form
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                 const activeElement = document.activeElement;
-                if (activeElement.tagName === 'TEXTAREA') {
+                if (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT') {
                     const form = activeElement.closest('form');
-                    if (form) form.submit();
+                    if (form && !activeElement.disabled) {
+                        e.preventDefault();
+                        form.submit();
+                    }
+                }
+            }
+
+            // Escape: Close modals, clear search
+            if (e.key === 'Escape') {
+                const activeModal = document.querySelector('.modal.show');
+                if (activeModal) {
+                    const closeBtn = activeModal.querySelector('[data-bs-dismiss="modal"]');
+                    if (closeBtn) closeBtn.click();
+                }
+                
+                const searchInput = document.querySelector('input[name="search"]');
+                if (document.activeElement === searchInput && searchInput.value) {
+                    searchInput.value = '';
+                    searchInput.dispatchEvent(new Event('input'));
                 }
             }
         });
@@ -444,9 +733,13 @@ function showToast(title, message, type = 'info') {
     const container = document.getElementById('toast-container') || createToastContainer();
     container.appendChild(toast);
 
+    // Add slide-in animation
+    toast.style.animation = 'slideInRight 0.3s ease-out';
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
         toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
         setTimeout(() => toast.remove(), 300);
     }, 5000);
 }
@@ -514,10 +807,18 @@ function setupLazyLoading() {
                 if (entry.isIntersecting) {
                     const img = entry.target;
                     img.src = img.dataset.src;
+                    if (img.dataset.srcset) {
+                        img.srcset = img.dataset.srcset;
+                    }
+                    img.classList.add('fade-in');
                     img.removeAttribute('data-src');
+                    img.removeAttribute('data-srcset');
                     imageObserver.unobserve(img);
                 }
             });
+        }, {
+            rootMargin: '50px 0px',
+            threshold: 0.1
         });
 
         images.forEach(img => imageObserver.observe(img));
@@ -525,18 +826,38 @@ function setupLazyLoading() {
         // Fallback for browsers without IntersectionObserver
         images.forEach(img => {
             img.src = img.dataset.src;
+            if (img.dataset.srcset) {
+                img.srcset = img.dataset.srcset;
+            }
             img.removeAttribute('data-src');
+            img.removeAttribute('data-srcset');
         });
     }
 }
 
-// Add CSS for animations
+// Add CSS for animations and styles
 const style = document.createElement('style');
 style.textContent = `
     @keyframes vote-pulse {
         0% { transform: scale(1); }
         50% { transform: scale(1.1); }
         100% { transform: scale(1); }
+    }
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 
     .animate-vote {
@@ -550,7 +871,20 @@ style.textContent = `
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         min-width: 300px;
         opacity: 1;
-        transition: opacity 0.3s;
+        transition: all 0.3s ease;
+        border-left: 4px solid #3B82F6;
+    }
+
+    .toast-notification.toast-success {
+        border-left-color: #10B981;
+    }
+
+    .toast-notification.toast-error {
+        border-left-color: #EF4444;
+    }
+
+    .toast-notification.toast-info {
+        border-left-color: #3B82F6;
     }
 
     .toast-header {
@@ -576,6 +910,13 @@ style.textContent = `
         font-size: 24px;
         cursor: pointer;
         color: #6B7280;
+        line-height: 1;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .toast-body {
@@ -585,6 +926,20 @@ style.textContent = `
 
     .content-feedback {
         animation: slideDown 0.3s ease;
+    }
+
+    .content-moderation-feedback {
+        animation: slideDown 0.3s ease;
+    }
+
+    .content-moderation-feedback ul {
+        margin-bottom: 0.5rem;
+        padding-left: 1.5rem;
+    }
+
+    .content-moderation-feedback li {
+        margin-bottom: 0.25rem;
+        font-size: 0.9rem;
     }
 
     @keyframes slideDown {
@@ -597,16 +952,83 @@ style.textContent = `
             transform: translateY(0);
         }
     }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    .search-suggestion {
+        padding: 10px 15px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .search-suggestion:last-child {
+        border-bottom: none;
+    }
+
+    .search-suggestion:hover {
+        background-color: #f5f5f5;
+    }
+
+    .search-suggestion i {
+        margin-right: 8px;
+        color: #666;
+    }
+
+    .btn-danger:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-success:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .notification-badge {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.1);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
 `;
 document.head.appendChild(style);
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        new ForumEnhancements();
+        const forumEnhancements = new ForumEnhancements();
         setupLazyLoading();
+        
+        // Make forumEnhancements available globally for debugging
+        window.forumEnhancements = forumEnhancements;
     });
 } else {
-    new ForumEnhancements();
+    const forumEnhancements = new ForumEnhancements();
     setupLazyLoading();
+    window.forumEnhancements = forumEnhancements;
 }
+
+// Export utility functions for use in other modules
+window.ForumUtils = {
+    showToast,
+    getCookie,
+    formatRelativeTime,
+    setupLazyLoading
+};

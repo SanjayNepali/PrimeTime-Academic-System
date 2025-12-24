@@ -1,4 +1,4 @@
-# File: Desktop/Prime/groups/models.py
+# File: groups/models.py
 
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -39,9 +39,50 @@ class Group(models.Model):
     class Meta:
         ordering = ['-batch_year', 'name']
         unique_together = ['name', 'batch_year']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['supervisor', 'batch_year'],
+                condition=models.Q(is_active=True),
+                name='unique_active_supervisor_per_batch'
+            ),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.batch_year}) - {self.supervisor.get_full_name()}"
+    
+    def clean(self):
+        """Additional validation"""
+        # Check if supervisor already has active group in this batch
+        if self.is_active and self.supervisor and self.batch_year:
+            existing_group = Group.objects.filter(
+                supervisor=self.supervisor,
+                batch_year=self.batch_year,
+                is_active=True
+            ).exclude(pk=self.pk).first()
+            
+            if existing_group:
+                raise ValidationError(
+                    f'Supervisor {self.supervisor.get_full_name()} already has an active group '
+                    f'({existing_group.name}) in batch year {self.batch_year}.'
+                )
+        
+        # Validate group name uniqueness in same batch year
+        if self.name and self.batch_year:
+            existing_group = Group.objects.filter(
+                name__iexact=self.name.strip(),
+                batch_year=self.batch_year,
+                is_active=True
+            ).exclude(pk=self.pk).first()
+            
+            if existing_group:
+                raise ValidationError(
+                    f'A group named "{self.name}" already exists in batch year {self.batch_year}.'
+                )
+    
+    def save(self, *args, **kwargs):
+        # Run validation before saving
+        self.full_clean()
+        super().save(*args, **kwargs)
     
     @property
     def student_count(self):

@@ -1,4 +1,4 @@
-# File: chat/consumers.py - COMPLETE WORKING VERSION
+# File: chat/consumers.py - COMPLETELY FIXED
 
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -12,7 +12,7 @@ from accounts.models import User
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    """WebSocket consumer for real-time chat with WORKING time restrictions"""
+    """WebSocket consumer for real-time chat with FIXED time restrictions"""
     
     async def connect(self):
         """Handle WebSocket connection"""
@@ -48,25 +48,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
     
     async def disconnect(self, close_code):
-        """Handle WebSocket disconnection"""
-        await self.update_user_status(online=False)
-        await self.remove_typing_indicator()
+        """Handle WebSocket disconnection - WITH ERROR HANDLING"""
+        try:
+            await self.update_user_status(online=False)
+        except Exception as e:
+            print(f"⚠️ Could not update user status: {e}")
         
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'user_left',
-                'user_id': self.user.id,
-                'username': self.user.display_name,
-                'timestamp': timezone.now().isoformat()
-            }
-        )
+        try:
+            await self.remove_typing_indicator()
+        except Exception:
+            pass  # Ignore if room deleted
         
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
-    
+        try:
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'user_left',
+                    'user_id': self.user.id,
+                    'username': self.user.display_name,
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+        except Exception:
+            pass  # Ignore if room deleted
+        
+        try:
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
+        except Exception:
+            pass  # Ignore errors 
     async def receive(self, text_data):
         """Receive message from WebSocket"""
         try:
@@ -98,7 +110,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def handle_message(self, data):
         """
-        FIXED: Handle new chat message with WORKING time restrictions
+        COMPLETELY FIXED: Handle new chat message with WORKING time restrictions
         """
         content = data.get('message', '').strip()
         reply_to_id = data.get('reply_to')
@@ -106,7 +118,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not content:
             return
         
-        print(f"🔍 Message from {self.user.display_name} (role: {self.user.role})")
+        print(f"📝 Message from {self.user.display_name} (role: {self.user.role})")
         
         # Check for inappropriate content FIRST
         try:
@@ -128,21 +140,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
         
         # ============================================
-        # CHECK SUPERVISOR AVAILABILITY
+        # CRITICAL FIX: CHECK SUPERVISOR AVAILABILITY
         # ============================================
         availability_info = await self.check_supervisor_availability()
         
         print(f"📊 Availability check result:")
         print(f"   - Is available: {availability_info['is_available']}")
+        print(f"   - Can override: {availability_info['can_override']}")
         print(f"   - Supervisor: {availability_info['supervisor']}")
         print(f"   - Message: {availability_info['message']}")
         
         # ============================================
-        # CRITICAL FIX: Admins and supervisors can ALWAYS send
+        # FIXED: Admins/Supervisors can ALWAYS send, Students must respect schedule
         # ============================================
-        user_can_override = self.user.role in ['admin', 'supervisor']
-        
-        if availability_info['is_available'] or user_can_override:
+        if availability_info['can_override'] or availability_info['is_available']:
             # DELIVER IMMEDIATELY
             print(f"✅ Delivering message immediately")
             
@@ -167,7 +178,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         else:
             # ============================================
-            # QUEUE AS PENDING MESSAGE
+            # QUEUE AS PENDING MESSAGE (Student messaging unavailable supervisor)
             # ============================================
             print(f"⏳ Queuing message as pending")
             
@@ -285,8 +296,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # ============================================
     
     async def chat_message(self, event):
-        """Send chat message to WebSocket - FIXED for proper display"""
-        # Send to ALL users including sender (frontend handles display)
+        """Send chat message to WebSocket"""
         await self.send(text_data=json.dumps({
             'type': 'message',
             'message_id': event['message_id'],
@@ -378,30 +388,56 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def check_supervisor_availability(self):
         """
-        FIXED: Check if supervisor is available for immediate messaging
+        COMPLETELY FIXED: Check if supervisor is available for immediate messaging
+        Returns:
+            - is_available: True if supervisor is available NOW
+            - can_override: True if sender can bypass restrictions (admin/supervisor)
+            - supervisor: The supervisor object
+            - message: Human-readable message
         """
         try:
             room = ChatRoom.objects.get(id=self.room_id)
             
-            print(f"🔍 Checking availability for room {room.id} ({room.room_type})")
+            print(f"🔍 Checking availability for room {room.id} ({room.room_type}) by user {self.user.role}")
             
-            # Find supervisor
+            # CRITICAL FIX: Admins and supervisors can ALWAYS send messages
+            user_can_override = self.user.role in ['admin', 'supervisor']
+            
+            if user_can_override:
+                print(f"   ✅ {self.user.role.capitalize()} override - can always send")
+                return {
+                    'is_available': True,
+                    'can_override': True,
+                    'supervisor': None,
+                    'message': f'{self.user.role.capitalize()} can always send messages'
+                }
+            
+            # Find supervisor in room
             supervisor = None
             
+            # CASE 1: Supervisor Chat Room
             if room.room_type == 'supervisor' and room.group:
                 supervisor = room.group.supervisor
                 print(f"   Found group supervisor: {supervisor.display_name}")
             
+            # CASE 2: Direct Message to Supervisor
             elif room.room_type == 'direct':
-                supervisor = room.participants.filter(role='supervisor').first()
-                if supervisor:
+                supervisor_participants = room.participants.filter(role='supervisor').exclude(id=self.user.id)
+                if supervisor_participants.exists():
+                    supervisor = supervisor_participants.first()
                     print(f"   Found DM supervisor: {supervisor.display_name}")
             
-            # No supervisor = always available
+            # CASE 3: Group Chat with Supervisor
+            elif room.room_type == 'group' and room.group:
+                supervisor = room.group.supervisor
+                print(f"   Found group supervisor: {supervisor.display_name}")
+            
+            # No supervisor = always available (student-to-student)
             if not supervisor:
                 print(f"   ✅ No supervisor restrictions")
                 return {
                     'is_available': True,
+                    'can_override': False,
                     'supervisor': None,
                     'message': 'No supervisor restrictions'
                 }
@@ -411,32 +447,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 print(f"   ✅ Supervisor schedule not enabled")
                 return {
                     'is_available': True,
+                    'can_override': False,
                     'supervisor': supervisor,
                     'message': 'Supervisor has no schedule restrictions'
                 }
             
-            # Check availability
+            # CRITICAL FIX: Check actual availability
             is_available = supervisor.is_available_now()
             
             print(f"   📅 Schedule enabled: Yes")
             print(f"   ⏰ Available now: {is_available}")
+            print(f"   👤 User role: {self.user.role}")
             
             if not is_available:
                 print(f"   ❌ Supervisor UNAVAILABLE - will queue message")
+                return {
+                    'is_available': False,
+                    'can_override': False,
+                    'supervisor': supervisor,
+                    'message': supervisor.get_availability_message()
+                }
             
+            print(f"   ✅ Supervisor IS AVAILABLE")
             return {
-                'is_available': is_available,
+                'is_available': True,
+                'can_override': False,
                 'supervisor': supervisor,
-                'message': supervisor.get_availability_message() if not is_available else 'Supervisor is available'
+                'message': 'Supervisor is available'
             }
             
         except Exception as e:
             print(f"❌ Error checking supervisor availability: {e}")
             traceback.print_exc()
+            # Default to UNAVAILABLE on error for safety
             return {
-                'is_available': True,
+                'is_available': False,
+                'can_override': False,
                 'supervisor': None,
-                'message': 'Error checking availability'
+                'message': 'Error checking availability - defaulting to unavailable'
             }
     
     @database_sync_to_async
@@ -452,7 +500,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 except Message.DoesNotExist:
                     pass
             
-            # Import here to avoid circular imports
             from analytics.sentiment import InappropriateContentDetector
             detector = InappropriateContentDetector()
             analysis = detector.analyze_content(content, content_type='chat')
@@ -489,7 +536,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 except Message.DoesNotExist:
                     pass
             
-            # Create pending message
             pending_msg = PendingMessage.objects.create(
                 room=room,
                 sender=self.user,
@@ -501,11 +547,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 status='pending'
             )
             
-            # Calculate delivery time
             delivery_time = pending_msg.calculate_delivery_time()
             pending_msg.scheduled_delivery_time = delivery_time
-            
-            # Set expiry (7 days from now)
             pending_msg.expires_at = timezone.now() + timedelta(days=7)
             pending_msg.save()
             
@@ -521,7 +564,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def analyze_content(self, content):
         """Analyze message content for sentiment and inappropriate content"""
         try:
-            # Import here to avoid circular imports
             from analytics.sentiment import InappropriateContentDetector
             from textblob import TextBlob
             
@@ -539,7 +581,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         except Exception as e:
             print(f"❌ Content analysis error: {e}")
-            traceback.print_exc()
             return {
                 'sentiment_score': 0,
                 'is_inappropriate': False,
@@ -549,7 +590,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     @database_sync_to_async
     def update_user_status(self, online):
-        """Update user's online status in room"""
+        """Update user's online status in room - WITH ERROR HANDLING"""
         try:
             room = ChatRoom.objects.get(id=self.room_id)
             member, created = ChatRoomMember.objects.get_or_create(
@@ -561,9 +602,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 member.update_last_seen()
             else:
                 member.save(update_fields=['is_online'])
+        except ChatRoom.DoesNotExist:
+            # Room was deleted - this is fine
+            print(f"ℹ️ Room {self.room_id} no longer exists (deleted)")
         except Exception as e:
             print(f"❌ Error updating user status: {e}")
-    
+            
     @database_sync_to_async
     def add_typing_indicator(self):
         """Add typing indicator"""

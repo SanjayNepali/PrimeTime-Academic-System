@@ -1,12 +1,42 @@
-<!-- File: templates/chat/create_room.html - COMPLETELY UPDATED -->
+<!-- File: templates/chat/create_room.html - UPDATED WITH BETTER ERROR DISPLAY -->
 
 {% extends 'base.html' %}
 {% load static %}
-
+{% load chat_extras %}
 {% block title %}Create Chat Room - {{ block.super }}{% endblock %}
 
 {% block extra_css %}
 <style>
+    .role-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-left: 8px;
+    }
+
+    .role-admin {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563EB;
+    }
+
+    .role-supervisor {
+        background: rgba(245, 158, 11, 0.1);
+        color: #D97706;
+    }
+
+    .role-student {
+        background: rgba(34, 197, 94, 0.1);
+        color: #16A34A;
+    }
+
+    .participant-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
     .create-room-container {
         max-width: 800px;
         margin: 0 auto;
@@ -361,6 +391,51 @@
         color: #EF4444;
         font-size: 13px;
         padding: 4px 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .errorlist li::before {
+        content: '⚠️';
+    }
+    
+    /* ADDED: Better form-level error display */
+    .form-errors-summary {
+        background: rgba(239, 68, 68, 0.1);
+        border-left: 4px solid #EF4444;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+    }
+    
+    .form-errors-summary-title {
+        font-weight: 600;
+        color: #DC2626;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .form-errors-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .form-errors-list li {
+        color: #DC2626;
+        font-size: 14px;
+        padding: 4px 0;
+        padding-left: 20px;
+        position: relative;
+    }
+    
+    .form-errors-list li::before {
+        content: '❌';
+        position: absolute;
+        left: 0;
     }
 </style>
 {% endblock %}
@@ -376,6 +451,30 @@
     </div>
 
     <div class="form-card">
+        <!-- ADDED: Display all form errors at the top -->
+        {% if form.errors %}
+        <div class="form-errors-summary">
+            <div class="form-errors-summary-title">
+                <i class='bx bx-error'></i>
+                Please correct the following errors:
+            </div>
+            <ul class="form-errors-list">
+                {% if form.non_field_errors %}
+                    {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                {% endif %}
+                {% for field in form %}
+                    {% if field.errors %}
+                        {% for error in field.errors %}
+                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
         <form method="post" id="createRoomForm">
             {% csrf_token %}
 
@@ -383,12 +482,14 @@
             <div class="info-box">
                 <div class="info-title">
                     <i class='bx bx-info-circle'></i>
-                    Room Types
+                    Room Types & Restrictions
                 </div>
                 <ul class="info-list">
                     <li><strong>Group:</strong> Chat room for student groups with all members</li>
                     <li><strong>Direct:</strong> One-on-one conversation between two people</li>
-                    <li><strong>Supervisor:</strong> Monitored room with scheduling capabilities inherited from your profile settings</li>
+                    <li><strong>Supervisor:</strong> Monitored room with time restrictions - students can only message during supervisor's available hours</li>
+                    <li><strong>⚠️ Important:</strong> Each student can only be in ONE supervisor chat room at a time</li>
+                    <li><strong>⚠️ Important:</strong> Each supervisor can only have ONE supervisor chat per group</li>
                 </ul>
             </div>
 
@@ -411,7 +512,7 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">Choose a descriptive name for your chat room</div>
+                    <div class="form-help">Choose a unique, descriptive name for your chat room</div>
                 </div>
 
                 <div class="form-group">
@@ -459,29 +560,43 @@
                         
                         <div class="participants-selector">
                             {% for choice in form.participants %}
+                                {% with role=choice.choice_label|extract_role name=choice.choice_label|extract_name %}
                                 <label class="participant-checkbox-item">
                                     {{ choice.tag }}
                                     <div class="participant-avatar">
-                                        {{ choice.choice_label|slice:":1"|upper }}
+                                        {{ name|slice:":1"|upper }}
                                     </div>
                                     <div class="participant-info">
-                                        <div class="participant-name">{{ choice.choice_label }}</div>
-                                        <div class="participant-meta">Student</div>
+                                        <div class="participant-name">
+                                            <span>{{ name }}</span>
+                                            <span class="role-badge {{ role|role_badge_class }}">
+                                                {{ role }}
+                                            </span>
+                                        </div>
+                                        <div class="participant-meta">
+                                            User ID: {{ choice.data.value }}
+                                        </div>
                                     </div>
                                 </label>
+                                {% endwith %}
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="info-box">
-                            <div class="info-title">
+                        <div class="warning-box active">
+                            <div class="warning-title">
                                 <i class='bx bx-info-circle'></i>
                                 No Available Participants
                             </div>
-                            <p style="color: #1E40AF; margin: 8px 0 0 0;">
+                            <div class="warning-text">
+                                {% if user.role == 'supervisor' %}
                                 All students from your group are already assigned to supervisor chat rooms.
+                                Each student can only be in ONE supervisor chat at a time.
                                 If you need to add more students, please ensure they are members of your group
                                 and not already in another supervisor chat.
-                            </p>
+                                {% else %}
+                                No users are currently available to add to this chat room.
+                                {% endif %}
+                            </div>
                         </div>
                     {% endif %}
                     
@@ -500,14 +615,14 @@
             <div class="form-section">
                 <h3 class="section-title">
                     <i class='bx bx-shield'></i>
-                    Access Control
+                    Access Control & Time Restrictions
                 </h3>
 
                 <div class="form-group">
                     <div class="checkbox-group" onclick="toggleFrozenWarning()">
                         {{ form.is_frozen }}
                         <label class="checkbox-label" for="{{ form.is_frozen.id_for_label }}">
-                            Enable scheduled access (Freeze room outside specific hours)
+                            Enable scheduled access (Students can only message during your available hours)
                         </label>
                     </div>
                     {% if form.is_frozen.errors %}
@@ -517,19 +632,19 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">When enabled, the room can only be accessed during your scheduled hours</div>
+                    <div class="form-help">When enabled, students cannot send messages outside your scheduled hours. Messages will be queued for delivery.</div>
                 </div>
 
                 <!-- Warning Box -->
                 <div class="warning-box" id="frozenWarning">
                     <div class="warning-title">
                         <i class='bx bx-lock'></i>
-                        Frozen Room
+                        Time-Restricted Room
                     </div>
                     <div class="warning-text">
-                        When a room is frozen, participants can only send messages during the time periods 
-                        defined in your profile settings. Messages sent outside these hours will be queued 
-                        and delivered when you become available.
+                        ⚠️ <strong>Important:</strong> When time restrictions are enabled, students CANNOT message you outside your scheduled hours. 
+                        Their messages will be queued and delivered automatically when you become available.
+                        This helps maintain work-life balance for supervisors.
                     </div>
                 </div>
 
@@ -549,7 +664,7 @@
                     </div>
                     {% endif %}
                     <div class="form-help" style="margin-top: 8px; color: #6B21A8;">
-                        These settings will be applied to the frozen room. To change them, go to your Profile > Time Restrictions.
+                        ✅ These settings will be applied to the chat room. To change them, go to your Profile > Time Restrictions.
                     </div>
                 </div>
                 {% elif user.role == 'supervisor' and not user.schedule_enabled %}
@@ -559,25 +674,12 @@
                         Time Restrictions Not Set
                     </div>
                     <div class="warning-text">
-                        You need to enable time restrictions in your profile settings before you can create a frozen room.
+                        ❌ You need to enable time restrictions in your profile settings before you can create a time-restricted room.
                         Go to <strong>Profile > Time Restrictions</strong> to set your schedule.
                     </div>
                 </div>
                 {% endif %}
             </div>
-
-            <!-- Non-field errors -->
-            {% if form.non_field_errors %}
-            <div class="warning-box active">
-                <div class="warning-title">
-                    <i class='bx bx-error'></i>
-                    Error
-                </div>
-                {% for error in form.non_field_errors %}
-                <div class="warning-text">{{ error }}</div>
-                {% endfor %}
-            </div>
-            {% endif %}
 
             <!-- Form Actions -->
             <div class="form-actions">

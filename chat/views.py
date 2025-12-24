@@ -43,7 +43,6 @@ def check_user_availability(user, current_user):
     # Students messaging students - no restrictions
     return True, None
 
-
 @login_required
 def chat_home(request):
     """Enhanced chat home with groups and direct messages separated"""

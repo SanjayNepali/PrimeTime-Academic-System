@@ -1,4 +1,4 @@
-# File: chat/forms.py
+# File: chat/forms.py - COMPLETELY FIXED
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -7,7 +7,7 @@ from accounts.models import User
 
 
 class CreateChatRoomForm(forms.ModelForm):
-    """Form for creating chat rooms with supervisor schedule integration"""
+    """Form for creating chat rooms with FIXED validation"""
     
     participants = forms.ModelMultipleChoiceField(
         queryset=User.objects.none(),
@@ -42,96 +42,137 @@ class CreateChatRoomForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Set up participants queryset based on user role
         if self.user:
             if self.user.role == 'supervisor':
-                # For supervisors creating supervisor chat rooms
-                # Only show students from their group
+                # Supervisors creating supervisor chat rooms
                 from groups.models import Group
                 
                 supervised_groups = Group.objects.filter(supervisor=self.user)
                 
-                # Get students already in supervisor chat rooms
-                existing_supervisor_chats = ChatRoom.objects.filter(
-                    room_type='supervisor',
-                    group__in=supervised_groups
-                )
+                if not supervised_groups.exists():
+                    self.fields['participants'].queryset = User.objects.none()
+                    self.fields['participants'].help_text = 'You must be assigned to a group first.'
+                    return
                 
-                # Get all members from existing supervisor chats
-                existing_member_ids = set()
-                for chat in existing_supervisor_chats:
-                    existing_member_ids.update(
-                        chat.participants.filter(role='student').values_list('id', flat=True)
-                    )
-                
-                # Show only students from supervisor's groups who are NOT already in supervisor chats
-                available_students = User.objects.filter(
+                # Get students from supervisor's groups
+                group_students = User.objects.filter(
                     student_memberships__group__in=supervised_groups,
                     student_memberships__is_active=True,
                     is_active=True,
                     is_enabled=True,
                     role='student'
-                ).exclude(
-                    id__in=existing_member_ids
                 ).distinct()
                 
-                self.fields['participants'].queryset = available_students
+                # FIXED: Filter out students already in ANY supervisor chat
+                available_students = []
+                for student in group_students:
+                    in_supervisor_chat = ChatRoom.objects.filter(
+                        room_type='supervisor',
+                        participants=student,
+                        is_active=True
+                    ).exists()
+                    
+                    if not in_supervisor_chat:
+                        available_students.append(student.id)
+                
+                self.fields['participants'].queryset = User.objects.filter(id__in=available_students)
+                
+                if not available_students:
+                    self.fields['participants'].help_text = (
+                        '⚠️ All students from your group are already in supervisor chat rooms. '
+                        'Each student can only be in one supervisor chat.'
+                    )
+                else:
+                    self.fields['participants'].label_from_instance = lambda obj: f"{obj.display_name} (Student)"
                 
             elif self.user.role == 'admin':
-                # Admins can add anyone
+                # CRITICAL FIX: Admins can add ANYONE including themselves
+                # Remove the exclude(pk=self.user.pk) that was blocking admin
                 self.fields['participants'].queryset = User.objects.filter(
                     is_active=True,
                     is_enabled=True
-                ).exclude(id=self.user.id)
+                ).order_by('role', 'first_name', 'last_name')
+                
+                self.fields['participants'].label_from_instance = lambda obj: f"{obj.display_name} ({obj.get_role_display()})"
         
-        # Update help text for participants
         self.fields['participants'].help_text = (
-            'Select students to add to this chat room. '
+            'Select users to add to this chat room. '
             'Students already in supervisor chat rooms are excluded.'
         )
-        
-        # Remove schedule fields from form - they'll be inherited from supervisor
-        # We'll handle schedule in the save method
     
     def clean(self):
         cleaned_data = super().clean()
         room_type = cleaned_data.get('room_type')
         is_frozen = cleaned_data.get('is_frozen')
+        name = cleaned_data.get('name')
+        participants = cleaned_data.get('participants', [])
         
-        # Validation for supervisor rooms
-        if room_type == 'supervisor' and self.user and self.user.role == 'supervisor':
-            # Check if supervisor already has a supervisor chat room for their group
-            from groups.models import Group
-            
-            supervised_groups = Group.objects.filter(supervisor=self.user)
-            
-            if not supervised_groups.exists():
-                raise ValidationError('You must be assigned to a group to create a supervisor chat room.')
-            
-            # Check for existing supervisor chat rooms
-            existing_supervisor_chat = ChatRoom.objects.filter(
-                room_type='supervisor',
-                group__in=supervised_groups
-            ).first()
-            
-            if existing_supervisor_chat and not self.instance.pk:
-                raise ValidationError(
-                    f'You already have a supervisor chat room: {existing_supervisor_chat.name}. '
-                    'Each supervisor can only have one supervisor chat room per group.'
-                )
+        print(f"🔍 Form validation: room_type={room_type}, name={name}")
         
-        # If frozen is enabled, validate supervisor has schedule settings
+        # FIXED: Validate supervisor rooms more strictly
+        if room_type == 'supervisor':
+            if self.user and self.user.role == 'supervisor':
+                from groups.models import Group
+                
+                supervised_groups = Group.objects.filter(supervisor=self.user)
+                
+                if not supervised_groups.exists():
+                    raise ValidationError('❌ You must be assigned to a group to create a supervisor chat room.')
+                
+                # CRITICAL FIX: Check if supervisor already has supervisor chat
+                existing_supervisor_chat = ChatRoom.objects.filter(
+                    room_type='supervisor',
+                    group__in=supervised_groups,
+                    is_active=True
+                ).first()
+                
+                if existing_supervisor_chat and not self.instance.pk:
+                    raise ValidationError(
+                        f'❌ You already have a supervisor chat room: "{existing_supervisor_chat.name}". '
+                        'Each supervisor can only have ONE supervisor chat room per group.'
+                    )
+            
+            elif self.user and self.user.role == 'admin':
+                # CRITICAL FIX: Admin creating supervisor room - validate students
+                for participant in participants:
+                    if participant.role == 'student':
+                        # Check if student is already in ANY supervisor chat
+                        existing_supervisor_chats = ChatRoom.objects.filter(
+                            room_type='supervisor',
+                            participants=participant,
+                            is_active=True
+                        ).exclude(id=self.instance.pk if self.instance else None)
+                        
+                        if existing_supervisor_chats.exists():
+                            existing_chat = existing_supervisor_chats.first()
+                            raise ValidationError(
+                                f'❌ Student "{participant.display_name}" is already in supervisor chat room: '
+                                f'"{existing_chat.name}". Each student can only be in ONE supervisor chat.'
+                            )
+        
+        # FIXED: Check for duplicate chat room names (case insensitive)
+        if name:
+            name_clean = name.strip()
+            existing_rooms = ChatRoom.objects.filter(
+                name__iexact=name_clean,
+                is_active=True
+            ).exclude(id=self.instance.pk if self.instance else None)
+            
+            if existing_rooms.exists():
+                raise ValidationError(f'❌ A chat room with name "{name_clean}" already exists. Please choose a different name.')
+        
+        # Validate frozen room settings
         if is_frozen and room_type == 'supervisor':
             if self.user and self.user.role == 'supervisor':
                 if not self.user.schedule_enabled:
                     raise ValidationError(
-                        'You must enable time restrictions in your account settings before creating a frozen room. '
-                        'Go to Profile > Time Restrictions to set your schedule.'
+                        '❌ You must enable time restrictions in your account settings before creating a frozen room. '
+                        'Go to Profile → Time Restrictions to set your schedule.'
                     )
                 
                 if not self.user.schedule_start_time or not self.user.schedule_end_time:
                     raise ValidationError(
-                        'You must set start and end times in your account settings before creating a frozen room.'
+                        '❌ You must set start and end times in your account settings before creating a frozen room.'
                     )
         
         return cleaned_data
@@ -139,7 +180,7 @@ class CreateChatRoomForm(forms.ModelForm):
     def save(self, commit=True):
         room = super().save(commit=False)
         
-        # For supervisor rooms, inherit schedule from supervisor's settings
+        # For supervisor rooms, inherit schedule from supervisor
         if room.room_type == 'supervisor' and self.user and self.user.role == 'supervisor':
             if room.is_frozen and self.user.schedule_enabled:
                 room.schedule_start_time = self.user.schedule_start_time
@@ -155,16 +196,18 @@ class CreateChatRoomForm(forms.ModelForm):
         if commit:
             room.save()
             
-            # Add participants
-            participants = self.cleaned_data.get('participants')
+            # FIXED: Add participants properly
+            participants = self.cleaned_data.get('participants', [])
             if participants:
-                room.participants.add(*participants)
+                # Add selected participants (excluding creator to avoid duplication)
+                participants_to_add = [p for p in participants if p != self.user]
+                if participants_to_add:
+                    room.participants.add(*participants_to_add)
             
-            # Always add the creator
-            if self.user:
+            # Always add creator if not already included
+            if self.user and self.user not in room.participants.all():
                 room.participants.add(self.user)
             
-            # Save many-to-many
             self.save_m2m()
         
         return room
@@ -201,15 +244,13 @@ class UpdateChatRoomForm(forms.ModelForm):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Set up participants queryset
         if self.user and self.instance:
             if self.user.role == 'supervisor' and self.instance.room_type == 'supervisor':
-                # For supervisor rooms, show students from their group
                 from groups.models import Group
                 
                 supervised_groups = Group.objects.filter(supervisor=self.user)
                 
-                # Get students already in OTHER supervisor chat rooms
+                # Get students in OTHER supervisor chats
                 existing_supervisor_chats = ChatRoom.objects.filter(
                     room_type='supervisor',
                     group__in=supervised_groups
@@ -221,7 +262,7 @@ class UpdateChatRoomForm(forms.ModelForm):
                         chat.participants.filter(role='student').values_list('id', flat=True)
                     )
                 
-                # Show students from group not in other supervisor chats
+                # Show available students
                 available_students = User.objects.filter(
                     student_memberships__group__in=supervised_groups,
                     student_memberships__is_active=True,
@@ -233,36 +274,48 @@ class UpdateChatRoomForm(forms.ModelForm):
                 ).distinct()
                 
                 self.fields['participants'].queryset = available_students
-                
-                # Set initial participants
-                self.fields['participants'].initial = self.instance.participants.filter(
-                    role='student'
-                )
+                self.fields['participants'].initial = self.instance.participants.filter(role='student')
+                self.fields['participants'].label_from_instance = lambda obj: f"{obj.display_name} (Student)"
             
             elif self.user.role == 'admin':
+                # CRITICAL FIX: Admin can select anyone including themselves
                 self.fields['participants'].queryset = User.objects.filter(
                     is_active=True,
                     is_enabled=True
-                ).exclude(id=self.user.id)
+                ).order_by('role', 'first_name', 'last_name')
                 
+                # Set initial to ALL participants
                 self.fields['participants'].initial = self.instance.participants.all()
+                self.fields['participants'].label_from_instance = lambda obj: f"{obj.display_name} ({obj.get_role_display()})"
     
     def clean(self):
         cleaned_data = super().clean()
         is_frozen = cleaned_data.get('is_frozen')
+        name = cleaned_data.get('name')
         
-        # If frozen is enabled for supervisor room, check supervisor settings
+        # Check for duplicate names
+        if name:
+            name_clean = name.strip()
+            existing_rooms = ChatRoom.objects.filter(
+                name__iexact=name_clean,
+                is_active=True
+            ).exclude(id=self.instance.pk if self.instance else None)
+            
+            if existing_rooms.exists():
+                raise ValidationError(f'❌ A chat room with name "{name_clean}" already exists.')
+        
+        # Validate frozen settings
         if is_frozen and self.instance.room_type == 'supervisor':
             if self.user and self.user.role == 'supervisor':
                 if not self.user.schedule_enabled:
                     raise ValidationError(
-                        'You must enable time restrictions in your account settings. '
-                        'Go to Profile > Time Restrictions to set your schedule.'
+                        '❌ You must enable time restrictions in your account settings. '
+                        'Go to Profile → Time Restrictions to set your schedule.'
                     )
                 
                 if not self.user.schedule_start_time or not self.user.schedule_end_time:
                     raise ValidationError(
-                        'You must set start and end times in your account settings.'
+                        '❌ You must set start and end times in your account settings.'
                     )
         
         return cleaned_data
@@ -277,7 +330,6 @@ class UpdateChatRoomForm(forms.ModelForm):
                 room.schedule_end_time = self.user.schedule_end_time
                 room.schedule_days = self.user.schedule_days
             else:
-                # Clear schedule if not frozen
                 room.schedule_start_time = None
                 room.schedule_end_time = None
                 room.schedule_days = ''
@@ -288,16 +340,19 @@ class UpdateChatRoomForm(forms.ModelForm):
             # Update participants
             participants = self.cleaned_data.get('participants')
             if participants is not None:
-                # Remove old student participants
-                room.participants.remove(
-                    *room.participants.filter(role='student')
-                )
+                # Remove all non-creator participants first
+                if room.room_type == 'supervisor' and self.user and self.user.role == 'supervisor':
+                    room.participants.remove(*room.participants.filter(role='student'))
+                else:
+                    room.participants.remove(*room.participants.exclude(id=self.user.id))
                 
-                # Add new participants
-                room.participants.add(*participants)
+                # Add new participants (excluding creator)
+                participants_to_add = [p for p in participants if p != self.user]
+                if participants_to_add:
+                    room.participants.add(*participants_to_add)
                 
-                # Ensure supervisor is always included
-                if self.user:
+                # Ensure creator is included
+                if self.user and self.user not in room.participants.all():
                     room.participants.add(self.user)
             
             self.save_m2m()

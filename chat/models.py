@@ -3,6 +3,7 @@
 from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 from accounts.models import User
 from groups.models import Group
 
@@ -65,6 +66,41 @@ class ChatRoom(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_room_type_display()})"
     
+    def clean(self):
+        """Validate chat room constraints"""
+        # Supervisor rooms must have a group
+        if self.room_type == 'supervisor' and not self.group:
+            raise ValidationError('Supervisor chat rooms must be linked to a group.')
+        
+        # Check for duplicate name (case insensitive)
+        if self.name and self.is_active:
+            existing_rooms = ChatRoom.objects.filter(
+                name__iexact=self.name.strip(),
+                is_active=True
+            ).exclude(pk=self.pk)
+            
+            if existing_rooms.exists():
+                raise ValidationError(f'A chat room with name "{self.name}" already exists.')
+        
+        # Supervisor rooms can only have one per group
+        if self.room_type == 'supervisor' and self.group and self.is_active:
+            existing_supervisor_chat = ChatRoom.objects.filter(
+                room_type='supervisor',
+                group=self.group,
+                is_active=True
+            ).exclude(pk=self.pk).first()
+            
+            if existing_supervisor_chat:
+                raise ValidationError(
+                    f'Group {self.group.name} already has a supervisor chat room: '
+                    f'{existing_supervisor_chat.name}'
+                )
+    
+    def save(self, *args, **kwargs):
+        # Run validation before saving
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
     def is_accessible_now(self):
         """Check if room is accessible at current time"""
         if not self.is_frozen:
@@ -104,8 +140,6 @@ class ChatRoom(models.Model):
             ).exclude(sender=user).count()
         except ChatRoomMember.DoesNotExist:
             return 0
-
-
 class ChatRoomMember(models.Model):
     """Track chat room membership and read status"""
     

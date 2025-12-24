@@ -2,11 +2,41 @@
 
 {% extends 'base.html' %}
 {% load static %}
-
+{% load chat_extras %}
 {% block title %}Update {{ room.name }} - {{ block.super }}{% endblock %}
 
 {% block extra_css %}
 <style>
+    .role-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-left: 8px;
+    }
+
+    .role-admin {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563EB;
+    }
+
+    .role-supervisor {
+        background: rgba(245, 158, 11, 0.1);
+        color: #D97706;
+    }
+
+    .role-student {
+        background: rgba(34, 197, 94, 0.1);
+        color: #16A34A;
+    }
+
+    .participant-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
     .update-room-container {
         max-width: 800px;
         margin: 0 auto;
@@ -410,16 +440,25 @@
                         
                         <div class="participants-selector">
                             {% for choice in form.participants %}
+                                {% with role=choice.choice_label|extract_role name=choice.choice_label|extract_name %}
                                 <label class="participant-checkbox-item">
                                     {{ choice.tag }}
                                     <div class="participant-avatar">
-                                        {{ choice.choice_label|slice:":1"|upper }}
+                                        {{ name|slice:":1"|upper }}
                                     </div>
                                     <div class="participant-info">
-                                        <div class="participant-name">{{ choice.choice_label }}</div>
-                                        <div class="participant-meta">Student</div>
+                                        <div class="participant-name">
+                                            <span>{{ name }}</span>
+                                            <span class="role-badge {{ role|role_badge_class }}">
+                                                {{ role }}
+                                            </span>
+                                        </div>
+                                        <div class="participant-meta">
+                                            User ID: {{ choice.data.value }}
+                                        </div>
                                     </div>
                                 </label>
+                                {% endwith %}
                             {% endfor %}
                         </div>
                     {% else %}

@@ -35,7 +35,7 @@ def dashboard_home(request):
 
 @login_required
 def admin_dashboard(request):
-    """Admin dashboard - UPDATED for new User model with REAL chart data"""
+    """Admin dashboard - UPDATED with accurate counts"""
     
     user = request.user
     
@@ -50,18 +50,38 @@ def admin_dashboard(request):
         is_superuser=False
     ).exclude(id=request.user.id)
     
-    # User statistics
-    total_users = User.objects.exclude(is_superuser=True).count()
+    # CORRECTED: User statistics - COUNT ALL USERS PROPERLY
+    total_users = User.objects.filter(is_superuser=False).count()
+    
+    # CORRECTED: Count by role using the actual role field
     students_count = User.objects.filter(role='student').count()
     supervisors_count = User.objects.filter(role='supervisor').count()
     admins_count = User.objects.filter(role='admin').count()
     
-    # Recent activity - users created in last 7 days
-    recent_users = User.objects.filter(
-        created_at__gte=timezone.now() - timedelta(days=7)
-    ).exclude(is_superuser=True).order_by('-created_at')[:5]
+    # CORRECTED: Recent activity - count users created in last 7 days
+    week_ago = timezone.now() - timedelta(days=7)
+    recent_users_count = User.objects.filter(
+        created_at__gte=week_ago,
+        is_superuser=False
+    ).count()
     
-    # NEW: Get REAL chart data for dashboard
+    recent_users = User.objects.filter(
+        created_at__gte=week_ago,
+        is_superuser=False
+    ).order_by('-created_at')[:5]
+    
+    # CORRECTED: Project statistics with accurate counts
+    pending_projects_count = Project.objects.filter(status='pending').count()
+    approved_projects_count = Project.objects.filter(status='approved').count()
+    completed_projects_count = Project.objects.filter(status='completed').count()
+    in_progress_projects_count = Project.objects.filter(status='in_progress').count()
+    
+    # CORRECTED: Get pending projects for display
+    pending_projects_list = Project.objects.filter(
+        status='pending'
+    ).select_related('student')[:5]
+    
+    # Get REAL chart data for dashboard
     weekly_activity_data = DashboardCalculator.get_weekly_activity_data()
     user_distribution_data = DashboardCalculator.get_user_distribution_data()
     system_health_metrics = DashboardCalculator.get_system_health_metrics()
@@ -69,44 +89,36 @@ def admin_dashboard(request):
     context = {
         'title': 'Admin Dashboard - PrimeTime',
         
-        # User statistics - UPDATED
+        # User statistics - UPDATED WITH ACCURATE COUNTS
         'total_users': total_users,
-        'pending_users': users_with_passwords.count(),
+        'pending_users': users_with_passwords.count(),  # Users needing password reset
         'students_count': students_count,
         'supervisors_count': supervisors_count,
         'admins_count': admins_count,
         
-        # Project statistics
-        'pending_projects': Project.objects.filter(status='pending').count(),
-        'approved_projects': Project.objects.filter(status='approved').count(),
-        'completed_projects': Project.objects.filter(status='completed').count(),
-        'in_progress_projects': Project.objects.filter(status='in_progress').count(),
+        # CORRECTED: Project statistics with accurate variable names
+        'pending_projects': pending_projects_count,
+        'approved_projects': approved_projects_count,
+        'completed_projects': completed_projects_count,
+        'in_progress_projects': in_progress_projects_count,
         
-        # User management - UPDATED
+        # User management
         'users_with_passwords': users_with_passwords,
         'recent_users': recent_users,
-        'pending_projects_list': Project.objects.filter(
-            status='pending'
-        ).select_related('student')[:5],
+        'recent_users_count': recent_users_count,  # Add this for display
+        'pending_projects_list': pending_projects_list,
         
-        # Batch data
-        'current_batch': timezone.now().year,
-        'active_batches': Project.objects.values_list(
-            'batch_year', flat=True
-        ).distinct(),
+        # Chart data
+        'weekly_activity_data': weekly_activity_data,
+        'user_distribution_data': user_distribution_data,
+        'system_health_metrics': system_health_metrics,
         
         # Role context
         'is_admin': user.is_admin,
         'is_superuser': user.is_superuser,
-        
-        # NEW: REAL CHART DATA
-        'weekly_activity_data': weekly_activity_data,
-        'user_distribution_data': user_distribution_data,
-        'system_health_metrics': system_health_metrics,
     }
     
-    return render(request, 'dashboard/admin/home_enhanced.html', context)  # Use enhanced template
-
+    return render(request, 'dashboard/admin/home_enhanced.html', context)
 
 @login_required
 def student_dashboard(request):

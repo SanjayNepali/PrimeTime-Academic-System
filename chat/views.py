@@ -17,77 +17,33 @@ from groups.models import Group
 from analytics.models import StressLevel
 from analytics.sentiment import AdvancedSentimentAnalyzer
 
+
+# ============================================
+# UPDATED: CHECK USER AVAILABILITY
+# ============================================
 def check_user_availability(user, current_user):
     """
     Check if a user is available for messaging based on time restrictions
-    Supervisors can message anytime, students have time restrictions
+    Returns (is_available: bool, restriction_msg: str)
     """
     # Supervisors and admins can message anytime
     if current_user.role in ['supervisor', 'admin']:
         return True, None
     
-    # If user is checking their own availability (student)
-    if user == current_user and user.role == 'student':
-        from groups.models import GroupMembership
-        student_membership = GroupMembership.objects.filter(
-            student=user,
-            is_active=True
-        ).first()
-        
-        if student_membership and student_membership.group.schedule_start_time:
-            return check_time_in_range(
-                student_membership.group.schedule_start_time,
-                student_membership.group.schedule_end_time,
-                student_membership.group.schedule_days
-            )
-    
-    # If messaging a supervisor, check recipient's schedule
+    # If messaging a supervisor, check SUPERVISOR's schedule
     if user.role == 'supervisor':
-        # Get supervisor's group schedule
-        from groups.models import Group
-        supervisor_group = Group.objects.filter(supervisor=user).first()
+        if not user.schedule_enabled:
+            return True, None
         
-        if supervisor_group and supervisor_group.schedule_start_time:
-            return check_time_in_range(
-                supervisor_group.schedule_start_time,
-                supervisor_group.schedule_end_time,
-                supervisor_group.schedule_days
-            )
-    
-    # Students messaging each other - check sender's schedule
-    if user.role == 'student' and current_user.role == 'student':
-        from groups.models import GroupMembership
-        student_membership = GroupMembership.objects.filter(
-            student=current_user,
-            is_active=True
-        ).first()
+        if not user.is_available_now():
+            return False, user.get_availability_message()
         
-        if student_membership and student_membership.group.schedule_start_time:
-            return check_time_in_range(
-                student_membership.group.schedule_start_time,
-                student_membership.group.schedule_end_time,
-                student_membership.group.schedule_days
-            )
+        return True, None
     
+    # Students messaging students - no restrictions
     return True, None
-def check_time_in_range(start_time, end_time, allowed_days):
-    """Check if current time is within allowed range"""
-    now = timezone.now()
-    current_time = now.time()
-    current_day = now.strftime('%a')
-    
-    # Check day
-    if allowed_days:
-        days_list = [day.strip() for day in allowed_days.split(',')]
-        if current_day not in days_list:
-            return False, f"Available only on: {allowed_days}"
-    
-    # Check time
-    if start_time and end_time:
-        if not (start_time <= current_time <= end_time):
-            return False, f"Available from {start_time.strftime('%I:%M %p')} to {end_time.strftime('%I:%M %p')}"
-    
-    return True, None
+
+
 @login_required
 def chat_home(request):
     """Enhanced chat home with groups and direct messages separated"""
@@ -114,13 +70,11 @@ def chat_home(request):
         # Calculate ACCURATE unread count
         try:
             member = room.members.get(user=request.user)
-            # Only count messages AFTER last_read_at AND from others
             unread = room.messages.filter(
                 timestamp__gt=member.last_read_at,
                 is_deleted=False
             ).exclude(sender=request.user).count()
         except ChatRoomMember.DoesNotExist:
-            # If no member record, count all messages not from user
             unread = room.messages.filter(
                 is_deleted=False
             ).exclude(sender=request.user).count()
@@ -141,15 +95,27 @@ def chat_home(request):
         # Get participant count
         participant_count = room.participants.count()
         
-        # Check accessibility with time restrictions
+        # ============================================
+        # UPDATED: CHECK ACCESSIBILITY WITH SUPERVISOR SCHEDULE
+        # ============================================
         is_accessible = True
-        if room.is_frozen:
-            is_accessible = room.is_accessible_now()
+        restriction_msg = None
+        
+        if room.room_type == 'supervisor' or room.group:
+            # Group chat - check supervisor's schedule
+            if room.group and room.group.supervisor:
+                supervisor = room.group.supervisor
+                if supervisor.schedule_enabled and not supervisor.is_available_now():
+                    is_accessible = True  # Chat is accessible but messages will be pending
+                    restriction_msg = supervisor.get_availability_message()
+        
         elif room.room_type == 'direct':
-            # For direct messages, check recipient availability
+            # Direct message - check recipient's schedule
             other_user = room.participants.exclude(id=request.user.id).first()
-            if other_user:
-                is_accessible, _ = check_user_availability(other_user, request.user)
+            if other_user and other_user.role == 'supervisor':
+                is_available, msg = check_user_availability(other_user, request.user)
+                is_accessible = True  # Chat is accessible but messages will be pending
+                restriction_msg = msg if not is_available else None
         
         # Calculate average sentiment
         recent_messages = room.messages.filter(
@@ -168,6 +134,7 @@ def chat_home(request):
             'online_count': online_count,
             'participant_count': participant_count,
             'is_accessible': is_accessible,
+            'restriction_msg': restriction_msg,
             'avg_sentiment': avg_sentiment
         })
     
@@ -188,6 +155,7 @@ def chat_home(request):
     }
     
     return render(request, 'chat/chat_home.html', context)
+
 
 @login_required
 def search_users(request):
@@ -236,15 +204,16 @@ def user_chat(request, user_id):
         messages.error(request, "You cannot chat with yourself")
         return redirect('chat:chat_home')
     
-    # Check availability
-    is_available, restriction_msg = check_user_availability(other_user, request.user)
-    
-    # Supervisors get a notification but can still send
-    if not is_available and request.user.role == 'supervisor':
-        messages.warning(request, f"Note: {other_user.display_name} will only see your messages during their available hours: {restriction_msg}")
-    elif not is_available:
-        messages.error(request, f"{other_user.display_name} is not available right now. {restriction_msg}")
-        return redirect('chat:chat_home')
+    # ============================================
+    # UPDATED: CHECK SUPERVISOR AVAILABILITY
+    # ============================================
+    if other_user.role == 'supervisor':
+        is_available, restriction_msg = check_user_availability(other_user, request.user)
+        
+        if not is_available and request.user.role == 'student':
+            messages.info(request, f"{other_user.display_name} is not available right now. Your messages will be delivered when they're available. {restriction_msg}")
+        elif not is_available and request.user.role == 'supervisor':
+            messages.warning(request, f"Note: {other_user.display_name} is currently unavailable. Your messages will be delivered when they're available.")
     
     # Find or create direct message room
     existing_room = ChatRoom.objects.filter(
@@ -275,7 +244,7 @@ def user_chat(request, user_id):
 
 @login_required
 def chat_room(request, room_id):
-    """Enhanced chat room view with proper read tracking"""
+    """Enhanced chat room view with proper read tracking and schedule checks"""
     
     room = get_object_or_404(ChatRoom, pk=room_id, is_active=True)
     
@@ -284,33 +253,33 @@ def chat_room(request, room_id):
         messages.error(request, "You don't have access to this chat room")
         return redirect('chat:chat_home')
     
-    # Check accessibility
-    is_accessible = True
+    # ============================================
+    # FIXED: CHAT IS ALWAYS ACCESSIBLE, PENDING MESSAGES HANDLED IN WEBSOCKET
+    # ============================================
+    is_accessible = True  # ALWAYS TRUE - Pending messages handled in WebSocket
     restriction_msg = None
     
-    if room.is_frozen:
-        # For frozen rooms, check room schedule
-        is_accessible = room.is_accessible_now()
-        if not is_accessible:
-            schedule_info = f"This room is accessible from {room.schedule_start_time.strftime('%I:%M %p')} to {room.schedule_end_time.strftime('%I:%M %p')}"
-            if room.schedule_days:
-                schedule_info += f" on {room.schedule_days}"
-            messages.warning(request, schedule_info)
-            return redirect('chat:chat_home')
+    if room.room_type == 'supervisor' or room.group:
+        # Group chat - check supervisor's schedule
+        if room.group and room.group.supervisor:
+            supervisor = room.group.supervisor
+            if supervisor.schedule_enabled:
+                if not supervisor.is_available_now():
+                    restriction_msg = supervisor.get_availability_message()
+                    
+                    # Inform students about pending messages
+                    if request.user.role == 'student':
+                        messages.info(request, f"Supervisor is currently unavailable. Your messages will be delivered when they're available. {restriction_msg}")
+    
     elif room.room_type == 'direct':
-        # For direct messages, check availability based on user role
+        # Direct message - check recipient's schedule
         other_user = room.participants.exclude(id=request.user.id).first()
-        if other_user:
-            if request.user.role == 'student':
-                # Students can only message during THEIR OWN schedule
-                is_accessible, restriction_msg = check_user_availability(request.user, request.user)
-            else:
-                # Supervisors/admins check recipient's availability
-                is_accessible, restriction_msg = check_user_availability(other_user, request.user)
+        if other_user and other_user.role == 'supervisor':
+            is_available, msg = check_user_availability(other_user, request.user)
             
-            if not is_accessible and request.user.role != 'supervisor':
-                messages.warning(request, f"You cannot send messages right now. {restriction_msg}")
-                return redirect('chat:chat_home')
+            if not is_available and request.user.role == 'student':
+                restriction_msg = msg
+                messages.info(request, f"Supervisor is currently unavailable. Your messages will be delivered when they're available. {restriction_msg}")
     
     # Get or create member
     member, created = ChatRoomMember.objects.get_or_create(
@@ -318,11 +287,9 @@ def chat_room(request, room_id):
         user=request.user
     )
     
-    # CRITICAL: Mark ALL existing messages as read when user views the room
+    # Mark ALL existing messages as read when user views the room
     member.last_read_at = timezone.now()
     member.save(update_fields=['last_read_at'])
-    
-
     
     # Update last seen
     member.update_last_seen()
@@ -351,13 +318,14 @@ def chat_room(request, room_id):
         'member': member,
         'today': today,
         'yesterday': yesterday,
-        'is_accessible': is_accessible,
+        'is_accessible': is_accessible,  # ALWAYS TRUE
         'restriction_msg': restriction_msg,
         'has_supervisor': has_supervisor,
         'title': room.name
     }
     
     return render(request, 'chat/room.html', context)
+
 
 @login_required
 def get_unread_counts(request):
@@ -716,8 +684,7 @@ def supervisor_chat(request, supervisor_id):
     if not is_available and request.user.role == 'supervisor':
         messages.warning(request, f"Note: {supervisor.display_name} will only see your messages during their available hours: {restriction_msg}")
     elif not is_available:
-        messages.error(request, f"{supervisor.display_name} is not available right now. {restriction_msg}")
-        return redirect('chat:chat_home')
+        messages.info(request, f"{supervisor.display_name} is not available right now. Your messages will be delivered when they're available. {restriction_msg}")
     
     # Find or create a direct message room between user and supervisor
     existing_room = ChatRoom.objects.filter(

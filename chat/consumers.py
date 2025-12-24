@@ -1,18 +1,18 @@
-# File: Desktop/Prime/chat/consumers.py
+# File: chat/consumers.py - COMPLETE WORKING VERSION
 
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
-from django.core.exceptions import ObjectDoesNotExist
+from datetime import timedelta
+import traceback
 
-from .models import ChatRoom, Message, ChatRoomMember, TypingIndicator, MessageReaction
+from .models import ChatRoom, Message, ChatRoomMember, TypingIndicator, MessageReaction, PendingMessage
 from accounts.models import User
-from analytics.sentiment import AdvancedSentimentAnalyzer, InappropriateContentDetector
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    """WebSocket consumer for real-time chat"""
+    """WebSocket consumer for real-time chat with WORKING time restrictions"""
     
     async def connect(self):
         """Handle WebSocket connection"""
@@ -20,30 +20,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f'chat_{self.room_id}'
         self.user = self.scope['user']
         
-        # Check if user is authenticated
         if not self.user.is_authenticated:
             await self.close()
             return
         
-        # Check if room exists and user has access
         has_access = await self.check_room_access()
         if not has_access:
             await self.close()
             return
         
-        # Join room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
         
-        # Mark user as online
         await self.update_user_status(online=True)
-        
-        # Accept connection
         await self.accept()
         
-        # Notify others that user joined
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -56,13 +49,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def disconnect(self, close_code):
         """Handle WebSocket disconnection"""
-        # Mark user as offline
         await self.update_user_status(online=False)
-        
-        # Remove typing indicator
         await self.remove_typing_indicator()
         
-        # Notify others that user left
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -73,7 +62,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
         
-        # Leave room group
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
@@ -102,33 +90,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'message': 'Invalid JSON'
             }))
         except Exception as e:
+            print(f"❌ WebSocket receive error: {e}")
             await self.send(text_data=json.dumps({
                 'type': 'error',
-                'message': str(e)
+                'message': 'Server error occurred'
             }))
     
-    async def handle_mark_room_read(self, data):
-        """Handle marking room as read"""
-        try:
-            incoming_room_id = str(data.get('room_id', ''))
-            if str(self.room_id) != incoming_room_id:
-                # ignore incorrect room id
-                return
-        except Exception:
-            return
-
-        await self.update_member_last_read()
-
     async def handle_message(self, data):
-        """Handle new chat message"""
+        """
+        FIXED: Handle new chat message with WORKING time restrictions
+        """
         content = data.get('message', '').strip()
         reply_to_id = data.get('reply_to')
         
         if not content:
             return
         
-        # Check for inappropriate content
-        analysis = await self.analyze_content(content)
+        print(f"🔍 Message from {self.user.display_name} (role: {self.user.role})")
+        
+        # Check for inappropriate content FIRST
+        try:
+            analysis = await self.analyze_content(content)
+        except Exception as e:
+            print(f"❌ Content analysis error: {e}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Unable to analyze message content'
+            }))
+            return
         
         if analysis['is_inappropriate']:
             await self.send(text_data=json.dumps({
@@ -138,43 +127,91 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
             return
         
-        # Save message to database
-        message = await self.save_message(content, reply_to_id, analysis['sentiment_score'])
+        # ============================================
+        # CHECK SUPERVISOR AVAILABILITY
+        # ============================================
+        availability_info = await self.check_supervisor_availability()
         
-        if message:
-            # CRITICAL FIX: Send to others FIRST (excluding sender)
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'chat_message',
-                    'message_id': message.id,
+        print(f"📊 Availability check result:")
+        print(f"   - Is available: {availability_info['is_available']}")
+        print(f"   - Supervisor: {availability_info['supervisor']}")
+        print(f"   - Message: {availability_info['message']}")
+        
+        # ============================================
+        # CRITICAL FIX: Admins and supervisors can ALWAYS send
+        # ============================================
+        user_can_override = self.user.role in ['admin', 'supervisor']
+        
+        if availability_info['is_available'] or user_can_override:
+            # DELIVER IMMEDIATELY
+            print(f"✅ Delivering message immediately")
+            
+            message = await self.save_message(content, reply_to_id, analysis['sentiment_score'])
+            
+            if message:
+                # Broadcast to ALL participants
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'chat_message',
+                        'message_id': message.id,
+                        'sender_id': self.user.id,
+                        'sender_name': self.user.display_name,
+                        'content': content,
+                        'timestamp': message.timestamp.isoformat(),
+                        'reply_to': reply_to_id,
+                        'sentiment_score': message.sentiment_score,
+                        'is_flagged': message.is_flagged,
+                    }
+                )
+        
+        else:
+            # ============================================
+            # QUEUE AS PENDING MESSAGE
+            # ============================================
+            print(f"⏳ Queuing message as pending")
+            
+            pending_msg = await self.create_pending_message(
+                content,
+                reply_to_id,
+                analysis['sentiment_score'],
+                analysis['is_suspicious'],
+                availability_info['supervisor']
+            )
+            
+            if pending_msg:
+                print(f"✅ Created pending message {pending_msg.id}")
+                
+                # Send pending confirmation to sender ONLY
+                await self.send(text_data=json.dumps({
+                    'type': 'message_pending',
+                    'pending_message_id': pending_msg.id,
                     'sender_id': self.user.id,
                     'sender_name': self.user.display_name,
                     'content': content,
-                    'timestamp': message.timestamp.isoformat(),
-                    'reply_to': reply_to_id,
-                    'sentiment_score': message.sentiment_score,
-                    'is_flagged': message.is_flagged,
-                }
-            )
-            
-            # THEN send confirmation to sender
-            # (This ensures sender sees their message immediately)
-            await self.send(text_data=json.dumps({
-                'type': 'message_sent',
-                'message_id': message.id,
-                'sender_id': self.user.id,
-                'sender_name': self.user.display_name,
-                'content': content,
-                'timestamp': message.timestamp.isoformat(),
-                'reply_to': reply_to_id,
-                'sentiment_score': message.sentiment_score,
-                'is_flagged': message.is_flagged,
-            }))
-            
-            # If flagged as suspicious, notify admins
-            if analysis['is_suspicious']:
-                await self.notify_admins_suspicious_content(message, analysis)
+                    'created_at': pending_msg.created_at.isoformat(),
+                    'scheduled_delivery_time': pending_msg.scheduled_delivery_time.isoformat() if pending_msg.scheduled_delivery_time else None,
+                    'supervisor_name': availability_info['supervisor'].display_name if availability_info['supervisor'] else 'Supervisor',
+                    'delivery_message': f"Message will be delivered when {availability_info['supervisor'].display_name if availability_info['supervisor'] else 'supervisor'} is available",
+                    'time_until_delivery': str(pending_msg.time_until_delivery) if pending_msg.time_until_delivery else 'Unknown'
+                }))
+                
+                # Show it in sender's UI as pending
+                await self.send(text_data=json.dumps({
+                    'type': 'show_pending_message',
+                    'pending_message_id': pending_msg.id,
+                    'content': content,
+                    'created_at': pending_msg.created_at.isoformat(),
+                    'status': 'pending',
+                    'delivery_info': availability_info['message']
+                }))
+            else:
+                print(f"❌ Failed to create pending message")
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Failed to queue your message. Please try again.',
+                    'code': 'PENDING_CREATION_FAILED'
+                }))
 
     async def handle_typing(self, data):
         """Handle typing indicator"""
@@ -185,7 +222,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         else:
             await self.remove_typing_indicator()
         
-        # Broadcast typing status
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -205,7 +241,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             reaction = await self.add_reaction(message_id, emoji)
             
             if reaction:
-                # Broadcast reaction
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -225,7 +260,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             deleted = await self.delete_message(message_id)
             
             if deleted:
-                # Broadcast deletion
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -235,18 +269,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     }
                 )
     
-    # Message type handlers (for receiving from channel layer)
+    async def handle_mark_room_read(self, data):
+        """Handle marking room as read"""
+        try:
+            incoming_room_id = str(data.get('room_id', ''))
+            if str(self.room_id) != incoming_room_id:
+                return
+        except Exception:
+            return
+        
+        await self.update_member_last_read()
+    
+    # ============================================
+    # MESSAGE TYPE HANDLERS (from channel layer)
+    # ============================================
     
     async def chat_message(self, event):
-        """Send chat message to WebSocket - FIXED FOR REAL-TIME"""
-        # CRITICAL FIX: Don't send back to sender (they get message_sent instead)
-        if event['sender_id'] == self.user.id:
-            print(f"Skipping broadcast to sender {self.user.id} for message {event['message_id']}")
-            return  # Sender gets 'message_sent' type instead
-        
-        # Send to all OTHER users
+        """Send chat message to WebSocket - FIXED for proper display"""
+        # Send to ALL users including sender (frontend handles display)
         await self.send(text_data=json.dumps({
-            'type': 'message',  # Note: type is 'message' not 'chat_message'
+            'type': 'message',
             'message_id': event['message_id'],
             'sender_id': event['sender_id'],
             'sender_name': event['sender_name'],
@@ -257,9 +299,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'is_flagged': event.get('is_flagged', False),
         }))
     
+    async def pending_message_delivered(self, event):
+        """Handle pending message delivery"""
+        await self.send(text_data=json.dumps({
+            'type': 'pending_delivered',
+            'pending_message_id': event['pending_message_id'],
+            'message_id': event['message_id'],
+            'sender_id': event['sender_id'],
+            'sender_name': event['sender_name'],
+            'content': event['content'],
+            'timestamp': event['timestamp'],
+            'sentiment_score': event.get('sentiment_score', 0),
+            'is_flagged': event.get('is_flagged', False),
+        }))
+    
     async def typing_status(self, event):
         """Send typing status to WebSocket"""
-        # Don't send user's own typing status back to them
         if event['user_id'] != self.user.id:
             await self.send(text_data=json.dumps({
                 'type': 'typing',
@@ -290,7 +345,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def message_reaction(self, event):
         """Send reaction notification"""
-        # Don't send user's own reactions back to them
         if event['user_id'] != self.user.id:
             await self.send(text_data=json.dumps({
                 'type': 'reaction',
@@ -308,7 +362,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'deleted_by': event['deleted_by']
         }))
     
-    # Database operations
+    # ============================================
+    # DATABASE OPERATIONS
+    # ============================================
     
     @database_sync_to_async
     def check_room_access(self):
@@ -320,14 +376,74 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return False
     
     @database_sync_to_async
-    def save_message(self, content, reply_to_id, sentiment_score):
-        """Save message to database"""
+    def check_supervisor_availability(self):
+        """
+        FIXED: Check if supervisor is available for immediate messaging
+        """
         try:
             room = ChatRoom.objects.get(id=self.room_id)
             
-            # Check if room is accessible
-            if not room.is_accessible_now():
-                return None
+            print(f"🔍 Checking availability for room {room.id} ({room.room_type})")
+            
+            # Find supervisor
+            supervisor = None
+            
+            if room.room_type == 'supervisor' and room.group:
+                supervisor = room.group.supervisor
+                print(f"   Found group supervisor: {supervisor.display_name}")
+            
+            elif room.room_type == 'direct':
+                supervisor = room.participants.filter(role='supervisor').first()
+                if supervisor:
+                    print(f"   Found DM supervisor: {supervisor.display_name}")
+            
+            # No supervisor = always available
+            if not supervisor:
+                print(f"   ✅ No supervisor restrictions")
+                return {
+                    'is_available': True,
+                    'supervisor': None,
+                    'message': 'No supervisor restrictions'
+                }
+            
+            # Check if supervisor has schedule enabled
+            if not supervisor.schedule_enabled:
+                print(f"   ✅ Supervisor schedule not enabled")
+                return {
+                    'is_available': True,
+                    'supervisor': supervisor,
+                    'message': 'Supervisor has no schedule restrictions'
+                }
+            
+            # Check availability
+            is_available = supervisor.is_available_now()
+            
+            print(f"   📅 Schedule enabled: Yes")
+            print(f"   ⏰ Available now: {is_available}")
+            
+            if not is_available:
+                print(f"   ❌ Supervisor UNAVAILABLE - will queue message")
+            
+            return {
+                'is_available': is_available,
+                'supervisor': supervisor,
+                'message': supervisor.get_availability_message() if not is_available else 'Supervisor is available'
+            }
+            
+        except Exception as e:
+            print(f"❌ Error checking supervisor availability: {e}")
+            traceback.print_exc()
+            return {
+                'is_available': True,
+                'supervisor': None,
+                'message': 'Error checking availability'
+            }
+    
+    @database_sync_to_async
+    def save_message(self, content, reply_to_id, sentiment_score):
+        """Save message to database (immediate delivery)"""
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
             
             reply_to = None
             if reply_to_id:
@@ -336,7 +452,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 except Message.DoesNotExist:
                     pass
             
-            # Analyze content
+            # Import here to avoid circular imports
+            from analytics.sentiment import InappropriateContentDetector
             detector = InappropriateContentDetector()
             analysis = detector.analyze_content(content, content_type='chat')
             
@@ -349,24 +466,68 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 is_flagged=analysis['is_suspicious'] or analysis['is_inappropriate']
             )
             
-            # Update room's last message time
             room.last_message_at = timezone.now()
             room.save(update_fields=['last_message_at'])
             
+            print(f"✅ Saved message {message.id}")
             return message
         except Exception as e:
-            print(f"Error saving message: {e}")
+            print(f"❌ Error saving message: {e}")
+            traceback.print_exc()
+            return None
+    
+    @database_sync_to_async
+    def create_pending_message(self, content, reply_to_id, sentiment_score, is_flagged, supervisor):
+        """Create a pending message that will be delivered later"""
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+            
+            reply_to = None
+            if reply_to_id:
+                try:
+                    reply_to = Message.objects.get(id=reply_to_id, room=room)
+                except Message.DoesNotExist:
+                    pass
+            
+            # Create pending message
+            pending_msg = PendingMessage.objects.create(
+                room=room,
+                sender=self.user,
+                content=content,
+                reply_to=reply_to,
+                target_supervisor=supervisor,
+                sentiment_score=sentiment_score,
+                is_flagged=is_flagged,
+                status='pending'
+            )
+            
+            # Calculate delivery time
+            delivery_time = pending_msg.calculate_delivery_time()
+            pending_msg.scheduled_delivery_time = delivery_time
+            
+            # Set expiry (7 days from now)
+            pending_msg.expires_at = timezone.now() + timedelta(days=7)
+            pending_msg.save()
+            
+            print(f"✅ Created pending message {pending_msg.id} scheduled for {delivery_time}")
+            
+            return pending_msg
+        except Exception as e:
+            print(f"❌ Error creating pending message: {e}")
+            traceback.print_exc()
             return None
     
     @database_sync_to_async
     def analyze_content(self, content):
         """Analyze message content for sentiment and inappropriate content"""
         try:
+            # Import here to avoid circular imports
+            from analytics.sentiment import InappropriateContentDetector
+            from textblob import TextBlob
+            
             detector = InappropriateContentDetector()
             analysis = detector.analyze_content(content, content_type='chat')
             
-            # Simple sentiment analysis (can be enhanced)
-            from textblob import TextBlob
             blob = TextBlob(content)
             sentiment_score = blob.sentiment.polarity
             
@@ -377,7 +538,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'inappropriate_issues': analysis.get('inappropriate_issues', [])
             }
         except Exception as e:
-            print(f"Error analyzing content: {e}")
+            print(f"❌ Content analysis error: {e}")
+            traceback.print_exc()
             return {
                 'sentiment_score': 0,
                 'is_inappropriate': False,
@@ -400,7 +562,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             else:
                 member.save(update_fields=['is_online'])
         except Exception as e:
-            print(f"Error updating user status: {e}")
+            print(f"❌ Error updating user status: {e}")
     
     @database_sync_to_async
     def add_typing_indicator(self):
@@ -412,7 +574,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 user=self.user
             )
         except Exception as e:
-            print(f"Error adding typing indicator: {e}")
+            print(f"❌ Error adding typing indicator: {e}")
     
     @database_sync_to_async
     def remove_typing_indicator(self):
@@ -423,7 +585,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 user=self.user
             ).delete()
         except Exception as e:
-            print(f"Error removing typing indicator: {e}")
+            print(f"❌ Error removing typing indicator: {e}")
     
     @database_sync_to_async
     def add_reaction(self, message_id, emoji):
@@ -445,7 +607,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             message = Message.objects.get(id=message_id, room_id=self.room_id)
             
-            # Only author or admin can delete
             if message.sender == self.user or self.user.role == 'admin':
                 message.soft_delete()
                 return True
@@ -455,31 +616,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return False
     
     @database_sync_to_async
-    def notify_admins_suspicious_content(self, message, analysis):
-        """Notify admins about suspicious content"""
-        try:
-            from events.models import Notification
-            admins = User.objects.filter(role='admin')
-            
-            for admin in admins:
-                Notification.objects.create(
-                    recipient=admin,
-                    notification_type='system',
-                    title='Suspicious Chat Message Detected',
-                    message=f"Message from {self.user.display_name} flagged: {', '.join(analysis.get('suspicious_issues', []))}",
-                    link_url=f'/chat/room/{self.room_id}/'
-                )
-        except Exception as e:
-            print(f"Error notifying admins: {e}")
-    
-    @database_sync_to_async
     def update_member_last_read(self):
-        """
-        Set the ChatRoomMember.last_read_at = now for this user & room.
-        Uses get_or_create so it won't raise if the membership row is missing.
-        """
+        """Update last_read_at for this user & room"""
         try:
-            from chat.models import ChatRoomMember
             member, created = ChatRoomMember.objects.get_or_create(
                 room_id=self.room_id,
                 user=self.user
@@ -487,4 +626,4 @@ class ChatConsumer(AsyncWebsocketConsumer):
             member.last_read_at = timezone.now()
             member.save(update_fields=['last_read_at'])
         except Exception as e:
-            print("Error updating last_read_at:", e)
+            print(f"❌ Error updating last_read_at: {e}")

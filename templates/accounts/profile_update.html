@@ -1,6 +1,87 @@
+<!-- File: templates/accounts/profile_update.html -->
+
 {% extends 'base.html' %}
 
 {% block title %}Update Profile - PrimeTime{% endblock %}
+
+{% block extra_css %}
+<style>
+    .schedule-section {
+        background: rgba(245, 158, 11, 0.05);
+        border: 2px solid rgba(245, 158, 11, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+        display: none;
+    }
+    
+    .schedule-section.active {
+        display: block;
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .schedule-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #D97706;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
+    
+    .days-selector {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    
+    .day-btn {
+        padding: 8px 16px;
+        border: 2px solid var(--border);
+        background: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+    
+    .day-btn.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+    
+    .info-box {
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 4px solid #3B82F6;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+    }
+    
+    .info-title {
+        font-weight: 600;
+        color: #1E40AF;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -11,7 +92,7 @@
                     <h4><i class='bx bx-edit'></i> Update Profile</h4>
                 </div>
                 <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
+                    <form method="post" enctype="multipart/form-data" id="profileForm">
                         {% csrf_token %}
                         
                         <!-- Profile Picture -->
@@ -82,12 +163,12 @@
                             </div>
                             {% endif %}
                             
-                            {% if form.enrollment_year %}
+                            {% if form.enrollment_date %}
                             <div class="form-group mb-3">
-                                <label class="form-label">Enrollment Year</label>
-                                {{ form.enrollment_year }}
-                                {% if form.enrollment_year.errors %}
-                                    <div class="text-danger small">{{ form.enrollment_year.errors.0 }}</div>
+                                <label class="form-label">Enrollment Date</label>
+                                {{ form.enrollment_date }}
+                                {% if form.enrollment_date.errors %}
+                                    <div class="text-danger small">{{ form.enrollment_date.errors.0 }}</div>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -114,15 +195,99 @@
                                 {% endif %}
                             </div>
                             {% endif %}
+                            
+                            <!-- ============================================ -->
+                            <!-- NEW: SCHEDULE SETTINGS FOR SUPERVISORS -->
+                            <!-- ============================================ -->
+                            <hr class="my-4">
+                            <h5 class="mb-3"><i class='bx bx-time'></i> Messaging Schedule</h5>
+                            
+                            <div class="info-box">
+                                <div class="info-title">
+                                    <i class='bx bx-info-circle'></i>
+                                    About Messaging Schedule
+                                </div>
+                                <p class="mb-0" style="color: #1E40AF; font-size: 14px;">
+                                    Enable time restrictions to control when students can send you messages. 
+                                    Students will only be able to message you during your specified hours. 
+                                    Messages sent outside these hours will be queued and delivered when you're available.
+                                </p>
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <div class="form-check">
+                                    {{ form.schedule_enabled }}
+                                    <label class="form-check-label" for="{{ form.schedule_enabled.id_for_label }}">
+                                        Enable Time Restrictions for Student Messaging
+                                    </label>
+                                </div>
+                                <small class="text-muted">
+                                    When enabled, students can only message you during specified hours
+                                </small>
+                                {% if form.schedule_enabled.errors %}
+                                    <div class="text-danger small">{{ form.schedule_enabled.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="schedule-section {% if form.schedule_enabled.value %}active{% endif %}" id="scheduleSection">
+                                <div class="schedule-header">
+                                    <i class='bx bx-calendar'></i>
+                                    Schedule Configuration
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label class="form-label">Start Time</label>
+                                            {{ form.schedule_start_time }}
+                                            {% if form.schedule_start_time.errors %}
+                                                <div class="text-danger small">{{ form.schedule_start_time.errors.0 }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-group mb-3">
+                                            <label class="form-label">End Time</label>
+                                            {{ form.schedule_end_time }}
+                                            {% if form.schedule_end_time.errors %}
+                                                <div class="text-danger small">{{ form.schedule_end_time.errors.0 }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group mb-3">
+                                    <label class="form-label">Available Days</label>
+                                    {{ form.schedule_days }}
+                                    <small class="text-muted d-block mt-1">
+                                        Comma-separated days (e.g., Mon,Tue,Wed,Thu,Fri)
+                                    </small>
+                                    {% if form.schedule_days.errors %}
+                                        <div class="text-danger small">{{ form.schedule_days.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Day Selector Buttons -->
+                                <div class="days-selector">
+                                    <button type="button" class="day-btn" data-day="Mon">Monday</button>
+                                    <button type="button" class="day-btn" data-day="Tue">Tuesday</button>
+                                    <button type="button" class="day-btn" data-day="Wed">Wednesday</button>
+                                    <button type="button" class="day-btn" data-day="Thu">Thursday</button>
+                                    <button type="button" class="day-btn" data-day="Fri">Friday</button>
+                                    <button type="button" class="day-btn" data-day="Sat">Saturday</button>
+                                    <button type="button" class="day-btn" data-day="Sun">Sunday</button>
+                                </div>
+                            </div>
                         {% endif %}
 
                         {% if form.non_field_errors %}
-                            <div class="alert alert-danger">
+                            <div class="alert alert-danger mt-3">
                                 {{ form.non_field_errors.0 }}
                             </div>
                         {% endif %}
 
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 mt-4">
                             <button type="submit" class="btn btn-primary">
                                 <i class='bx bx-save'></i> Save Changes
                             </button>
@@ -136,4 +301,52 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scheduleEnabled = document.getElementById('{{ form.schedule_enabled.id_for_label }}');
+    const scheduleSection = document.getElementById('scheduleSection');
+    const daysInput = document.querySelector('input[name="schedule_days"]');
+    const dayButtons = document.querySelectorAll('.day-btn');
+    
+    // Toggle schedule section
+    if (scheduleEnabled) {
+        scheduleEnabled.addEventListener('change', function() {
+            if (this.checked) {
+                scheduleSection.classList.add('active');
+            } else {
+                scheduleSection.classList.remove('active');
+            }
+        });
+    }
+    
+    // Day selector buttons
+    if (daysInput && dayButtons.length > 0) {
+        // Initialize buttons from existing value
+        if (daysInput.value) {
+            const days = daysInput.value.split(',').map(d => d.trim());
+            dayButtons.forEach(btn => {
+                if (days.includes(btn.dataset.day)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+        
+        // Handle button clicks
+        dayButtons.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                this.classList.toggle('active');
+                
+                // Update input value
+                const selectedDays = Array.from(document.querySelectorAll('.day-btn.active'))
+                    .map(btn => btn.dataset.day);
+                daysInput.value = selectedDays.join(',');
+            });
+        });
+    }
+});
+</script>
 {% endblock %}

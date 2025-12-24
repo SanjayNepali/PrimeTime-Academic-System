@@ -1,5 +1,3 @@
-<!-- File: templates/chat/room.html - FIXED VERSION -->
-
 {% extends 'base.html' %}
 {% load static %}
 
@@ -7,7 +5,6 @@
 
 {% block extra_css %}
 <style>
-    /* Your existing CSS remains the same */
     .chat-layout {
         display: flex;
         height: calc(100vh - 80px);
@@ -120,6 +117,8 @@
         background: white;
     }
 
+    /* REMOVED: Access Denied Banner - Chat is always accessible now */
+    
     .time-restriction-banner {
         background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
         color: white;
@@ -140,11 +139,13 @@
         flex: 1;
     }
 
-    .access-denied-banner {
-        background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    .pending-message-banner {
+        background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
         color: white;
-        padding: 16px 20px;
-        text-align: center;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
         font-size: 14px;
         border-bottom: 1px solid rgba(255,255,255,0.2);
     }
@@ -199,6 +200,12 @@
         background: #d1ecf1;
         color: #0c5460;
         border: 1px solid #bee5eb;
+    }
+
+    .badge-pending {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
     }
 
     .supervisor-note {
@@ -418,10 +425,7 @@
         padding: 20px 24px;
     }
 
-    .chat-input-disabled {
-        opacity: 0.5;
-        pointer-events: none;
-    }
+    /* REMOVED: chat-input-disabled class - chat is always accessible now */
 
     .reply-bar {
         background: #f8f9fa;
@@ -485,11 +489,6 @@
         box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
     }
 
-    .message-input:disabled {
-        background: #f8f9fa;
-        color: #6c757d;
-    }
-
     .input-actions {
         display: flex;
         gap: 8px;
@@ -521,6 +520,11 @@
 
     .send-btn:hover {
         background: #0056b3;
+    }
+
+    .send-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
     }
 
     .typing-indicator {
@@ -621,17 +625,18 @@
 
     <!-- Chat Main Area -->
     <div class="chat-main">
-        <!-- Access Denied Banner -->
-        {% if not is_accessible and user.role != 'supervisor' %}
-        <div class="access-denied-banner">
-            <i class='bx bx-time'></i>
-            <strong>Chat Unavailable</strong><br>
-            {{ restriction_msg }}
+        <!-- Pending Message Banner (if supervisor is unavailable) -->
+        {% if restriction_msg and user.role == 'student' %}
+        <div class="pending-message-banner">
+            <i class='bx bx-time restriction-icon'></i>
+            <div class="restriction-text">
+                <strong>Note:</strong> Supervisor is currently unavailable. Your messages will be queued and delivered when they're available. {{ restriction_msg }}
+            </div>
         </div>
         {% endif %}
 
-        <!-- Time Restriction Banner (if applicable) -->
-        {% if not is_accessible and user.role == 'supervisor' %}
+        <!-- Time Restriction Banner (for supervisors messaging students) -->
+        {% if restriction_msg and user.role == 'supervisor' %}
         <div class="time-restriction-banner">
             <i class='bx bx-info-circle restriction-icon'></i>
             <div class="restriction-text">
@@ -646,15 +651,15 @@
             <div class="chat-header-info">
                 <h2>{{ room.name }}</h2>
                 <div class="chat-meta">
-                    <!-- Show status badges for supervisor chats, group chats, and chats with supervisors -->
+                    <!-- Show status badges -->
                     {% if room.room_type == 'supervisor' or room.room_type == 'group' or has_supervisor %}
                         <div class="chat-meta-item">
-                            {% if not is_accessible and user.role == 'student' %}
-                                <span class="status-badge badge-frozen">
-                                    <i class='bx bx-lock'></i>
-                                    Currently Unavailable
+                            {% if restriction_msg and user.role == 'student' %}
+                                <span class="status-badge badge-pending">
+                                    <i class='bx bx-time'></i>
+                                    Pending Delivery
                                 </span>
-                            {% elif not is_accessible and user.role == 'supervisor' %}
+                            {% elif restriction_msg and user.role == 'supervisor' %}
                                 <span class="status-badge badge-frozen">
                                     <i class='bx bx-time'></i>
                                     Student Unavailable
@@ -680,13 +685,6 @@
                     </div>
                     {% endif %}
                     
-                    {% if room.is_frozen and room.schedule_start_time %}
-                    <div class="chat-meta-item">
-                        <i class='bx bx-time'></i>
-                        Room Available: {{ room.schedule_start_time|time:"g:i A" }} - {{ room.schedule_end_time|time:"g:i A" }}
-                    </div>
-                    {% endif %}
-                    
                     {% if restriction_msg and user.role == 'student' %}
                     <div class="chat-meta-item">
                         <i class='bx bx-time'></i>
@@ -703,6 +701,7 @@
                 </a>
             </div>
         </div>
+        
         <!-- Supervisor Note for Direct Messages -->
         {% if room.room_type == 'direct' and user.role == 'supervisor' and restriction_msg %}
         <div class="supervisor-note">
@@ -803,8 +802,8 @@
             </div>
         </div>
 
-        <!-- Chat Input -->
-        <div class="chat-input-container {% if not is_accessible and user.role != 'supervisor' %}chat-input-disabled{% endif %}">
+        <!-- Chat Input - ALWAYS ENABLED NOW -->
+        <div class="chat-input-container">
             <div class="reply-bar" id="replyBar" style="display: none;">
                 <div class="reply-info">
                     <i class='bx bx-reply'></i>
@@ -820,10 +819,9 @@
                 <textarea 
                     id="messageInput" 
                     class="message-input"
-                    placeholder="{% if not is_accessible and user.role != 'supervisor' %}This chat is currently unavailable...{% else %}Type your message...{% endif %}"
+                    placeholder="Type your message..."
                     maxlength="1000"
-                    rows="1"
-                    {% if not is_accessible and user.role != 'supervisor' %}disabled{% endif %}></textarea>
+                    rows="1"></textarea>
                 
                 <div class="input-actions">
                     <button type="button" class="input-btn" onclick="showEmojiPicker()" title="Add emoji">
@@ -842,64 +840,22 @@
 {% block extra_js %}
 <script>
 // ========================================
-// CRITICAL FIX: Track when page loaded to prevent historical notifications
-// ========================================
-const PAGE_LOAD_TIME = new Date();
-console.log('📅 Page loaded at:', PAGE_LOAD_TIME.toISOString());
-
-// ========================================
-// CRITICAL: BLOCK ALL NOTIFICATIONS
-// ========================================
-(function() {
-    'use strict';
-    
-    console.log('🚫 Initializing comprehensive notification blocker for chat room');
-    
-    // Completely disable Notification API
-    if ('Notification' in window) {
-        window.Notification = function(title, options) {
-            console.log('🚫 Notification blocked:', title);
-            return {
-                close: function() {},
-                onclick: null,
-                onerror: null,
-                onshow: null,
-                onclose: null
-            };
-        };
-        
-        window.Notification.requestPermission = function() {
-            console.log('🚫 Notification permission request blocked');
-            return Promise.resolve('denied');
-        };
-        
-        window.Notification.permission = 'denied';
-        
-        // Prevent any overrides
-        Object.defineProperty(window, 'Notification', {
-            writable: false,
-            configurable: false
-        });
-    }
-    
-    console.log('✅ Comprehensive notification blocker active');
-})();
-
-// ========================================
 // CHAT ROOM VARIABLES
 // ========================================
 const roomId = {{ room.id }};
 const currentUserId = {{ user.id }};
 const currentUsername = "{{ user.display_name|escapejs }}";
-const isAccessible = {{ is_accessible|lower }};
 const isSupervisor = {% if user.role == 'supervisor' %}true{% else %}false{% endif %};
 let replyToId = null;
 let typingTimeout;
 let chatSocket;
 let isRoomActive = true;
 
-// Track which messages we've already seen (prevent duplicates)
+// Track seen messages to prevent duplicates
 const seenMessageIds = new Set();
+
+// Track pending messages
+const pendingMessages = new Map();
 
 // ========================================
 // WEBSOCKET CONNECTION
@@ -913,7 +869,6 @@ function connectWebSocket() {
     chatSocket.onopen = function(e) {
         console.log('✅ WebSocket connected for room', roomId);
         
-        // Mark room as read immediately
         chatSocket.send(JSON.stringify({
             'type': 'mark_room_read',
             'room_id': roomId
@@ -940,22 +895,40 @@ function connectWebSocket() {
 }
 
 // ========================================
-// HANDLE WEBSOCKET MESSAGES - INCLUDES SENDER'S OWN MESSAGES
+// HANDLE WEBSOCKET MESSAGES
 // ========================================
 function handleWebSocketMessage(data) {
     console.log('📨 Received message type:', data.type);
     
     switch(data.type) {
         case 'message':
-            // Message from OTHER users
+            // Message from other users
             console.log('📩 Message from other user:', data.sender_id);
             addMessageToChat(data);
             break;
             
         case 'message_sent':
-            // CRITICAL: Message confirmation for SENDER (your own message)
+            // Confirmation for sender
             console.log('📤 Your message confirmed:', data.message_id);
             addMessageToChat(data);
+            break;
+        
+        // ============================================
+        // PENDING MESSAGE HANDLERS
+        // ============================================
+        case 'message_pending':
+            // Message queued as pending
+            handlePendingMessage(data);
+            break;
+        
+        case 'show_pending_message':
+            // Show pending message in UI
+            showPendingMessageInChat(data);
+            break;
+        
+        case 'pending_delivered':
+            // Pending message was delivered
+            handlePendingDelivered(data);
             break;
             
         case 'typing':
@@ -985,30 +958,158 @@ function handleWebSocketMessage(data) {
     }
 }
 
-// ========================================
-// ADD MESSAGE TO CHAT - WORKS FOR SENDER AND RECEIVER
-// ========================================
-function addMessageToChat(data) {
+// ============================================
+// PENDING MESSAGE FUNCTIONS
+// ============================================
+function handlePendingMessage(data) {
+    console.log('⏳ Message queued as pending:', data.pending_message_id);
+    
+    pendingMessages.set(data.pending_message_id, {
+        content: data.content,
+        created_at: data.created_at,
+        scheduled_delivery: data.scheduled_delivery_time,
+        status: 'pending'
+    });
+    
+    // Show notification
+    showPendingNotification(data);
+}
+
+function showPendingMessageInChat(data) {
+    console.log('📝 Showing pending message in chat:', data.pending_message_id);
+    
     const messagesList = document.getElementById('messagesList');
     
-    // Remove empty state if it exists
     const emptyState = messagesList.querySelector('.empty-chat-state');
     if (emptyState) {
         emptyState.remove();
     }
     
-    // CRITICAL: Check if we've already displayed this message
+    const messageGroup = document.createElement('div');
+    messageGroup.className = 'message-group own pending-message';
+    messageGroup.dataset.pendingMessageId = data.pending_message_id;
+    
+    const messageTime = new Date(data.created_at).toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+    });
+    
+    const senderInitial = currentUsername.charAt(0).toUpperCase();
+    
+    messageGroup.innerHTML = `
+        <div class="message-avatar">
+            ${senderInitial}
+        </div>
+        <div class="message-content">
+            <div class="message-header">
+                <span class="message-sender">${currentUsername}</span>
+                <span class="message-time">${messageTime}</span>
+                <span class="pending-badge">⏳ Pending</span>
+            </div>
+            <div class="message-bubble message-pending-bubble">
+                <div class="message-text">${escapeHtml(data.content)}</div>
+                <div class="pending-info">
+                    <i class='bx bx-time'></i>
+                    ${data.delivery_info}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    messagesList.appendChild(messageGroup);
+    scrollToBottom();
+}
+
+function handlePendingDelivered(data) {
+    console.log('✅ Pending message delivered:', data.pending_message_id);
+    
+    const pendingElement = document.querySelector(`[data-pending-message-id="${data.pending_message_id}"]`);
+    if (pendingElement) {
+        pendingElement.remove();
+    }
+    
+    pendingMessages.delete(data.pending_message_id);
+    
+    addMessageToChat({
+        message_id: data.message_id,
+        sender_id: data.sender_id,
+        sender_name: data.sender_name,
+        content: data.content,
+        timestamp: data.timestamp,
+        sentiment_score: data.sentiment_score,
+        is_flagged: data.is_flagged
+    });
+    
+    if (data.sender_id === currentUserId) {
+        showDeliveryNotification(data);
+    }
+}
+
+function showPendingNotification(data) {
+    const notification = document.createElement('div');
+    notification.className = 'chat-notification pending-notification';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class='bx bx-time-five'></i>
+            <div>
+                <strong>Message Queued</strong>
+                <p>${data.delivery_message}</p>
+                ${data.time_until_delivery ? `<small>Estimated delivery: ${data.time_until_delivery}</small>` : ''}
+            </div>
+        </div>
+    `;
+    
+    const container = document.querySelector('.chat-main');
+    container.insertBefore(notification, container.firstChild);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+function showDeliveryNotification(data) {
+    const notification = document.createElement('div');
+    notification.className = 'chat-notification delivery-notification';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class='bx bx-check-circle'></i>
+            <div>
+                <strong>Message Delivered</strong>
+                <p>Your pending message has been delivered.</p>
+            </div>
+        </div>
+    `;
+    
+    const container = document.querySelector('.chat-main');
+    container.insertBefore(notification, container.firstChild);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// ============================================
+// MESSAGE DISPLAY
+// ============================================
+function addMessageToChat(data) {
+    const messagesList = document.getElementById('messagesList');
+    
+    const emptyState = messagesList.querySelector('.empty-chat-state');
+    if (emptyState) {
+        emptyState.remove();
+    }
+    
     if (seenMessageIds.has(data.message_id)) {
         console.log('🚫 DUPLICATE MESSAGE BLOCKED:', data.message_id);
         return;
     }
     
-    // Mark this message as seen
     seenMessageIds.add(data.message_id);
+    console.log('✅ Adding message to chat:', data.message_id);
     
-    console.log('✅ Adding NEW message to chat:', data.message_id, 'from user:', data.sender_id);
-    
-    // Determine if this is the current user's message
     const isOwnMessage = data.sender_id === currentUserId;
     
     const messageGroup = document.createElement('div');
@@ -1020,14 +1121,6 @@ function addMessageToChat(data) {
         minute: '2-digit',
         hour12: true 
     });
-
-    // Escape HTML to prevent XSS
-    const escapeHtml = (text) => {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    };
 
     const senderInitial = data.sender_name ? data.sender_name.charAt(0).toUpperCase() : '?';
     const safeSenderName = escapeHtml(data.sender_name || 'Unknown User');
@@ -1059,29 +1152,18 @@ function addMessageToChat(data) {
 
     messagesList.appendChild(messageGroup);
     scrollToBottom();
-    
-    console.log('✅ Message displayed successfully');
 }
 
-// ========================================
-// INITIALIZE EXISTING MESSAGES (NO NOTIFICATIONS)
-// ========================================
-function initializeExistingMessages() {
-    // Mark all messages that are already on the page as "seen"
-    // This prevents duplicates when WebSocket sends the same messages
-    const existingMessages = document.querySelectorAll('[data-message-id]');
-    existingMessages.forEach(msg => {
-        const msgId = parseInt(msg.dataset.messageId);
-        seenMessageIds.add(msgId);
-        console.log('📝 Marked existing message as seen:', msgId);
-    });
-    
-    console.log('✅ Initialized', seenMessageIds.size, 'existing messages');
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
-// ========================================
-// CHAT UTILITY FUNCTIONS
-// ========================================
 function scrollToBottom() {
     const messagesContainer = document.getElementById('messagesContainer');
     if (messagesContainer) {
@@ -1139,7 +1221,7 @@ function removeMessageFromChat(messageId) {
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
     if (messageElement) {
         messageElement.remove();
-        seenMessageIds.delete(messageId); // Remove from tracking
+        seenMessageIds.delete(messageId);
     }
 }
 
@@ -1148,18 +1230,13 @@ function updateMessageReaction(data) {
 }
 
 // ========================================
-// MESSAGE SENDING & TYPING
+// MESSAGE SENDING
 // ========================================
 function sendMessage() {
     const messageInput = document.getElementById('messageInput');
     const content = messageInput.value.trim();
     
     if (!content) return;
-    
-    if (!isAccessible && !isSupervisor) {
-        alert('Chat is currently unavailable. Please try again during available hours.');
-        return;
-    }
     
     console.log('📤 Sending message:', content);
     
@@ -1174,19 +1251,15 @@ function sendMessage() {
         chatSocket.send(JSON.stringify(messageData));
         messageInput.value = '';
         cancelReply();
-        
-        // Reset textarea height
         messageInput.style.height = 'auto';
         
-        console.log('✅ Message sent to server, waiting for confirmation...');
+        console.log('✅ Message sent to server');
     } else {
         alert('Connection issue. Please refresh the page and try again.');
     }
 }
 
 function handleTyping() {
-    if (!isAccessible && !isSupervisor) return;
-    
     if (chatSocket.readyState === WebSocket.OPEN) {
         chatSocket.send(JSON.stringify({
             'type': 'typing',
@@ -1208,70 +1281,140 @@ function handleTyping() {
 }
 
 // ========================================
-// PAGE EVENT HANDLERS
+// INITIALIZATION
 // ========================================
+function initializeExistingMessages() {
+    const existingMessages = document.querySelectorAll('[data-message-id]');
+    existingMessages.forEach(msg => {
+        const msgId = parseInt(msg.dataset.messageId);
+        seenMessageIds.add(msgId);
+    });
+    console.log('✅ Initialized', seenMessageIds.size, 'existing messages');
+}
 
-// Track if user is actively viewing this chat room
 window.addEventListener('focus', function() {
     isRoomActive = true;
-    console.log('✅ Chat room active');
 });
 
 window.addEventListener('blur', function() {
     isRoomActive = false;
-    console.log('🔴 Chat room inactive');
 });
 
-// Handle page visibility changes
 document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        isRoomActive = false;
-        console.log('🔴 Chat room inactive - page hidden');
-    } else {
-        isRoomActive = true;
-        console.log('✅ Chat room active - page visible');
-    }
+    isRoomActive = !document.hidden;
 });
 
-// ========================================
-// INITIALIZATION - CRITICAL FIX
-// ========================================
 window.addEventListener('load', function() {
     console.log('🚀 Initializing chat room...');
-    
-    // STEP 1: First, mark all existing messages as seen (prevents duplicates)
     initializeExistingMessages();
-    
-    // STEP 2: Then connect WebSocket (handles new messages)
     connectWebSocket();
-    
-    // STEP 3: Scroll to bottom
     scrollToBottom();
-    
-    // STEP 4: Mark room as active
     isRoomActive = true;
-    
     console.log('✅ Chat room fully loaded and ready');
 });
 
-// Handle form submission
 document.getElementById('messageForm').addEventListener('submit', function(e) {
     e.preventDefault();
     sendMessage();
 });
 
-// Typing detection
 document.getElementById('messageInput').addEventListener('input', handleTyping);
 
-// Auto-resize textarea
 document.getElementById('messageInput').addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 });
-
-// Emoji picker placeholder
-function showEmojiPicker() {
-    console.log('Emoji picker would open here');
-}
 </script>
+
+<!-- Pending Message Styles -->
+<style>
+.pending-message {
+    opacity: 0.7;
+}
+
+.message-pending-bubble {
+    background: rgba(59, 130, 246, 0.1) !important;
+    border: 2px dashed #3B82F6 !important;
+}
+
+.pending-badge {
+    background: #DBEAFE;
+    color: #1E40AF;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 8px;
+}
+
+.pending-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #3B82F6;
+    font-size: 12px;
+    color: #1E40AF;
+}
+
+.chat-notification {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    max-width: 400px;
+    background: white;
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    transition: opacity 0.3s;
+}
+
+.pending-notification {
+    border-left: 4px solid #3B82F6;
+}
+
+.delivery-notification {
+    border-left: 4px solid #10B981;
+}
+
+.notification-content {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.notification-content i {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.pending-notification i {
+    color: #3B82F6;
+}
+
+.delivery-notification i {
+    color: #10B981;
+}
+
+.notification-content strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #1F2937;
+}
+
+.notification-content p {
+    margin: 0;
+    font-size: 14px;
+    color: #6B7280;
+}
+
+.notification-content small {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6B7280;
+}
+</style>
 {% endblock %}

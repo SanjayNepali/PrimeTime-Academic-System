@@ -1,4 +1,4 @@
-# File: Desktop/Prime/accounts/models.py
+# File: accounts/models.py - COMPLETE FINAL VERSION
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -6,6 +6,8 @@ from django.utils import timezone
 from django.core.validators import RegexValidator
 import random
 import string
+from datetime import datetime, time as datetime_time, timedelta
+import pytz
 
 
 class User(AbstractUser):
@@ -56,6 +58,29 @@ class User(AbstractUser):
         blank=True
     )
     
+    # ============================================
+    # SUPERVISOR SCHEDULE SETTINGS
+    # ============================================
+    schedule_start_time = models.TimeField(
+        null=True, 
+        blank=True,
+        help_text="Time when students can start messaging (e.g., 09:00 AM)"
+    )
+    schedule_end_time = models.TimeField(
+        null=True, 
+        blank=True,
+        help_text="Time when students must stop messaging (e.g., 05:00 PM)"
+    )
+    schedule_days = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Comma-separated days: Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+    )
+    schedule_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable/disable time restrictions for this supervisor"
+    )
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -91,6 +116,172 @@ class User(AbstractUser):
         self.initial_password_visible = False
         self.save()
     
+    # ============================================
+    # FINAL FIXED: SCHEDULE CHECK METHODS
+    # All timezone and case sensitivity issues resolved
+    # ============================================
+    
+    def _get_nepal_time(self):
+        """Get current time in Nepal timezone explicitly"""
+        nepal_tz = pytz.timezone('Asia/Kathmandu')
+        utc_now = timezone.now()
+        nepal_now = utc_now.astimezone(nepal_tz)
+        return nepal_now
+    
+    def _normalize_day_name(self, day_str):
+        """
+        Normalize day names to standard 3-letter format
+        Handles: Mon, MON, mon, Monday, MONDAY, monday -> Mon
+        """
+        day_map = {
+            'monday': 'Mon',
+            'mon': 'Mon',
+            'tuesday': 'Tue',
+            'tue': 'Tue',
+            'wednesday': 'Wed',
+            'wed': 'Wed',
+            'thursday': 'Thu',
+            'thu': 'Thu',
+            'friday': 'Fri',
+            'fri': 'Fri',
+            'saturday': 'Sat',
+            'sat': 'Sat',
+            'sunday': 'Sun',
+            'sun': 'Sun',
+        }
+        
+        day_lower = day_str.strip().lower()
+        return day_map.get(day_lower, day_str.strip())
+    
+    def is_available_now(self):
+        """
+        FINAL FIXED: Check if supervisor is available for messaging right now
+        - Uses Nepal timezone explicitly
+        - Handles case-insensitive day names
+        - Proper debug logging
+        Returns True if available, False if not
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # If schedule not enabled, always available
+        if not self.schedule_enabled:
+            logger.debug(f"Schedule not enabled for {self.display_name}")
+            return True
+        
+        # If no times set, always available
+        if not self.schedule_start_time or not self.schedule_end_time:
+            logger.debug(f"No start/end time set for {self.display_name}")
+            return True
+        
+        # Get current time in Nepal timezone
+        nepal_now = self._get_nepal_time()
+        current_time = nepal_now.time()
+        current_day = nepal_now.strftime('%a')  # Mon, Tue, Wed, etc.
+        
+        logger.debug(f"Checking availability for {self.display_name}")
+        logger.debug(f"  Nepal time: {nepal_now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        logger.debug(f"  Current time: {current_time}")
+        logger.debug(f"  Current day: {current_day}")
+        logger.debug(f"  Schedule: {self.schedule_start_time} - {self.schedule_end_time}")
+        logger.debug(f"  Schedule days (raw): {self.schedule_days}")
+        
+        # CRITICAL FIX: Check day with case-insensitive matching
+        if self.schedule_days:
+            # Normalize all day names in schedule
+            raw_days = [d.strip() for d in self.schedule_days.split(',')]
+            allowed_days = [self._normalize_day_name(d) for d in raw_days]
+            
+            logger.debug(f"  Normalized allowed days: {allowed_days}")
+            
+            if current_day not in allowed_days:
+                logger.debug(f"  ❌ Current day '{current_day}' NOT in allowed days {allowed_days}")
+                return False
+            
+            logger.debug(f"  ✅ Current day '{current_day}' IS in allowed days")
+        
+        # CRITICAL FIX: Proper time comparison
+        is_in_time = self.schedule_start_time <= current_time <= self.schedule_end_time
+        
+        logger.debug(f"  Time check result: {is_in_time}")
+        logger.debug(f"  {current_time} between {self.schedule_start_time} and {self.schedule_end_time}")
+        
+        if is_in_time:
+            logger.debug(f"  ✅ AVAILABLE NOW")
+        else:
+            logger.debug(f"  ❌ NOT AVAILABLE NOW")
+        
+        return is_in_time
+    
+    def get_availability_message(self):
+        """Get human-readable availability message"""
+        if not self.schedule_enabled:
+            return "Available anytime"
+        
+        if not self.schedule_start_time or not self.schedule_end_time:
+            return "Available anytime"
+        
+        # Format times in 12-hour format
+        start = self.schedule_start_time.strftime('%I:%M %p')
+        end = self.schedule_end_time.strftime('%I:%M %p')
+        
+        msg = f"Available {start} - {end}"
+        
+        if self.schedule_days:
+            # Normalize day names for display
+            raw_days = [d.strip() for d in self.schedule_days.split(',')]
+            normalized_days = [self._normalize_day_name(d) for d in raw_days]
+            msg += f" on {', '.join(normalized_days)}"
+        
+        return msg
+    
+    def get_next_available_time(self):
+        """
+        FINAL FIXED: Calculate next available time for supervisor
+        - Uses Nepal timezone explicitly
+        - Handles case-insensitive day names
+        """
+        if not self.schedule_enabled or not self.schedule_start_time:
+            return None
+        
+        # Get current time in Nepal
+        nepal_now = self._get_nepal_time()
+        
+        # Parse schedule days with normalization
+        allowed_days_map = {
+            'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3,
+            'Fri': 4, 'Sat': 5, 'Sun': 6
+        }
+        
+        allowed_weekdays = []
+        if self.schedule_days:
+            raw_days = [d.strip() for d in self.schedule_days.split(',')]
+            for day in raw_days:
+                normalized_day = self._normalize_day_name(day)
+                if normalized_day in allowed_days_map:
+                    allowed_weekdays.append(allowed_days_map[normalized_day])
+        
+        # Try next 7 days
+        nepal_tz = pytz.timezone('Asia/Kathmandu')
+        
+        for days_ahead in range(7):
+            check_date = nepal_now.date() + timedelta(days=days_ahead)
+            check_weekday = check_date.weekday()
+            
+            # Skip if day not allowed
+            if allowed_weekdays and check_weekday not in allowed_weekdays:
+                continue
+            
+            # Combine date with start time in Nepal timezone
+            naive_datetime = datetime.combine(check_date, self.schedule_start_time)
+            check_datetime = nepal_tz.localize(naive_datetime)
+            
+            # If this time is in the future, return it
+            if check_datetime > nepal_now:
+                return check_datetime
+        
+        return None
+    
     # Simplified role properties
     @property
     def is_admin(self):
@@ -116,6 +307,12 @@ class User(AbstractUser):
         
         if not self.username and self.email:
             self.username = self.email.split('@')[0]
+        
+        # CRITICAL FIX: Normalize schedule_days on save
+        if self.schedule_days:
+            raw_days = [d.strip() for d in self.schedule_days.split(',')]
+            normalized_days = [self._normalize_day_name(d) for d in raw_days]
+            self.schedule_days = ','.join(normalized_days)
         
         super().save(*args, **kwargs)
 

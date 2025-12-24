@@ -314,3 +314,228 @@ class ChatNotification(models.Model):
         self.is_read = True
         self.read_at = timezone.now()
         self.save()
+
+class PendingMessage(models.Model):
+    """
+    Messages sent by students when supervisor is unavailable
+    These are queued and delivered when supervisor becomes available
+    """
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending Delivery'),
+        ('delivered', 'Delivered'),
+        ('failed', 'Failed'),
+        ('expired', 'Expired'),
+    ]
+    
+    # Message details
+    room = models.ForeignKey(
+        ChatRoom,
+        on_delete=models.CASCADE,
+        related_name='pending_messages'
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_pending_messages'
+    )
+    content = models.TextField()
+    attachment = models.FileField(
+        upload_to='pending_chat_attachments/%Y/%m/',
+        null=True,
+        blank=True
+    )
+    
+    # Threading support
+    reply_to = models.ForeignKey(
+        Message,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pending_replies'
+    )
+    
+    # Supervisor to deliver to
+    target_supervisor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='pending_messages_to_receive',
+        limit_choices_to={'role': 'supervisor'}
+    )
+    
+    # Status tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    
+    # Sentiment (analyzed when sent)
+    sentiment_score = models.FloatField(
+        default=0.0,
+        validators=[MinValueValidator(-1.0), MaxValueValidator(1.0)]
+    )
+    is_flagged = models.BooleanField(default=False)
+    
+    # Timing
+    created_at = models.DateTimeField(auto_now_add=True)
+    scheduled_delivery_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this message should be delivered"
+    )
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    delivered_message = models.ForeignKey(
+        Message,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pending_origin'
+    )
+    
+    # Expiry (optional - messages expire after X days)
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Message expires if not delivered by this time"
+    )
+    
+    # Metadata
+    attempts = models.IntegerField(default=0)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['status', 'scheduled_delivery_time']),
+            models.Index(fields=['target_supervisor', 'status']),
+            models.Index(fields=['sender', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"Pending from {self.sender.display_name} to {self.target_supervisor.display_name} - {self.status}"
+    
+    def calculate_delivery_time(self):
+        """Calculate when this message should be delivered based on supervisor schedule"""
+        if not self.target_supervisor.schedule_enabled:
+            # No schedule, deliver immediately
+            return timezone.now()
+        
+        now = timezone.now()
+        
+        # If supervisor is available right now, deliver immediately
+        if self.target_supervisor.is_available_now():
+            return now
+        
+        # Calculate next available time
+        return self.get_next_available_time()
+    
+    def get_next_available_time(self):
+        """Get the next time supervisor will be available"""
+        supervisor = self.target_supervisor
+        now = timezone.now()
+        
+        # Parse schedule days
+        allowed_days = []
+        if supervisor.schedule_days:
+            day_map = {
+                'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3,
+                'Fri': 4, 'Sat': 5, 'Sun': 6
+            }
+            for day in supervisor.schedule_days.split(','):
+                day = day.strip()
+                if day in day_map:
+                    allowed_days.append(day_map[day])
+        
+        # Try next 7 days
+        for days_ahead in range(7):
+            check_date = now.date() + timezone.timedelta(days=days_ahead)
+            check_weekday = check_date.weekday()
+            
+            # Check if day is allowed
+            if allowed_days and check_weekday not in allowed_days:
+                continue
+            
+            # Combine date with start time
+            delivery_time = timezone.datetime.combine(
+                check_date,
+                supervisor.schedule_start_time
+            )
+            
+            # Make timezone aware
+            if timezone.is_naive(delivery_time):
+                delivery_time = timezone.make_aware(delivery_time)
+            
+            # If this time is in the future, use it
+            if delivery_time > now:
+                return delivery_time
+        
+        # Fallback: deliver in 24 hours
+        return now + timezone.timedelta(hours=24)
+    
+    def deliver(self):
+        """Convert pending message to actual message and mark as delivered"""
+        if self.status != 'pending':
+            return None
+        
+        try:
+            # Create the actual message
+            message = Message.objects.create(
+                room=self.room,
+                sender=self.sender,
+                content=self.content,
+                attachment=self.attachment,
+                reply_to=self.reply_to,
+                sentiment_score=self.sentiment_score,
+                is_flagged=self.is_flagged,
+                message_type='text'
+            )
+            
+            # Update pending message status
+            self.status = 'delivered'
+            self.delivered_at = timezone.now()
+            self.delivered_message = message
+            self.save()
+            
+            # Update room's last message time
+            self.room.last_message_at = timezone.now()
+            self.room.save(update_fields=['last_message_at'])
+            
+            return message
+        
+        except Exception as e:
+            self.status = 'failed'
+            self.error_message = str(e)
+            self.attempts += 1
+            self.last_attempt_at = timezone.now()
+            self.save()
+            return None
+    
+    def mark_expired(self):
+        """Mark message as expired"""
+        self.status = 'expired'
+        self.save()
+    
+    @property
+    def time_until_delivery(self):
+        """Get timedelta until delivery"""
+        if self.scheduled_delivery_time and self.status == 'pending':
+            return self.scheduled_delivery_time - timezone.now()
+        return None
+    
+    @property
+    def is_ready_for_delivery(self):
+        """Check if message is ready to be delivered"""
+        if self.status != 'pending':
+            return False
+        
+        # Check if supervisor is available now
+        if not self.target_supervisor.is_available_now():
+            return False
+        
+        # Check if scheduled time has passed
+        if self.scheduled_delivery_time and timezone.now() < self.scheduled_delivery_time:
+            return False
+        
+        return True

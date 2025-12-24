@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Count
-from .models import ChatRoom, ChatRoomMember, Message, MessageReaction, TypingIndicator, ChatNotification
+from .models import ChatRoom, ChatRoomMember, Message, MessageReaction, TypingIndicator, ChatNotification, PendingMessage 
 
 
 @admin.register(ChatRoom)
@@ -239,3 +239,181 @@ class ChatNotificationAdmin(admin.ModelAdmin):
             notification.mark_as_read()
         self.message_user(request, f'{queryset.count()} notification(s) marked as read')
     mark_as_read.short_description = "Mark as read"
+
+@admin.register(PendingMessage)
+class PendingMessageAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'sender_name', 'target_supervisor_name', 'room_name',
+        'status_badge', 'content_preview', 'created_at_display',
+        'scheduled_delivery_display', 'delivery_countdown'
+    ]
+    list_filter = ['status', 'created_at', 'scheduled_delivery_time']
+    search_fields = [
+        'sender__username', 'sender__full_name',
+        'target_supervisor__username', 'target_supervisor__full_name',
+        'content', 'room__name'
+    ]
+    readonly_fields = [
+        'created_at', 'delivered_at', 'delivered_message',
+        'attempts', 'last_attempt_at', 'error_message'
+    ]
+    date_hierarchy = 'created_at'
+    
+    fieldsets = (
+        ('Message Details', {
+            'fields': ('room', 'sender', 'target_supervisor', 'content', 'attachment')
+        }),
+        ('Status', {
+            'fields': ('status', 'sentiment_score', 'is_flagged')
+        }),
+        ('Scheduling', {
+            'fields': ('scheduled_delivery_time', 'expires_at')
+        }),
+        ('Delivery Info', {
+            'fields': ('delivered_at', 'delivered_message', 'attempts', 'last_attempt_at', 'error_message'),
+            'classes': ('collapse',)
+        }),
+        ('Threading', {
+            'fields': ('reply_to',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    actions = ['deliver_now', 'mark_as_expired', 'recalculate_delivery_time']
+    
+    def sender_name(self, obj):
+        return obj.sender.display_name
+    sender_name.short_description = 'Sender'
+    sender_name.admin_order_field = 'sender__full_name'
+    
+    def target_supervisor_name(self, obj):
+        return obj.target_supervisor.display_name
+    target_supervisor_name.short_description = 'To Supervisor'
+    target_supervisor_name.admin_order_field = 'target_supervisor__full_name'
+    
+    def room_name(self, obj):
+        return obj.room.name
+    room_name.short_description = 'Room'
+    
+    def status_badge(self, obj):
+        colors = {
+            'pending': '#F59E0B',
+            'delivered': '#10B981',
+            'failed': '#EF4444',
+            'expired': '#6B7280'
+        }
+        color = colors.get(obj.status, '#6B7280')
+        
+        icons = {
+            'pending': '⏳',
+            'delivered': '✅',
+            'failed': '❌',
+            'expired': '⏰'
+        }
+        icon = icons.get(obj.status, '•')
+        
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{} {}</span>',
+            color, icon, obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    
+    def content_preview(self, obj):
+        if len(obj.content) > 50:
+            return obj.content[:50] + '...'
+        return obj.content
+    content_preview.short_description = 'Content'
+    
+    def created_at_display(self, obj):
+        from django.utils.timesince import timesince
+        return format_html(
+            '{}<br><small style="color: #6B7280;">{} ago</small>',
+            obj.created_at.strftime('%Y-%m-%d %H:%M'),
+            timesince(obj.created_at)
+        )
+    created_at_display.short_description = 'Created'
+    
+    def scheduled_delivery_display(self, obj):
+        if not obj.scheduled_delivery_time:
+            return '—'
+        
+        from django.utils.timesince import timeuntil
+        from django.utils import timezone
+        
+        if obj.scheduled_delivery_time > timezone.now():
+            return format_html(
+                '{}<br><small style="color: #10B981;">in {}</small>',
+                obj.scheduled_delivery_time.strftime('%Y-%m-%d %H:%M'),
+                timeuntil(obj.scheduled_delivery_time)
+            )
+        else:
+            return format_html(
+                '{}<br><small style="color: #EF4444;">overdue</small>',
+                obj.scheduled_delivery_time.strftime('%Y-%m-%d %H:%M')
+            )
+    scheduled_delivery_display.short_description = 'Scheduled For'
+    
+    def delivery_countdown(self, obj):
+        if obj.status != 'pending':
+            return '—'
+        
+        if obj.time_until_delivery:
+            total_seconds = int(obj.time_until_delivery.total_seconds())
+            
+            if total_seconds < 0:
+                return format_html('<span style="color: #EF4444;">⚠️ Ready to deliver</span>')
+            
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            
+            if hours > 24:
+                days = hours // 24
+                return format_html('<span style="color: #F59E0B;">{} days</span>', days)
+            elif hours > 0:
+                return format_html('<span style="color: #F59E0B;">{}h {}m</span>', hours, minutes)
+            else:
+                return format_html('<span style="color: #10B981;">{}m</span>', minutes)
+        
+        return '—'
+    delivery_countdown.short_description = 'Time Until Delivery'
+    
+    # ============================================
+    # ADMIN ACTIONS
+    # ============================================
+    
+    def deliver_now(self, request, queryset):
+        """Manually deliver pending messages"""
+        delivered_count = 0
+        failed_count = 0
+        
+        for pending_msg in queryset.filter(status='pending'):
+            message = pending_msg.deliver()
+            if message:
+                delivered_count += 1
+            else:
+                failed_count += 1
+        
+        if delivered_count > 0:
+            self.message_user(request, f'{delivered_count} message(s) delivered successfully')
+        if failed_count > 0:
+            self.message_user(request, f'{failed_count} message(s) failed to deliver', level='warning')
+    deliver_now.short_description = "✅ Deliver selected messages now"
+    
+    def mark_as_expired(self, request, queryset):
+        """Mark messages as expired"""
+        count = queryset.filter(status='pending').update(status='expired')
+        self.message_user(request, f'{count} message(s) marked as expired')
+    mark_as_expired.short_description = "⏰ Mark as expired"
+    
+    def recalculate_delivery_time(self, request, queryset):
+        """Recalculate delivery times based on current supervisor schedules"""
+        updated_count = 0
+        
+        for pending_msg in queryset.filter(status='pending'):
+            new_delivery_time = pending_msg.calculate_delivery_time()
+            pending_msg.scheduled_delivery_time = new_delivery_time
+            pending_msg.save()
+            updated_count += 1
+        
+        self.message_user(request, f'{updated_count} delivery time(s) recalculated')
+    recalculate_delivery_time.short_description = "🔄 Recalculate delivery times"

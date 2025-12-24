@@ -1,13 +1,13 @@
-<!-- File: templates/chat/create_room.html - COMPLETELY UPDATED -->
+<!-- File: templates/chat/update_room.html - NEW FILE -->
 
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Create Chat Room - {{ block.super }}{% endblock %}
+{% block title %}Update {{ room.name }} - {{ block.super }}{% endblock %}
 
 {% block extra_css %}
 <style>
-    .create-room-container {
+    .update-room-container {
         max-width: 800px;
         margin: 0 auto;
     }
@@ -36,6 +36,14 @@
         border-radius: 16px;
         padding: 32px;
         box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .room-info-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 24px;
     }
 
     .form-section {
@@ -68,7 +76,7 @@
         color: #EF4444;
     }
 
-    .form-control, .form-select {
+    .form-control {
         width: 100%;
         padding: 12px 16px;
         border: 2px solid var(--border);
@@ -78,7 +86,7 @@
         font-family: inherit;
     }
 
-    .form-control:focus, .form-select:focus {
+    .form-control:focus {
         outline: none;
         border-color: var(--primary);
         box-shadow: 0 0 0 3px rgba(85, 104, 254, 0.1);
@@ -117,99 +125,6 @@
         cursor: pointer;
         margin: 0;
         font-weight: 500;
-    }
-
-    .info-box {
-        background: rgba(59, 130, 246, 0.1);
-        border-left: 4px solid #3B82F6;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 24px;
-    }
-
-    .info-title {
-        font-weight: 600;
-        color: #1E40AF;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .info-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    .info-list li {
-        padding: 6px 0;
-        padding-left: 20px;
-        position: relative;
-        color: #1E40AF;
-        font-size: 14px;
-    }
-
-    .info-list li::before {
-        content: '•';
-        position: absolute;
-        left: 8px;
-        font-weight: 700;
-    }
-
-    .warning-box {
-        background: rgba(245, 158, 11, 0.1);
-        border-left: 4px solid #F59E0B;
-        padding: 16px;
-        border-radius: 8px;
-        margin-top: 16px;
-        display: none;
-    }
-
-    .warning-box.active {
-        display: block;
-    }
-
-    .warning-title {
-        font-weight: 600;
-        color: #D97706;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .warning-text {
-        color: #92400E;
-        font-size: 14px;
-    }
-
-    .schedule-info-box {
-        background: rgba(139, 92, 246, 0.1);
-        border-left: 4px solid #8B5CF6;
-        padding: 16px;
-        border-radius: 8px;
-        margin-top: 16px;
-        display: none;
-    }
-
-    .schedule-info-box.active {
-        display: block;
-    }
-
-    .schedule-info-title {
-        font-weight: 600;
-        color: #7C3AED;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .schedule-detail {
-        color: #6B21A8;
-        font-size: 14px;
-        margin-bottom: 4px;
     }
 
     .participants-selector {
@@ -309,6 +224,61 @@
         color: white;
     }
 
+    .warning-box {
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 4px solid #F59E0B;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+        display: none;
+    }
+
+    .warning-box.active {
+        display: block;
+    }
+
+    .warning-title {
+        font-weight: 600;
+        color: #D97706;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .warning-text {
+        color: #92400E;
+        font-size: 14px;
+    }
+
+    .schedule-info-box {
+        background: rgba(139, 92, 246, 0.1);
+        border-left: 4px solid #8B5CF6;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+        display: none;
+    }
+
+    .schedule-info-box.active {
+        display: block;
+    }
+
+    .schedule-info-title {
+        font-weight: 600;
+        color: #7C3AED;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .schedule-detail {
+        color: #6B21A8;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
     .form-actions {
         display: flex;
         gap: 12px;
@@ -366,37 +336,33 @@
 {% endblock %}
 
 {% block content %}
-<div class="create-room-container">
+<div class="update-room-container">
     <div class="page-header">
         <h1 class="page-title">
-            <i class='bx bx-plus-circle'></i>
-            Create Chat Room
+            <i class='bx bx-edit'></i>
+            Update Chat Room
         </h1>
-        <p class="page-subtitle">Set up a new chat room for your team</p>
+        <p class="page-subtitle">Modify settings for {{ room.name }}</p>
     </div>
 
     <div class="form-card">
-        <form method="post" id="createRoomForm">
-            {% csrf_token %}
+        <!-- Room Info Banner -->
+        <div class="room-info-banner">
+            <h5>{{ room.name }}</h5>
+            <p class="mb-0 opacity-75">
+                {{ room.get_room_type_display }} • 
+                {{ room.participants.count }} participant(s)
+            </p>
+        </div>
 
-            <!-- Room Type Info -->
-            <div class="info-box">
-                <div class="info-title">
-                    <i class='bx bx-info-circle'></i>
-                    Room Types
-                </div>
-                <ul class="info-list">
-                    <li><strong>Group:</strong> Chat room for student groups with all members</li>
-                    <li><strong>Direct:</strong> One-on-one conversation between two people</li>
-                    <li><strong>Supervisor:</strong> Monitored room with scheduling capabilities inherited from your profile settings</li>
-                </ul>
-            </div>
+        <form method="post" id="updateRoomForm">
+            {% csrf_token %}
 
             <!-- Basic Information -->
             <div class="form-section">
                 <h3 class="section-title">
                     <i class='bx bx-info-circle'></i>
-                    Basic Information
+                    Room Information
                 </h3>
 
                 <div class="form-group">
@@ -411,22 +377,7 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">Choose a descriptive name for your chat room</div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="{{ form.room_type.id_for_label }}">
-                        Room Type <span class="required">*</span>
-                    </label>
-                    {{ form.room_type }}
-                    {% if form.room_type.errors %}
-                        <ul class="errorlist">
-                            {% for error in form.room_type.errors %}
-                                <li>{{ error }}</li>
-                            {% endfor %}
-                        </ul>
-                    {% endif %}
-                    <div class="form-help">Select the type of chat room you want to create</div>
+                    <div class="form-help">Change the display name of this chat room</div>
                 </div>
             </div>
 
@@ -434,12 +385,12 @@
             <div class="form-section">
                 <h3 class="section-title">
                     <i class='bx bx-group'></i>
-                    Participants
+                    Manage Participants
                 </h3>
 
                 <div class="form-group">
                     <label class="form-label">
-                        Select Participants <span class="required">*</span>
+                        Select Participants
                     </label>
                     
                     {% if form.participants.field.queryset.count > 0 %}
@@ -472,16 +423,14 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="info-box">
-                            <div class="info-title">
+                        <div class="warning-box active">
+                            <div class="warning-title">
                                 <i class='bx bx-info-circle'></i>
-                                No Available Participants
+                                No Additional Participants Available
                             </div>
-                            <p style="color: #1E40AF; margin: 8px 0 0 0;">
+                            <div class="warning-text">
                                 All students from your group are already assigned to supervisor chat rooms.
-                                If you need to add more students, please ensure they are members of your group
-                                and not already in another supervisor chat.
-                            </p>
+                            </div>
                         </div>
                     {% endif %}
                     
@@ -492,7 +441,7 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">{{ form.participants.help_text }}</div>
+                    <div class="form-help">Add or remove students from this chat room</div>
                 </div>
             </div>
 
@@ -517,7 +466,7 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">When enabled, the room can only be accessed during your scheduled hours</div>
+                    <div class="form-help">When enabled, messages can only be sent during your scheduled hours</div>
                 </div>
 
                 <!-- Warning Box -->
@@ -527,9 +476,7 @@
                         Frozen Room
                     </div>
                     <div class="warning-text">
-                        When a room is frozen, participants can only send messages during the time periods 
-                        defined in your profile settings. Messages sent outside these hours will be queued 
-                        and delivered when you become available.
+                        Messages sent outside scheduled hours will be queued and delivered when you become available.
                     </div>
                 </div>
 
@@ -549,7 +496,7 @@
                     </div>
                     {% endif %}
                     <div class="form-help" style="margin-top: 8px; color: #6B21A8;">
-                        These settings will be applied to the frozen room. To change them, go to your Profile > Time Restrictions.
+                        The room will use these current settings. To change them, update your Profile > Time Restrictions.
                     </div>
                 </div>
                 {% elif user.role == 'supervisor' and not user.schedule_enabled %}
@@ -559,8 +506,8 @@
                         Time Restrictions Not Set
                     </div>
                     <div class="warning-text">
-                        You need to enable time restrictions in your profile settings before you can create a frozen room.
-                        Go to <strong>Profile > Time Restrictions</strong> to set your schedule.
+                        Enable time restrictions in your profile settings to use this feature.
+                        Go to <strong>Profile > Time Restrictions</strong>.
                     </div>
                 </div>
                 {% endif %}
@@ -582,10 +529,10 @@
             <!-- Form Actions -->
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
-                    <i class='bx bx-check'></i>
-                    Create Room
+                    <i class='bx bx-save'></i>
+                    Save Changes
                 </button>
-                <a href="{% url 'chat:chat_home' %}" class="btn btn-secondary">
+                <a href="{% url 'chat:chat_room' room.id %}" class="btn btn-secondary">
                     <i class='bx bx-x'></i>
                     Cancel
                 </a>
@@ -643,13 +590,15 @@ document.addEventListener('DOMContentLoaded', function() {
 function selectAllParticipants() {
     const checkboxes = document.querySelectorAll('.participants-selector input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = true);
-    document.getElementById('selectedCount').textContent = checkboxes.length;
+    const count = document.getElementById('selectedCount');
+    if (count) count.textContent = checkboxes.length;
 }
 
 function deselectAllParticipants() {
     const checkboxes = document.querySelectorAll('.participants-selector input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
-    document.getElementById('selectedCount').textContent = '0';
+    const count = document.getElementById('selectedCount');
+    if (count) count.textContent = '0';
 }
 
 function toggleFrozenWarning() {

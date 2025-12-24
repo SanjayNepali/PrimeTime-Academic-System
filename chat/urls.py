@@ -1,4 +1,4 @@
-# File: Desktop/Prime/chat/urls.py
+# File: chat/urls.py - UPDATED
 
 from django.urls import path
 from . import views
@@ -10,6 +10,7 @@ urlpatterns = [
     path('', views.chat_home, name='chat_home'),
     path('room/<int:room_id>/', views.chat_room, name='chat_room'),
     path('room/create/', views.create_room, name='create_room'),
+    path('room/<int:room_id>/update/', views.update_room, name='update_room'),  
     path('notifications/', views.chat_notifications, name='notifications'),
     
     # Direct messaging

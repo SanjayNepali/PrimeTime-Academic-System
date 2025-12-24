@@ -9,7 +9,7 @@ from django.db.models import Q, Count, Max, F, Avg, Case, When, IntegerField
 from django.utils import timezone
 from datetime import timedelta, datetime, time as datetime_time
 import json
-
+from .forms import CreateChatRoomForm, UpdateChatRoomForm
 from .models import ChatRoom, Message, ChatRoomMember, ChatNotification
 from .forms import CreateChatRoomForm
 from accounts.models import User
@@ -373,15 +373,12 @@ def create_room(request):
         return redirect('chat:chat_home')
     
     if request.method == 'POST':
-        form = CreateChatRoomForm(request.POST)
+        form = CreateChatRoomForm(request.POST, user=request.user)
         if form.is_valid():
             room = form.save()
             
-            # Add creator to participants if not already
-            if not room.participants.filter(pk=request.user.pk).exists():
-                room.participants.add(request.user)
-            
             # Create ChatRoomMember for all participants
+            from .models import ChatRoomMember
             for participant in room.participants.all():
                 ChatRoomMember.objects.get_or_create(
                     room=room,
@@ -389,6 +386,7 @@ def create_room(request):
                 )
             
             # Send notifications to all participants
+            from .models import ChatNotification
             for participant in room.participants.exclude(pk=request.user.pk):
                 ChatNotification.objects.create(
                     user=participant,
@@ -398,18 +396,13 @@ def create_room(request):
             
             messages.success(request, f'Chat room "{room.name}" created successfully!')
             return redirect('chat:chat_room', room_id=room.pk)
+        else:
+            # Show form errors
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
     else:
-        form = CreateChatRoomForm()
-        
-        # Filter participants based on role
-        if request.user.is_supervisor:
-            # Supervisors can add their group members
-            supervised_groups = Group.objects.filter(supervisor=request.user)
-            supervised_students = User.objects.filter(
-                student_memberships__group__in=supervised_groups,
-                is_active=True
-            ).distinct()
-            form.fields['participants'].queryset = supervised_students
+        form = CreateChatRoomForm(user=request.user)
     
     context = {
         'form': form,
@@ -417,6 +410,48 @@ def create_room(request):
     }
     return render(request, 'chat/create_room.html', context)
 
+
+@login_required
+def update_room(request, room_id):
+    """Update chat room settings"""
+    
+    room = get_object_or_404(ChatRoom, pk=room_id, is_active=True)
+    
+    # Check permissions
+    if not (request.user.role == 'admin' or 
+            (request.user.role == 'supervisor' and room.room_type == 'supervisor' and 
+             room.group and room.group.supervisor == request.user)):
+        messages.error(request, "You don't have permission to edit this room")
+        return redirect('chat:chat_room', room_id=room_id)
+    
+    if request.method == 'POST':
+        form = UpdateChatRoomForm(request.POST, instance=room, user=request.user)
+        if form.is_valid():
+            updated_room = form.save()
+            
+            # Update ChatRoomMember records
+            from .models import ChatRoomMember
+            for participant in updated_room.participants.all():
+                ChatRoomMember.objects.get_or_create(
+                    room=updated_room,
+                    user=participant
+                )
+            
+            messages.success(request, f'Chat room "{updated_room.name}" updated successfully!')
+            return redirect('chat:chat_room', room_id=updated_room.pk)
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
+    else:
+        form = UpdateChatRoomForm(instance=room, user=request.user)
+    
+    context = {
+        'form': form,
+        'room': room,
+        'title': f'Update {room.name} - PrimeTime'
+    }
+    return render(request, 'chat/update_room.html', context)
 
 @login_required
 def chat_notifications(request):

@@ -325,21 +325,27 @@ def calendar_detail(request, pk):
 @login_required
 def notifications_list(request):
     """List user's notifications"""
-    notifications = request.user.notifications.all()[:50]
-
+    # FIX: Don't slice before filtering
+    notifications_qs = request.user.notifications.all().order_by('-created_at')
+    
     # Mark as read if requested
     if request.GET.get('mark_all_read'):
-        notifications.filter(is_read=False).update(is_read=True, read_at=timezone.now())
+        notifications_qs.filter(is_read=False).update(is_read=True, read_at=timezone.now())
         messages.success(request, "All notifications marked as read")
         return redirect('events:notifications_list')
-
+    
+    # NOW slice after filtering is done
+    notifications = notifications_qs[:50]
+    
+    # Calculate unread count from original queryset
+    unread_count = notifications_qs.filter(is_read=False).count()
+    
     context = {
         'notifications': notifications,
-        'unread_count': notifications.filter(is_read=False).count(),
+        'unread_count': unread_count,
+        'title': 'System Notifications'
     }
     return render(request, 'events/notifications_list.html', context)
-
-
 @login_required
 def notification_mark_read(request, pk):
     """Mark a notification as read"""
@@ -358,18 +364,22 @@ def notification_mark_read(request, pk):
 def get_unread_notifications(request):
     """AJAX endpoint to get unread notifications count"""
     if request.user.is_authenticated:
-        unread_count = request.user.notifications.filter(is_read=False).count()
+        # FIX: Don't slice before converting to values
+        unread_qs = request.user.notifications.filter(is_read=False)
+        unread_count = unread_qs.count()
+        
+        # Now slice for recent notifications
         recent_notifications = list(
-            request.user.notifications.filter(is_read=False)[:5].values(
+            unread_qs[:5].values(
                 'id', 'title', 'message', 'notification_type', 'created_at'
             )
         )
+        
         return JsonResponse({
             'unread_count': unread_count,
             'notifications': recent_notifications
         })
     return JsonResponse({'unread_count': 0, 'notifications': []})
-
 
 @login_required
 def event_calendar_view(request):
@@ -752,3 +762,22 @@ def create_deadline_event(request):
         'title': 'Create Deadline Event with Submission Requirements',
     }
     return render(request, 'events/deadline_event_form.html', context)
+
+@login_required
+def get_system_notifications(request):
+    """AJAX endpoint for system notifications"""
+    notifications = request.user.notifications.filter(is_read=False)[:10]
+    
+    notifications_data = [{
+        'id': n.id,
+        'title': n.title,
+        'message': n.message,
+        'type': n.notification_type,
+        'link': n.link_url or '#',
+        'created_at': n.created_at.isoformat()
+    } for n in notifications]
+    
+    return JsonResponse({
+        'unread_count': request.user.notifications.filter(is_read=False).count(),
+        'notifications': notifications_data
+    })

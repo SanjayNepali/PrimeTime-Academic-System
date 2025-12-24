@@ -29,7 +29,7 @@ urlpatterns = [
     # Notifications
     path('notifications/', views.notifications_list, name='notifications_list'),
     path('notifications/<int:pk>/read/', views.notification_mark_read, name='notification_mark_read'),
-
+    path('api/system-notifications/', views.get_system_notifications, name='get_system_notifications'),
     # AJAX endpoints
     path('api/unread-notifications/', views.get_unread_notifications, name='api_unread_notifications'),
 

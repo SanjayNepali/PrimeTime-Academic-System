@@ -1,5 +1,3 @@
-<!-- File: Desktop/Prime/templates/base.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,14 +16,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-
     {% load static %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{% static 'css/modern.css' %}">
     {% block extra_css %}{% endblock %}
     
     <style>
-        /* OVERRIDE ANY CONFLICTING STYLES */
+        /* User Dropdown */
         .user-dropdown {
             display: none !important;
             position: absolute !important;
@@ -36,8 +33,8 @@
             border-radius: 12px !important;
             padding: 8px !important;
             min-width: 260px !important;
-            max-height: 70vh !important; /* Limit height */
-            overflow-y: auto !important; /* Make it scrollable */
+            max-height: 70vh !important;
+            overflow-y: auto !important;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important;
             z-index: 1000 !important;
             margin-top: 8px !important;
@@ -57,7 +54,7 @@
             border-radius: 8px !important;
             transition: all 0.2s !important;
             font-size: 14px !important;
-            white-space: nowrap !important; /* Prevent text wrapping */
+            white-space: nowrap !important;
         }
         
         .user-dropdown a:hover {
@@ -68,7 +65,104 @@
             height: 1px !important;
             background: #e5e7eb !important;
             margin: 8px 0 !important;
-            flex-shrink: 0 !important; /* Prevent dividers from shrinking */
+            flex-shrink: 0 !important;
+        }
+        
+        /* System Notifications Dropdown */
+        .system-notifications-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 0;
+            width: 380px;
+            max-height: 500px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 1000;
+            margin-top: 8px;
+        }
+        
+        .system-notifications-dropdown.show {
+            display: block;
+        }
+        
+        .notifications-header {
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .notifications-header h6 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .notifications-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .notification-item-dropdown {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f1f1;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: block;
+            color: inherit;
+        }
+        
+        .notification-item-dropdown:hover {
+            background: #f6f8fb;
+        }
+        
+        .notification-item-dropdown:last-child {
+            border-bottom: none;
+        }
+        
+        .notification-title-small {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1d26;
+            margin-bottom: 4px;
+        }
+        
+        .notification-message-small {
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+        
+        .notification-time-small {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+        
+        .notifications-footer {
+            padding: 12px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+        
+        .notifications-footer a {
+            color: #5568FE;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .empty-notifications {
+            padding: 40px 20px;
+            text-align: center;
+            color: #9ca3af;
         }
         
         .create-post-btn {
@@ -76,19 +170,17 @@
             color: white !important;
         }
         
-        /* FIX NAV-RIGHT POSITIONING */
         .nav-right {
             display: flex !important;
             align-items: center !important;
             gap: 12px !important;
-            position: relative !important; /* Ensure proper stacking */
-            z-index: 1001 !important; /* Higher than dropdown */
+            position: relative !important;
+            z-index: 1001 !important;
         }
         
-        /* Ensure buttons stay in place */
         .notification-btn, .create-post-btn {
             position: relative !important;
-            z-index: 1002 !important; /* Higher than user menu */
+            z-index: 1002 !important;
         }
         
         .user-menu {
@@ -96,204 +188,25 @@
             z-index: 1000 !important;
         }
         
-        /* Custom scrollbar for the dropdown */
-        .user-dropdown::-webkit-scrollbar {
+        .user-dropdown::-webkit-scrollbar,
+        .notifications-list::-webkit-scrollbar {
             width: 6px !important;
         }
         
-        .user-dropdown::-webkit-scrollbar-track {
+        .user-dropdown::-webkit-scrollbar-track,
+        .notifications-list::-webkit-scrollbar-track {
             background: #f1f1f1 !important;
             border-radius: 3px !important;
         }
         
-        .user-dropdown::-webkit-scrollbar-thumb {
+        .user-dropdown::-webkit-scrollbar-thumb,
+        .notifications-list::-webkit-scrollbar-thumb {
             background: #c1c1c1 !important;
             border-radius: 3px !important;
-        }
-        
-        .user-dropdown::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8 !important;
-        }
-        
-        /* Firefox scrollbar */
-        .user-dropdown {
-            scrollbar-width: thin !important;
-            scrollbar-color: #c1c1c1 #f1f1f1 !important;
         }
     </style>
 </head>
 <body>
-<body>
-<!-- Add this IMMEDIATELY after <body> tag in base.html, BEFORE any other scripts -->
-
-    <script>
-    (function() {
-        'use strict';
-        
-        console.log('🚫 ULTIMATE NOTIFICATION BLOCKER ACTIVATED');
-        
-        // ============================================
-        // STEP 1: Completely disable Notification API
-        // ============================================
-        if ('Notification' in window) {
-            // Override the Notification constructor
-            window.Notification = function(title, options) {
-                console.log('🚫 BLOCKED Notification:', title, options);
-                
-                // Return a fake notification object
-                return {
-                    close: function() { console.log('🚫 Blocked notification.close()'); },
-                    onclick: null,
-                    onerror: null,
-                    onshow: null,
-                    onclose: null,
-                    addEventListener: function() { console.log('🚫 Blocked notification.addEventListener()'); },
-                    removeEventListener: function() { console.log('🚫 Blocked notification.removeEventListener()'); }
-                };
-            };
-            
-            // Block permission requests
-            window.Notification.requestPermission = function() {
-                console.log('🚫 BLOCKED Notification.requestPermission()');
-                return Promise.resolve('denied');
-            };
-            
-            // Force permission to denied
-            Object.defineProperty(window.Notification, 'permission', {
-                get: function() { 
-                    return 'denied'; 
-                },
-                set: function() {
-                    console.log('🚫 BLOCKED attempt to change Notification.permission');
-                },
-                configurable: false
-            });
-            
-            // Make it immutable
-            Object.freeze(window.Notification);
-            
-            console.log('✅ Notification API completely disabled');
-        }
-        
-        // ============================================
-        // STEP 2: Block Service Workers
-        // ============================================
-        if ('serviceWorker' in navigator) {
-            const originalRegister = navigator.serviceWorker.register;
-            navigator.serviceWorker.register = function() {
-                console.log('🚫 BLOCKED Service Worker registration');
-                return Promise.reject(new Error('Service Workers disabled by notification blocker'));
-            };
-            
-            const originalGetRegistration = navigator.serviceWorker.getRegistration;
-            navigator.serviceWorker.getRegistration = function() {
-                console.log('🚫 BLOCKED Service Worker getRegistration');
-                return Promise.resolve(undefined);
-            };
-            
-            console.log('✅ Service Workers blocked');
-        }
-        
-        // ============================================
-        // STEP 3: Block common notification libraries
-        // ============================================
-        const notificationMethods = [
-            'notify',
-            'showNotification',
-            'toast',
-            'showToast',
-            'alert',
-            'notification',
-            'push',
-            'pushNotification'
-        ];
-        
-        notificationMethods.forEach(method => {
-            const original = window[method];
-            window[method] = function() {
-                console.log('🚫 BLOCKED notification method:', method, arguments);
-                // Return empty to prevent errors
-                return null;
-            };
-        });
-        
-        // ============================================
-        // STEP 4: Monitor and block dynamic notification creation
-        // ============================================
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                mutation.addedNodes.forEach(function(node) {
-                    if (node.nodeType === 1) { // Element node
-                        // Block any elements that look like notification popups
-                        const suspiciousClasses = [
-                            'notification',
-                            'toast',
-                            'alert',
-                            'popup',
-                            'snackbar'
-                        ];
-                        
-                        const classList = Array.from(node.classList || []);
-                        const hasSuspiciousClass = suspiciousClasses.some(cls => 
-                            classList.some(c => c.toLowerCase().includes(cls))
-                        );
-                        
-                        if (hasSuspiciousClass && node.textContent.includes('Sanjay Nepali')) {
-                            console.log('🚫 BLOCKED suspicious notification element:', node);
-                            node.remove();
-                        }
-                    }
-                });
-            });
-        });
-        
-        // Start observing when DOM is ready
-        if (document.body) {
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        } else {
-            document.addEventListener('DOMContentLoaded', function() {
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
-            });
-        }
-        
-        // ============================================
-        // STEP 5: Intercept console methods used for debugging
-        // ============================================
-        const originalConsoleLog = console.log;
-        console.log = function() {
-            const args = Array.from(arguments);
-            const hasNotificationKeyword = args.some(arg => 
-                typeof arg === 'string' && 
-                (arg.includes('Notification') || arg.includes('notification'))
-            );
-            
-            if (hasNotificationKeyword) {
-                originalConsoleLog.apply(console, ['🚫 Blocked notification-related log:'].concat(args));
-            } else {
-                originalConsoleLog.apply(console, args);
-            }
-        };
-        
-        // ============================================
-        // FINAL CONFIRMATION
-        // ============================================
-        console.log('✅ ULTIMATE NOTIFICATION BLOCKER FULLY ACTIVE');
-        console.log('✅ All notification APIs have been disabled');
-        console.log('✅ Service Workers have been blocked');
-        console.log('✅ Notification libraries have been neutered');
-        console.log('✅ DOM monitoring is active');
-        
-        // Expose blocker status for debugging
-        window.__notificationBlockerActive = true;
-    })();
-    </script>
-    
     {% if user.is_authenticated %}
     <!-- Modern Navigation -->
     <nav class="modern-nav">
@@ -305,12 +218,10 @@
                 </a>
                 
                 <div class="nav-links">
-                    <!-- Dashboard -->
                     <a href="{% url 'dashboard:home' %}" class="nav-link">
                         <i class='bx bx-home-alt'></i> Dashboard
                     </a>
                     
-                    <!-- Simple Links Only - No Dropdowns -->
                     {% if user.is_student %}
                     <a href="{% url 'projects:my_project' %}" class="nav-link">
                         <i class='bx bx-folder'></i> My Project
@@ -341,35 +252,50 @@
                     </a>
                     {% endif %}
                     
-                    <!-- Universal Links -->
                     <a href="{% url 'resources:resource_list' %}" class="nav-link">
                         <i class='bx bx-book'></i> Resources
                     </a>
                     
                     <a href="{% url 'chat:chat_home' %}" class="nav-link">
                         <i class='bx bx-chat'></i> Chat
+                        <span class="notification-badge" id="chatUnreadBadge" style="display:none;">0</span>
                     </a>
                     
                     <a href="{% url 'forum:forum_home' %}" class="nav-link">
                         <i class='bx bx-message-rounded'></i> Forum
+                        <span class="notification-badge" id="forumUnreadBadge" style="display:none;">0</span>
                     </a>
                 </div>
             </div>
             
-            <!-- FIXED: nav-right without role selector -->
             <div class="nav-right">
-                <!-- Create Post Icon -->
+                <!-- Create Post Button -->
                 <button class="notification-btn create-post-btn" onclick="window.location.href='{% url 'forum:post_create' %}'" title="Create Post">
                     <i class='bx bx-edit-alt'></i>
                 </button>
                 
-                <!-- Notifications -->
-                <button class="notification-btn" onclick="window.location.href='{% url 'chat:notifications' %}'" title="Notifications">
-                    <i class='bx bx-bell'></i>
-                    <span class="notification-badge">3</span>
-                </button>
+                <!-- System Notifications Bell -->
+                <div style="position: relative;">
+                    <button class="notification-btn" id="systemNotificationBtn" title="System Notifications">
+                        <i class='bx bx-bell'></i>
+                        <span class="notification-badge" id="systemNotificationBadge" style="display:none;">0</span>
+                    </button>
+                    
+                    <div class="system-notifications-dropdown" id="systemNotificationDropdown">
+                        <div class="notifications-header">
+                            <h6>System Notifications</h6>
+                            <a href="{% url 'events:notifications_list' %}" style="font-size: 12px; color: #5568FE; text-decoration: none;">View All</a>
+                        </div>
+                        <div class="notifications-list" id="systemNotificationsList">
+                            <div class="empty-notifications">
+                                <i class='bx bx-bell-off' style="font-size: 32px;"></i>
+                                <p style="margin-top: 8px;">No new notifications</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
-                <!-- User Menu - SCROLLABLE VERSION -->
+                <!-- User Menu -->
                 <div class="user-menu">
                     <button class="user-menu-btn" id="userMenuButton">
                         <div class="user-avatar">
@@ -395,7 +321,6 @@
                     </button>
                     
                     <div class="user-dropdown" id="userDropdown">
-                        <!-- Profile Section -->
                         <a href="{% url 'dashboard:user_profile' %}">
                             <i class='bx bx-user'></i> My Profile
                         </a>
@@ -405,7 +330,6 @@
                         
                         <div class="dropdown-divider"></div>
                         
-                        <!-- Events Section -->
                         <a href="{% url 'events:event_list' %}">
                             <i class='bx bx-calendar'></i> Events
                         </a>
@@ -418,7 +342,6 @@
                         
                         <div class="dropdown-divider"></div>
                         
-                        <!-- Analytics Section -->
                         {% if user.is_student %}
                         <a href="{% url 'analytics:student_view_feedback' %}">
                             <i class='bx bx-message-detail'></i> My Feedback
@@ -428,9 +351,6 @@
                         {% if user.is_supervisor %}
                         <a href="{% url 'groups:group_list' %}">
                             <i class='bx bx-group'></i> Manage Groups
-                        </a>
-                        <a href="{% url 'analytics:supervisor_view_student' user.pk %}">
-                            <i class='bx bx-user'></i> Student Monitoring
                         </a>
                         {% endif %}
                         
@@ -448,15 +368,11 @@
                         
                         <div class="dropdown-divider"></div>
                         
-                        <!-- Resources Section -->
                         <a href="{% url 'resources:my_resources' %}">
                             <i class='bx bx-bookmark'></i> My Resources
                         </a>
                         <a href="{% url 'resources:recommended_resources' %}">
                             <i class='bx bx-star'></i> Recommended
-                        </a>
-                        <a href="{% url 'resources:resource_categories' %}">
-                            <i class='bx bx-category'></i> Categories
                         </a>
                         
                         {% if user.is_superuser or user.is_admin %}
@@ -467,7 +383,6 @@
                         
                         <div class="dropdown-divider"></div>
                         
-                        <!-- Forum Section -->
                         <a href="{% url 'forum:my_posts' %}">
                             <i class='bx bx-edit'></i> My Posts
                         </a>
@@ -477,9 +392,8 @@
                         
                         <div class="dropdown-divider"></div>
                         
-                        <!-- Chat Section -->
-                        <a href="{% url 'chat:create_room' %}">
-                            <i class='bx bx-plus'></i> Create Chat Room
+                        <a href="{% url 'chat:chat_home' %}">
+                            <i class='bx bx-chat'></i> Chat Rooms
                         </a>
                         <a href="{% url 'chat:notifications' %}">
                             <i class='bx bx-bell'></i> Chat Notifications
@@ -487,7 +401,6 @@
                         
                         <div class="dropdown-divider"></div>
                         
-                        <!-- System Section -->
                         <a href="{% url 'accounts:change_password' %}">
                             <i class='bx bx-lock'></i> Change Password
                         </a>
@@ -503,7 +416,6 @@
                         
                         <div class="dropdown-divider"></div>
                         
-                        <!-- Logout -->
                         <a href="{% url 'accounts:logout' %}">
                             <i class='bx bx-log-out'></i> Logout
                         </a>
@@ -514,9 +426,7 @@
     </nav>
     {% endif %}
     
-    <!-- Main Content -->
     <main class="main-content">
-        <!-- Messages -->
         {% if messages %}
             <div class="alerts-container">
                 {% for message in messages %}
@@ -544,50 +454,158 @@
         {% block content %}{% endblock %}
     </main>
     
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // SIMPLE BULLETPROOF DROPDOWN
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded - setting up dropdown');
-            
+            // User Menu Dropdown
             const userMenuButton = document.getElementById('userMenuButton');
             const userDropdown = document.getElementById('userDropdown');
             
-            console.log('User button:', userMenuButton);
-            console.log('User dropdown:', userDropdown);
-            
             if (userMenuButton && userDropdown) {
-                // Click to toggle dropdown
                 userMenuButton.addEventListener('click', function(event) {
-                    console.log('User menu clicked');
                     event.preventDefault();
                     event.stopPropagation();
-                    
-                    // Toggle using class instead of inline style
                     userDropdown.classList.toggle('show');
-                    console.log('Dropdown class list:', userDropdown.classList);
+                    systemNotificationDropdown.classList.remove('show');
                 });
                 
-                // Close dropdown when clicking anywhere else
-                document.addEventListener('click', function(event) {
-                    if (!event.target.closest('.user-menu')) {
-                        console.log('Click outside - closing dropdown');
-                        userDropdown.classList.remove('show');
-                    }
-                });
-                
-                // Close dropdown when clicking links inside it
                 userDropdown.addEventListener('click', function(event) {
                     if (event.target.tagName === 'A') {
-                        console.log('Link clicked - closing dropdown');
                         userDropdown.classList.remove('show');
                     }
                 });
-            } else {
-                console.error('Dropdown elements not found!');
             }
+            
+            // System Notifications Dropdown
+            const systemNotificationBtn = document.getElementById('systemNotificationBtn');
+            const systemNotificationDropdown = document.getElementById('systemNotificationDropdown');
+            
+            if (systemNotificationBtn && systemNotificationDropdown) {
+                systemNotificationBtn.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    systemNotificationDropdown.classList.toggle('show');
+                    userDropdown.classList.remove('show');
+                    
+                    if (systemNotificationDropdown.classList.contains('show')) {
+                        loadSystemNotifications();
+                    }
+                });
+            }
+            
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!event.target.closest('.user-menu')) {
+                    userDropdown.classList.remove('show');
+                }
+                if (!event.target.closest('#systemNotificationBtn') && 
+                    !event.target.closest('#systemNotificationDropdown')) {
+                    systemNotificationDropdown.classList.remove('show');
+                }
+            });
+            
+            // Load system notifications
+            function loadSystemNotifications() {
+                fetch('{% url "events:get_system_notifications" %}') 
+                    .then(response => response.json())
+                    .then(data => {
+                        const badge = document.getElementById('systemNotificationBadge');
+                        const list = document.getElementById('systemNotificationsList');
+                        
+                        if (data.unread_count > 0) {
+                            badge.textContent = data.unread_count;
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                        
+                        if (data.notifications.length > 0) {
+                            list.innerHTML = data.notifications.map(n => `
+                                <a href="${n.link}" class="notification-item-dropdown">
+                                    <div class="notification-title-small">${n.title}</div>
+                                    <div class="notification-message-small">${n.message}</div>
+                                    <div class="notification-time-small">${timeAgo(n.created_at)}</div>
+                                </a>
+                            `).join('');
+                        } else {
+                            list.innerHTML = `
+                                <div class="empty-notifications">
+                                    <i class='bx bx-bell-off' style="font-size: 32px;"></i>
+                                    <p style="margin-top: 8px;">No new notifications</p>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(err => console.error('Error loading notifications:', err));
+            }
+            
+            // Load chat unread count
+            function loadChatUnreadCount() {
+                fetch('{% url "chat:api_unread_counts" %}')
+                    .then(response => response.json())
+                    .then(data => {
+                        const badge = document.getElementById('chatUnreadBadge');
+                        if (data.total_unread > 0) {
+                            badge.textContent = data.total_unread;
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    })
+                    .catch(err => console.error('Error loading chat count:', err));
+            }
+            
+            // Load forum unread count
+            function loadForumUnreadCount() {
+                fetch('{% url "forum:api_unread_notifications" %}')
+                    .then(response => response.json())
+                    .then(data => {
+                        const badge = document.getElementById('forumUnreadBadge');
+                        if (data.unread_count > 0) {
+                            badge.textContent = data.unread_count;
+                            badge.style.display = 'inline-block';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    })
+                    .catch(err => console.error('Error loading forum count:', err));
+            }
+            
+            // Time ago helper
+            function timeAgo(dateString) {
+                const date = new Date(dateString);
+                const seconds = Math.floor((new Date() - date) / 1000);
+                
+                let interval = seconds / 31536000;
+                if (interval > 1) return Math.floor(interval) + " years ago";
+                
+                interval = seconds / 2592000;
+                if (interval > 1) return Math.floor(interval) + " months ago";
+                
+                interval = seconds / 86400;
+                if (interval > 1) return Math.floor(interval) + " days ago";
+                
+                interval = seconds / 3600;
+                if (interval > 1) return Math.floor(interval) + " hours ago";
+                
+                interval = seconds / 60;
+                if (interval > 1) return Math.floor(interval) + " minutes ago";
+                
+                return Math.floor(seconds) + " seconds ago";
+            }
+            
+            // Initial load
+            loadSystemNotifications();
+            loadChatUnreadCount();
+            loadForumUnreadCount();
+            
+            // Refresh every 30 seconds
+            setInterval(() => {
+                loadSystemNotifications();
+                loadChatUnreadCount();
+                loadForumUnreadCount();
+            }, 30000);
         });
         
         // Auto-hide alerts

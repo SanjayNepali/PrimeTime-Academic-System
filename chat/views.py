@@ -422,24 +422,28 @@ def create_room(request):
 def chat_notifications(request):
     """View chat notifications"""
     
-    notifications = request.user.chat_notifications.select_related(
+    # FIXED: Don't slice before filtering
+    notifications_qs = request.user.chat_notifications.select_related(
         'room', 'message', 'message__sender'
-    ).order_by('-created_at')[:50]
+    ).order_by('-created_at')
     
     # Mark all as read if requested
     if request.GET.get('mark_all_read'):
-        notifications.filter(is_read=False).update(is_read=True, read_at=timezone.now())
+        notifications_qs.filter(is_read=False).update(is_read=True, read_at=timezone.now())
         messages.success(request, 'All notifications marked as read')
         return redirect('chat:notifications')
     
+    # NOW slice after filtering is done
+    notifications = notifications_qs[:50]
+    
     # Calculate stats
-    unread_count = notifications.filter(is_read=False).count()
+    unread_count = request.user.chat_notifications.filter(is_read=False).count()
     
     week_ago = timezone.now() - timedelta(days=7)
-    week_count = notifications.filter(created_at__gte=week_ago).count()
+    week_count = request.user.chat_notifications.filter(created_at__gte=week_ago).count()
     
-    mention_count = notifications.filter(notification_type='mention').count()
-    reply_count = notifications.filter(notification_type='reply').count()
+    mention_count = request.user.chat_notifications.filter(notification_type='mention').count()
+    reply_count = request.user.chat_notifications.filter(notification_type='reply').count()
     
     context = {
         'notifications': notifications,
@@ -447,11 +451,10 @@ def chat_notifications(request):
         'week_count': week_count,
         'mention_count': mention_count,
         'reply_count': reply_count,
-        'title': 'Notifications - PrimeTime'
+        'title': 'Chat Notifications - PrimeTime'
     }
     
     return render(request, 'chat/notifications.html', context)
-
 
 @login_required
 def analytics_dashboard(request):

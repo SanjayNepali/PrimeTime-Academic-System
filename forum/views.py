@@ -528,21 +528,24 @@ def my_posts(request):
 def notifications(request):
     """View forum notifications"""
     
-    notifications = request.user.forum_notifications.all()[:50]
+    # FIXED: Don't slice before filtering
+    notifications_qs = request.user.forum_notifications.all()
     
     # Mark as read if requested
     if request.GET.get('mark_all_read'):
-        notifications.filter(is_read=False).update(is_read=True)
+        notifications_qs.filter(is_read=False).update(is_read=True)
         messages.success(request, 'All notifications marked as read')
         return redirect('forum:notifications')
     
+    # NOW slice after filtering is done
+    notifications = notifications_qs[:50]
+    
     context = {
         'notifications': notifications,
-        'unread_count': notifications.filter(is_read=False).count(),
-        'title': 'Forum Notifications'
+        'unread_count': request.user.forum_notifications.filter(is_read=False).count(),
+        'title': 'Forum Notifications - PrimeTime'
     }
     return render(request, 'forum/notifications.html', context)
-
 
 @login_required
 def mark_notification_read(request, pk):

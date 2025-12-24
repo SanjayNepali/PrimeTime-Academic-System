@@ -1,7 +1,7 @@
 <!-- File: Desktop/Prime/templates/resources/recommended_resources.html -->
 
 {% extends 'base.html' %}
-
+{% load resource_filters %} 
 {% block title %}AI Recommendations - PrimeTime{% endblock %}
 
 {% block content %}
@@ -50,7 +50,7 @@
                                     stroke="{% if rec_data.score > 0.7 %}#06ffa5{% elif rec_data.score > 0.4 %}#ffb700{% else %}#5568FE{% endif %}" 
                                     stroke-width="4" fill="none"
                                     stroke-dasharray="157" 
-                                    stroke-dashoffset="{{ 157|add:'-'|add:rec_data.score|multiply:'157'|floatformat:0 }}"
+                                    stroke-dashoffset="{{ rec_data.score|multiply:'157'|add:'-157'|floatformat:0 }}"
                                     transform="rotate(-90 30 30)"/>
                         </svg>
                         <span class="score-value">{{ rec_data.score|multiply:'100'|floatformat:0 }}%</span>

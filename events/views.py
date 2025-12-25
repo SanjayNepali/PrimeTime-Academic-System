@@ -19,23 +19,71 @@ from accounts.models import User
 @login_required
 def event_list(request):
     """List all events with filtering"""
-    events = Event.objects.filter(is_active=True).select_related('organizer', 'group')
-
+    print(f"\n=== USER CHECK ===")
+    print(f"Logged in user: {request.user.username}")
+    print(f"User ID: {request.user.id}")
+    print(f"User email: {request.user.email}")
+    print(f"User role: {request.user.role}")
+    print(f"User batch_year: {request.user.batch_year}")
+    print("=================\n")
+    # Get all active events
+    all_events = Event.objects.filter(is_active=True).select_related('organizer', 'group')
+    print(f"1. Total active events in DB: {all_events.count()}")
+    
+    for event in all_events:
+        print(f"   - '{event.title}' (ID: {event.id}, Type: {event.event_type}, Organizer: {event.organizer.username if event.organizer else 'None'}, Group: {event.group.name if event.group else 'None'})")
+    
+    # Start with all active events
+    events = all_events
+    
     # Filter by user role
     if request.user.role == 'student':
-        # Students see events they're invited to or batch-wide events
+        print(f"\n2. Student filtering applied")
         events = events.filter(
             Q(participants=request.user) |
             Q(batch_year=request.user.batch_year) |
             Q(batch_year__isnull=True)
         ).distinct()
+        print(f"   Events after student filter: {events.count()}")
+        
     elif request.user.role == 'supervisor':
-        # Supervisors see their groups' events and events they organize
-        events = events.filter(
+        print(f"\n2. Supervisor filtering applied for user: {request.user.username}")
+        print(f"   User ID: {request.user.id}")
+        
+        # Debug: Check what groups this supervisor supervises
+        from groups.models import Group
+        supervised_groups = Group.objects.filter(supervisor=request.user)
+        print(f"   Groups supervised by {request.user.username}: {[g.name for g in supervised_groups]}")
+        
+        # Original query
+        original_query = events.filter(
             Q(organizer=request.user) |
             Q(group__supervisor=request.user) |
             Q(participants=request.user)
         ).distinct()
+        
+        print(f"   Events after original filter: {original_query.count()}")
+        
+        # Check each condition separately for debugging
+        organized_events = events.filter(organizer=request.user)
+        group_events = events.filter(group__supervisor=request.user)
+        participant_events = events.filter(participants=request.user)
+        
+        print(f"   Events organized by {request.user.username}: {organized_events.count()}")
+        print(f"   Events in groups supervised by {request.user.username}: {group_events.count()}")
+        print(f"   Events where {request.user.username} is participant: {participant_events.count()}")
+        
+        # TEMPORARY: Show all events for supervisor for debugging
+        print(f"\n3. TEMPORARY: Showing all events for supervisor debugging")
+        events = all_events  # Remove filters temporarily
+        
+    elif request.user.role == 'admin':
+        print(f"\n2. Admin - showing all events")
+        events = all_events
+    
+    print(f"\n3. Events before time filter: {events.count()}")
+    for event in events:
+        print(f"   - '{event.title}' (Start: {event.start_datetime}, End: {event.end_datetime})")
 
     # Apply filters from query params
     event_type = request.GET.get('type')
@@ -43,69 +91,90 @@ def event_list(request):
 
     if event_type:
         events = events.filter(event_type=event_type)
+        print(f"4. After event_type filter ('{event_type}'): {events.count()}")
 
     now = timezone.now()
+    print(f"\n5. Current time: {now}")
+    print(f"   Time filter selected: '{time_filter}'")
+    
     if time_filter == 'upcoming':
         events = events.filter(start_datetime__gte=now, is_cancelled=False)
+        print(f"   Events after upcoming filter: {events.count()}")
+        print(f"   Showing events starting from: {now}")
     elif time_filter == 'past':
         events = events.filter(end_datetime__lt=now)
+        print(f"   Events after past filter: {events.count()}")
     elif time_filter == 'today':
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
         events = events.filter(start_datetime__gte=today_start, start_datetime__lt=today_end)
+        print(f"   Events after today filter: {events.count()}")
     elif time_filter == 'this_week':
         week_start = now - timedelta(days=now.weekday())
         week_end = week_start + timedelta(days=7)
         events = events.filter(start_datetime__gte=week_start, start_datetime__lt=week_end)
+        print(f"   Events after this_week filter: {events.count()}")
+
+    # Debug final events
+    print(f"\n6. FINAL events to display: {events.count()}")
+    for event in events:
+        print(f"   - '{event.title}' (ID: {event.id}, Start: {event.start_datetime}, End: {event.end_datetime})")
+    print("=== END DEBUG ===\n")
 
     context = {
         'events': events.order_by('start_datetime'),
         'event_types': Event.EVENT_TYPES,
         'selected_type': event_type,
         'time_filter': time_filter,
-        'can_create': request.user.role in ['admin', 'supervisor'],
+        'can_create': request.user.role == 'admin',
+        'can_schedule_meeting': request.user.role == 'supervisor',
     }
     return render(request, 'events/event_list.html', context)
-
-
 @login_required
 def event_create(request):
-    """Create a new event"""
-    if request.user.role not in ['admin', 'supervisor']:
+    """Create a new event - Only admin can create all events, supervisor can only create meetings for their groups"""
+    if request.user.role == 'admin':
+        # Admin can create any type of event
+        if request.method == 'POST':
+            form = EventForm(request.POST)
+            if form.is_valid():
+                event = form.save(commit=False)
+                event.created_by = request.user
+                if not event.organizer:
+                    event.organizer = request.user
+                event.save()
+                form.save_m2m()
+
+                # Notify participants
+                participants = event.participants.all()
+                if participants:
+                    Notification.create_for_event(
+                        event,
+                        participants,
+                        notification_type='event_update',
+                        title=f"New Event: {event.title}",
+                        message=f"You have been invited to '{event.title}' on {event.start_datetime.strftime('%B %d, %Y at %I:%M %p')}"
+                    )
+
+                messages.success(request, f"Event '{event.title}' created successfully!")
+                return redirect('events:event_detail', pk=event.pk)
+        else:
+            form = EventForm()
+        
+        return render(request, 'events/event_form.html', {
+            'form': form,
+            'title': 'Create New Event'
+        })
+    
+    elif request.user.role == 'supervisor':
+        # Supervisors can only schedule group meetings
+        # They should use the group meeting scheduler
+        messages.info(request, "Supervisors can schedule group meetings from the Events page")
+        return redirect('events:event_list')
+    
+    else:
         messages.error(request, "You don't have permission to create events")
         return redirect('events:event_list')
-
-    if request.method == 'POST':
-        form = EventForm(request.POST)
-        if form.is_valid():
-            event = form.save(commit=False)
-            event.created_by = request.user
-            if not event.organizer:
-                event.organizer = request.user
-            event.save()
-            form.save_m2m()  # Save many-to-many relationships
-
-            # Send notifications to participants
-            participants = event.participants.all()
-            if participants:
-                Notification.create_for_event(
-                    event,
-                    participants,
-                    notification_type='event_update',
-                    title=f"New Event: {event.title}",
-                    message=f"You have been invited to '{event.title}' on {event.start_datetime.strftime('%B %d, %Y at %I:%M %p')}"
-                )
-
-            messages.success(request, f"Event '{event.title}' created successfully!")
-            return redirect('events:event_detail', pk=event.pk)
-    else:
-        form = EventForm()
-
-    return render(request, 'events/event_form.html', {
-        'form': form,
-        'title': 'Create New Event'
-    })
-
 
 @login_required
 def event_detail(request, pk):
@@ -127,11 +196,14 @@ def event_detail(request, pk):
 
     # Get user's attendance record
     attendance = None
+    user_rsvp_status = None
     if event.participants.filter(pk=request.user.pk).exists():
-        attendance, created = EventAttendance.objects.get_or_create(
+        attendance = EventAttendance.objects.filter(
             event=event,
             user=request.user
-        )
+        ).first()
+        if attendance:
+            user_rsvp_status = attendance.status
 
     # Get all attendances for this event
     attendances = event.attendances.select_related('user').all()
@@ -139,12 +211,13 @@ def event_detail(request, pk):
     context = {
         'event': event,
         'attendance': attendance,
-        'attendances': attendances,
+        'user_rsvp_status': user_rsvp_status,
+        'attendees': [att.user for att in attendances.filter(status='confirmed')],
+        'attendee_count': attendances.filter(status='confirmed').count(),
         'can_edit': request.user.role == 'admin' or request.user == event.organizer,
         'can_manage_attendance': request.user.role in ['admin', 'supervisor'] and request.user == event.organizer,
     }
     return render(request, 'events/event_detail.html', context)
-
 
 @login_required
 def event_update(request, pk):
@@ -216,9 +289,8 @@ def event_cancel(request, pk):
 
     return render(request, 'events/event_cancel.html', {'event': event})
 
-
 @login_required
-def rsvp_event(request, pk, status):
+def rsvp_event(request, pk):
     """RSVP to an event (confirm/decline)"""
     event = get_object_or_404(Event, pk=pk)
 
@@ -227,20 +299,29 @@ def rsvp_event(request, pk, status):
         messages.error(request, "You are not invited to this event")
         return redirect('events:event_list')
 
-    attendance, created = EventAttendance.objects.get_or_create(
-        event=event,
-        user=request.user
-    )
+    if request.method == 'POST':
+        status = request.POST.get('status')
+        attendance, created = EventAttendance.objects.get_or_create(
+            event=event,
+            user=request.user
+        )
 
-    if status == 'confirm':
-        attendance.confirm_attendance()
-        messages.success(request, f"You have confirmed attendance for '{event.title}'")
-    elif status == 'decline':
-        attendance.decline_attendance()
-        messages.info(request, f"You have declined '{event.title}'")
-
+        if status == 'yes':
+            attendance.confirm_attendance()
+            messages.success(request, f"You have confirmed attendance for '{event.title}'")
+        elif status == 'no':
+            attendance.decline_attendance()
+            messages.info(request, f"You have declined '{event.title}'")
+        elif status == 'maybe':
+            # You might want to add a 'maybe' status handling
+            attendance.status = 'pending'
+            attendance.rsvp_at = timezone.now()
+            attendance.save()
+            messages.info(request, f"You marked '{event.title}' as maybe")
+        else:
+            messages.error(request, "Invalid RSVP status")
+    
     return redirect('events:event_detail', pk=pk)
-
 
 @login_required
 def my_events(request):
@@ -381,39 +462,17 @@ def get_unread_notifications(request):
         })
     return JsonResponse({'unread_count': 0, 'notifications': []})
 
+# File: events/views.py (update event_calendar_view function)
 @login_required
 def event_calendar_view(request):
-    """Calendar view of events"""
-    # Get events for the current month
-    now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if now.month == 12:
-        month_end = month_start.replace(year=now.year + 1, month=1)
-    else:
-        month_end = month_start.replace(month=now.month + 1)
-
-    events = Event.objects.filter(
-        is_active=True,
-        is_cancelled=False,
-        start_datetime__gte=month_start,
-        start_datetime__lt=month_end
-    )
-
-    # Filter by role
-    if request.user.role == 'student':
-        events = events.filter(
-            Q(participants=request.user) |
-            Q(batch_year=request.user.batch_year) |
-            Q(batch_year__isnull=True)
-        ).distinct()
-    elif request.user.role == 'supervisor':
-        events = events.filter(
-            Q(organizer=request.user) |
-            Q(group__supervisor=request.user) |
-            Q(participants=request.user)
-        ).distinct()
-
-    # Convert to calendar format
+    """Calendar view of events - SIMPLE VERSION"""
+    print(f"\n=== CALENDAR SIMPLE DEBUG ===")
+    
+    # Get ALL events
+    events = Event.objects.filter(is_active=True, is_cancelled=False)
+    print(f"Total events: {events.count()}")
+    
+    # Simple events data
     events_data = []
     for event in events:
         events_data.append({
@@ -422,17 +481,17 @@ def event_calendar_view(request):
             'start': event.start_datetime.isoformat(),
             'end': event.end_datetime.isoformat(),
             'url': f'/events/{event.pk}/',
-            'className': f'event-{event.event_type}',
-            'allDay': event.all_day,
+            'color': '#60a5fa',  # Simple blue for all
         })
-
+        print(f"Added: {event.title} at {event.start_datetime}")
+    
+    print(f"Events in JSON: {len(events_data)}")
+    
     context = {
         'events_json': events_data,
-        'current_month': now.strftime('%B %Y'),
+        'current_month': timezone.now().strftime('%B %Y'),
     }
     return render(request, 'events/calendar_view.html', context)
-
-
 # ========== EVENT SUBMISSION VIEWS ==========
 
 @login_required
@@ -781,3 +840,170 @@ def get_system_notifications(request):
         'unread_count': request.user.notifications.filter(is_read=False).count(),
         'notifications': notifications_data
     })
+
+@login_required
+def schedule_group_meeting(request, group_id=None):
+    """Supervisor schedules a meeting for their group"""
+    if request.user.role != 'supervisor':
+        messages.error(request, "Only supervisors can schedule group meetings")
+        return redirect('events:event_list')
+    
+    from groups.models import Group
+    from datetime import datetime, time, timedelta
+    
+    # Get today's date and default time (2 PM)
+    today = timezone.now().date()
+    default_time = time(14, 0)  # 2:00 PM
+    
+    # If group_id is provided, use that group
+    if group_id:
+        group = get_object_or_404(Group, pk=group_id, supervisor=request.user)
+        
+        # Get active students for display
+        group_memberships = group.members.filter(is_active=True).select_related('student')
+        students = [membership.student for membership in group_memberships]
+        
+        if request.method == 'POST':
+            # Get form data
+            title = request.POST.get('title')
+            date_str = request.POST.get('date')
+            time_str = request.POST.get('time')
+            duration = int(request.POST.get('duration', 60))
+            location = request.POST.get('location', '')
+            virtual_link = request.POST.get('virtual_link', '')
+            description = request.POST.get('description', '')
+            
+            # Validate required fields
+            if not all([title, date_str, time_str]):
+                messages.error(request, "Please fill in all required fields")
+                return render(request, 'events/schedule_meeting.html', {
+                    'group': group,
+                    'students': students,
+                    'today': today,
+                    'default_time': default_time.strftime('%H:%M')
+                })
+            
+            # Combine date and time
+            try:
+                start_datetime = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+                start_datetime = timezone.make_aware(start_datetime)
+                end_datetime = start_datetime + timedelta(minutes=duration)
+            except ValueError:
+                messages.error(request, "Invalid date or time format")
+                return render(request, 'events/schedule_meeting.html', {
+                    'group': group,
+                    'students': students,
+                    'today': today,
+                    'default_time': default_time.strftime('%H:%M')
+                })
+            
+            # CHECK: Ensure only one event per day
+            existing_event = Event.objects.filter(
+                is_active=True,
+                is_cancelled=False,
+                start_datetime__date=start_datetime.date()
+            ).first()
+            
+            if existing_event:
+                messages.error(
+                    request, 
+                    f"Cannot schedule event. There's already an event on {start_datetime.date()}: "
+                    f"'{existing_event.title}' at {existing_event.start_datetime.time()}"
+                )
+                return render(request, 'events/schedule_meeting.html', {
+                    'group': group,
+                    'students': students,
+                    'today': today,
+                    'default_time': default_time.strftime('%H:%M'),
+                    'error_date': date_str
+                })
+            
+            # Create the event
+            event = Event.objects.create(
+                title=title,
+                description=description,
+                event_type='meeting',
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+                location=location,
+                virtual_link=virtual_link,
+                group=group,
+                organizer=request.user,
+                created_by=request.user,
+                priority='medium'
+            )
+            
+            # Add all group students as participants
+            if students:
+                event.participants.set(students)
+                
+                # Create attendance records
+                for student in students:
+                    EventAttendance.objects.create(
+                        event=event,
+                        user=student,
+                        status='pending'
+                    )
+                
+                # Send notifications
+                Notification.create_for_event(
+                    event,
+                    students,
+                    notification_type='event_update',
+                    title=f"Group Meeting Scheduled: {event.title}",
+                    message=f"Your supervisor {request.user.display_name} scheduled a group meeting on {event.start_datetime.strftime('%B %d, %Y at %I:%M %p')}"
+                )
+            else:
+                messages.warning(request, "Group has no active students to invite")
+            
+            messages.success(request, f"Group meeting '{event.title}' scheduled successfully!")
+            return redirect('events:event_detail', pk=event.pk)
+        
+        # GET request - render form
+        return render(request, 'events/schedule_meeting.html', {
+            'group': group,
+            'students': students,
+            'today': today,
+            'default_time': default_time.strftime('%H:%M')
+        })
+    
+    # No group_id provided - show group selection
+    groups = Group.objects.filter(supervisor=request.user, is_active=True)
+    if not groups.exists():
+        messages.error(request, "You don't supervise any active groups")
+        return redirect('events:event_list')
+    
+    # If only one group, redirect to that group's scheduling page
+    if groups.count() == 1:
+        return redirect('events:schedule_group_meeting_for_group', group_id=groups.first().pk)
+    
+    # Show group selection
+    return render(request, 'events/schedule_meeting.html', {
+        'groups': groups,
+        'today': today,
+        'default_time': default_time.strftime('%H:%M')
+    })
+@login_required
+def check_date_availability(request, date_str):
+    """API endpoint to check if date has an event"""
+    try:
+        from datetime import datetime
+        check_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        
+        existing_event = Event.objects.filter(
+            is_active=True,
+            is_cancelled=False,
+            start_datetime__date=check_date
+        ).first()
+        
+        if existing_event:
+            return JsonResponse({
+                'exists': True,
+                'event_title': existing_event.title,
+                'event_time': existing_event.start_datetime.strftime("%I:%M %p"),
+            })
+        else:
+            return JsonResponse({'exists': False})
+            
+    except ValueError:
+        return JsonResponse({'error': 'Invalid date format'}, status=400)

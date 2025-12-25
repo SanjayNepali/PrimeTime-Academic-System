@@ -1,4 +1,4 @@
-# File: groups/views.py - IMPROVED VERSION
+# File: groups/views.py - COMPLETE UPDATED VERSION
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Q, Count, F
 from django.http import JsonResponse
+from django.utils import timezone
 
 from .models import Group, GroupMembership, GroupActivity
 from .forms import (
@@ -14,7 +15,7 @@ from .forms import (
 )
 from .utils import get_current_batch_year
 from accounts.models import User
-from projects.models import Project
+from projects.models import Project, GroupMeeting
 
 
 @login_required
@@ -234,11 +235,25 @@ def group_detail(request, pk):
     # Get recent activities
     activities = group.activities.all()[:10]
 
+    # Get meetings
+    upcoming_meetings = GroupMeeting.objects.filter(
+        group=group,
+        scheduled_date__gte=timezone.now(),
+        status='scheduled'
+    ).order_by('scheduled_date')
+    
+    past_meetings = GroupMeeting.objects.filter(
+        group=group,
+        status='completed'
+    ).order_by('-scheduled_date')[:5]
+
     context = {
         'group': group,
         'members': members,
         'project': project,
         'activities': activities,
+        'upcoming_meetings': upcoming_meetings,
+        'past_meetings': past_meetings,
         'can_edit': request.user.role in ['admin'] or request.user.is_superuser or (
             request.user.role == 'supervisor' and group.supervisor == request.user
         ),
@@ -436,6 +451,7 @@ def remove_student(request, pk, student_id):
         'student': student
     })
 
+
 @login_required
 def my_group(request):
     """View current user's group (for students AND supervisors)"""
@@ -474,6 +490,7 @@ def my_group(request):
     else:
         messages.info(request, "View your groups from the groups list")
         return redirect('groups:group_list')
+
 
 @login_required
 def group_activities(request, pk):

@@ -1,0 +1,136 @@
+<!-- File: templates/projects/student_submit_logsheet.html -->
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-edit'></i> Submit Weekly Log Sheet
+                    </h4>
+                    <p class="mb-0 small">Week {{ logsheet.week_number }} - {{ logsheet.project.title }}</p>
+                </div>
+                <div class="card-body">
+                    <!-- Meeting Info -->
+                    {% if meeting %}
+                    <div class="alert alert-info">
+                        <h6><i class='bx bx-calendar'></i> Meeting Information</h6>
+                        <p class="mb-1"><strong>Date:</strong> {{ meeting.scheduled_date|date:"M d, Y" }}</p>
+                        <p class="mb-1"><strong>Type:</strong> {{ meeting.get_meeting_type_display }}</p>
+                        <p class="mb-0"><strong>Period:</strong> {{ logsheet.start_date|date:"M d" }} - {{ logsheet.end_date|date:"M d, Y" }}</p>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <!-- Tasks Completed -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class='bx bx-check-circle'></i> Tasks Completed This Week <span class="text-danger">*</span>
+                            </label>
+                            <textarea name="tasks_completed" 
+                                      class="form-control" 
+                                      rows="5" 
+                                      placeholder="Describe what you accomplished this week..."
+                                      required>{{ logsheet.tasks_completed }}</textarea>
+                            <small class="text-muted">Be specific about your achievements and progress</small>
+                        </div>
+
+                        <!-- Challenges Faced -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class='bx bx-error-circle'></i> Challenges or Blockers
+                            </label>
+                            <textarea name="challenges_faced" 
+                                      class="form-control" 
+                                      rows="4" 
+                                      placeholder="What challenges did you face? What blocked your progress?">{{ logsheet.challenges_faced }}</textarea>
+                            <small class="text-muted">Optional, but helps your supervisor understand difficulties</small>
+                        </div>
+
+                        <!-- Next Week Plan -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class='bx bx-calendar-check'></i> Plan for Next Week <span class="text-danger">*</span>
+                            </label>
+                            <textarea name="next_week_plan" 
+                                      class="form-control" 
+                                      rows="4" 
+                                      placeholder="What do you plan to work on next week?"
+                                      required>{{ logsheet.next_week_plan }}</textarea>
+                            <small class="text-muted">Be clear about your upcoming goals</small>
+                        </div>
+
+                        <!-- Hours Spent -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class='bx bx-time'></i> Hours Worked This Week <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" 
+                                   name="hours_spent" 
+                                   class="form-control" 
+                                   min="0" 
+                                   step="0.5" 
+                                   value="{{ logsheet.hours_spent }}"
+                                   required>
+                            <small class="text-muted">Total hours you spent on the project</small>
+                        </div>
+
+                        <!-- Attachment -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class='bx bx-paperclip'></i> Attachment (Optional)
+                            </label>
+                            <input type="file" 
+                                   name="attachment" 
+                                   class="form-control"
+                                   accept=".pdf,.doc,.docx,.png,.jpg,.jpeg">
+                            <small class="text-muted">Upload screenshots, diagrams, or progress documents</small>
+                        </div>
+
+                        <!-- Guidelines -->
+                        <div class="alert alert-primary">
+                            <h6><i class='bx bx-info-circle'></i> Log Sheet Guidelines</h6>
+                            <ul class="mb-0 small">
+                                <li>Be honest and detailed in your descriptions</li>
+                                <li>Mention specific features or components you worked on</li>
+                                <li>If you faced blockers, explain what you tried to resolve them</li>
+                                <li>Set realistic goals for next week</li>
+                                <li>Your supervisor will review and provide feedback</li>
+                            </ul>
+                        </div>
+
+                        <!-- What Happens Next -->
+                        <div class="alert alert-success">
+                            <h6><i class='bx bx-check-circle'></i> After Submission</h6>
+                            <ul class="mb-0">
+                                <li>✅ Your log sheet is sent to your supervisor</li>
+                                <li>👨‍🏫 Supervisor reviews and provides feedback</li>
+                                <li>⭐ You receive a rating (1-5 stars)</li>
+                                <li>📝 Supervisor adds remarks and signature</li>
+                                <li>🔄 Continue this process weekly</li>
+                            </ul>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'projects:my_project' %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class='bx bx-send'></i> Submit Log Sheet
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

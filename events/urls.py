@@ -1,5 +1,4 @@
 # File: events/urls.py
-
 from django.urls import path
 from . import views
 
@@ -15,7 +14,7 @@ urlpatterns = [
     path('<int:pk>/cancel/', views.event_cancel, name='event_cancel'),
 
     # RSVP
-    path('<int:pk>/rsvp/<str:status>/', views.rsvp_event, name='rsvp_event'),
+    path('<int:pk>/rsvp/', views.rsvp_event, name='rsvp_event'),
 
     # My events
     path('my-events/', views.my_events, name='my_events'),
@@ -30,8 +29,12 @@ urlpatterns = [
     path('notifications/', views.notifications_list, name='notifications_list'),
     path('notifications/<int:pk>/read/', views.notification_mark_read, name='notification_mark_read'),
     path('api/system-notifications/', views.get_system_notifications, name='get_system_notifications'),
+    
     # AJAX endpoints
     path('api/unread-notifications/', views.get_unread_notifications, name='api_unread_notifications'),
+    
+    # NEW: One event per day API
+    path('api/check-date/<str:date_str>/', views.check_date_availability, name='check_date_availability'),
 
     # Event submissions (students)
     path('submit/<int:event_id>/', views.submit_to_event, name='submit_to_event'),
@@ -47,4 +50,8 @@ urlpatterns = [
     # Admin submission review
     path('submissions/admin-review/', views.admin_review_submissions, name='admin_review_submissions'),
     path('submissions/admin-review/<int:submission_id>/', views.admin_review_submission_detail, name='admin_review_submission_detail'),
+
+    # Group meeting scheduling (supervisor only)
+    path('schedule-meeting/', views.schedule_group_meeting, name='schedule_group_meeting'),
+    path('schedule-meeting/<int:group_id>/', views.schedule_group_meeting, name='schedule_group_meeting_for_group'),
 ]

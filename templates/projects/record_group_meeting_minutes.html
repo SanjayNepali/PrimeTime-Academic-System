@@ -1,52 +1,201 @@
-{% extends 'base.html' %}
+<!-- File: templates/projects/record_group_meeting_minutes.html -->
 
-{% block title %}Record Meeting Minutes{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
 
 {% block content %}
 <div class="container py-4">
-    <h2>Record Meeting Minutes</h2>
-    <p class="text-muted">{{ group.name }} - {{ meeting.scheduled_date|date:"M d, Y g:i A" }}</p>
-    
-    <div class="card mb-4">
-        <div class="card-header">Original Agenda</div>
-        <div class="card-body">
-            {{ meeting.agenda|linebreaks }}
-        </div>
-    </div>
-    
-    <form method="post">
-        {% csrf_token %}
-        
-        <!-- Attendance Section -->
-        <div class="card mb-4">
-            <div class="card-header">Student Attendance</div>
-            <div class="card-body">
-                {% for field in form %}
-                    {% if 'attendance_' in field.name %}
-                    <div class="form-check">
-                        {{ field }}
-                        {{ field.label_tag }}
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card modern-card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-edit'></i> Record Meeting Minutes & Attendance
+                    </h4>
+                    <p class="mb-0 small">{{ group.name }} - {{ meeting.get_meeting_type_display }}</p>
+                </div>
+                <div class="card-body">
+                    <!-- Meeting Info -->
+                    <div class="alert alert-info">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Date:</strong> {{ meeting.scheduled_date|date:"M d, Y g:i A" }}<br>
+                                <strong>Duration:</strong> {{ meeting.duration_minutes }} minutes
+                            </div>
+                            <div class="col-md-6">
+                                {% if meeting.location %}
+                                <strong>Location:</strong> {{ meeting.location }}<br>
+                                {% endif %}
+                                <strong>Students:</strong> {{ attendances.count }}
+                            </div>
+                        </div>
                     </div>
-                    {% endif %}
-                {% endfor %}
+
+                    <!-- Original Agenda -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Original Agenda</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0">{{ meeting.agenda|linebreaks }}</p>
+                        </div>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- ========== ATTENDANCE SECTION ========== -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">
+                                    <i class='bx bx-user-check'></i> Student Attendance
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-warning">
+                                    <strong>⚠️ Important:</strong> Only students who attended will be able to submit log sheets.
+                                </div>
+
+                                <div class="row">
+                                    {% for attendance in attendances %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="form-check form-switch attendance-item">
+                                            <input class="form-check-input" 
+                                                   type="checkbox" 
+                                                   name="attendance_{{ attendance.student.id }}" 
+                                                   id="attendance_{{ attendance.student.id }}"
+                                                   checked>
+                                            <label class="form-check-label" for="attendance_{{ attendance.student.id }}">
+                                                <strong>{{ attendance.student.display_name }}</strong><br>
+                                                <small class="text-muted">{{ attendance.student.user_id }}</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="attendance-counter mt-3">
+                                    <span id="attendedCount">{{ attendances.count }}</span> / {{ attendances.count }} students attending
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== MEETING MINUTES ========== -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">
+                                    <i class='bx bx-file-blank'></i> Meeting Minutes
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Discussion Summary -->
+                                <div class="mb-3">
+                                    <label for="{{ form.discussion_summary.id_for_label }}" class="form-label">
+                                        Discussion Summary <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.discussion_summary }}
+                                    <small class="text-muted">What was discussed in the meeting?</small>
+                                </div>
+
+                                <!-- Action Items -->
+                                <div class="mb-3">
+                                    <label for="{{ form.action_items.id_for_label }}" class="form-label">
+                                        Action Items <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.action_items }}
+                                    <small class="text-muted">Tasks students need to complete</small>
+                                </div>
+
+                                <!-- Next Steps -->
+                                <div class="mb-3">
+                                    <label for="{{ form.next_steps.id_for_label }}" class="form-label">
+                                        Next Steps <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.next_steps }}
+                                    <small class="text-muted">What happens next? When is next meeting?</small>
+                                </div>
+
+                                <!-- Supervisor Notes -->
+                                <div class="mb-3">
+                                    <label for="{{ form.supervisor_notes.id_for_label }}" class="form-label">
+                                        Supervisor Private Notes
+                                    </label>
+                                    {{ form.supervisor_notes }}
+                                    <small class="text-muted">Private notes (not visible to students)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- What Happens Next -->
+                        <div class="alert alert-success">
+                            <h6><i class='bx bx-check-circle'></i> What Happens After You Submit?</h6>
+                            <ol class="mb-0">
+                                <li>✅ Meeting marked as completed</li>
+                                <li>📝 Log sheet entries auto-created for attended students</li>
+                                <li>👥 Students can fill in their log sheets</li>
+                                <li>📊 You review and approve their log sheets</li>
+                                <li>🔄 Cycle repeats for next meeting</li>
+                            </ol>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'groups:group_detail' group.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class='bx bx-save'></i> Save Minutes & Create Log Sheets
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-        
-        <!-- Meeting Details -->
-        {{ form.discussion_summary.label_tag }}
-        {{ form.discussion_summary }}
-        
-        {{ form.action_items.label_tag }}
-        {{ form.action_items }}
-        
-        {{ form.next_steps.label_tag }}
-        {{ form.next_steps }}
-        
-        {{ form.supervisor_notes.label_tag }}
-        {{ form.supervisor_notes }}
-        
-        <button type="submit" class="btn btn-primary">Save Minutes</button>
-        <a href="{% url 'groups:my_group' %}" class="btn btn-secondary">Cancel</a>
-    </form>
+    </div>
 </div>
+
+<style>
+.attendance-item {
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.attendance-item:hover {
+    background: #e9ecef;
+}
+
+.form-check-input:checked {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.attendance-counter {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #28a745;
+    text-align: center;
+    padding: 12px;
+    background: #d4edda;
+    border-radius: 8px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="attendance_"]');
+    const counter = document.getElementById('attendedCount');
+    
+    function updateCounter() {
+        const checked = document.querySelectorAll('input[type="checkbox"][name^="attendance_"]:checked').length;
+        counter.textContent = checked;
+    }
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateCounter);
+    });
+});
+</script>
 {% endblock %}

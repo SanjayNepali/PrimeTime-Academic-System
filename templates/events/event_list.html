@@ -74,6 +74,14 @@
                         <i class='bx bx-file-blank'></i> Create Deadline
                     </a>
                     {% endif %}
+                    
+                    {% if can_schedule_meeting %}
+                    <!-- Supervisor can only create meetings for their groups -->
+                    <a href="{% url 'events:schedule_group_meeting' %}" class="btn btn-primary">
+                        <i class='bx bx-calendar-plus'></i> Schedule Group Meeting
+                    </a>
+                    {% endif %}
+                    
                     <a href="{% url 'events:calendar_view' %}" class="btn btn-outline-primary">
                         <i class='bx bx-calendar-alt'></i> Calendar View
                     </a>

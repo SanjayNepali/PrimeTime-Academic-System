@@ -1,0 +1,229 @@
+<!-- File: templates/events/schedule_meeting.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Schedule Group Meeting{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-calendar-plus'></i> Schedule Group Meeting
+                    </h4>
+                    <p class="mb-0 small">All students in this group will be automatically invited</p>
+                </div>
+                <div class="card-body">
+                    {% if groups and groups.count > 1 %}
+                    <!-- Group Selection (if supervisor has multiple groups) -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class='bx bx-group'></i> Select a Group
+                        </h5>
+                        <div class="row">
+                            {% for group in groups %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100 hover-shadow">
+                                    <div class="card-body text-center">
+                                        <h5>{{ group.name }}</h5>
+                                        <p class="text-muted mb-2">{{ group.students.count }} students</p>
+                                        <a href="{% url 'events:schedule_group_meeting_for_group' group.pk %}" 
+                                           class="btn btn-primary w-100">
+                                            <i class='bx bx-calendar-plus'></i> Schedule Meeting
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Direct meeting form -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Group Information -->
+                        <div class="mb-4">
+                            <h5 class="text-primary mb-3">
+                                <i class='bx bx-group'></i> Group: {{ group.name }}
+                            </h5>
+                            <p class="mb-0">Supervisor: {{ group.supervisor.display_name }}</p>
+                            <p>Students: {{ group.students.count }} students</p>
+                        </div>
+                        
+                        <!-- Meeting Details -->
+                        <div class="mb-4">
+                            <h5 class="text-primary mb-3">
+                                <i class='bx bx-calendar'></i> Meeting Details
+                            </h5>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Meeting Title *</label>
+                                <input type="text" name="title" class="form-control" 
+                                       value="Group Meeting - {{ group.name }}" required>
+                            </div>
+                            
+                            <!-- Error message for duplicate date -->
+                            {% if error_date %}
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class='bx bx-error-circle'></i>
+                                <strong>Cannot Schedule Meeting</strong>
+                                <p>There's already an event scheduled on {{ error_date }}. Please choose a different date.</p>
+                                <p class="mb-0">
+                                    <a href="{% url 'events:event_list' %}?date={{ error_date }}" class="btn btn-sm btn-outline-danger">
+                                        View Existing Events
+                                    </a>
+                                </p>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Date *</label>
+                                    <input type="date" name="date" class="form-control" required 
+                                           value="{{ today|date:'Y-m-d' }}">
+                                    <div class="form-text">
+                                        <span id="date-warning"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Time *</label>
+                                    <input type="time" name="time" class="form-control" required
+                                           value="{{ default_time }}">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Duration (minutes) *</label>
+                                <input type="number" name="duration" class="form-control" 
+                                       value="60" min="15" max="240" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Location</label>
+                                <input type="text" name="location" class="form-control" 
+                                       placeholder="e.g., Meeting Room 101">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Virtual Meeting Link (Optional)</label>
+                                <input type="url" name="virtual_link" class="form-control" 
+                                       placeholder="https://meet.google.com/xxx-xxx-xxx">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Agenda *</label>
+                                <textarea name="description" class="form-control" rows="4" required
+                                          placeholder="Meeting agenda, discussion topics..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Students who will be invited -->
+                        <div class="mb-4">
+                            <h5 class="text-primary mb-3">
+                                <i class='bx bx-user-check'></i> Participants
+                            </h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    <p>All {{ students|length }} active students from {{ group.name }} will be automatically invited:</p>
+                                    <ul class="list-group">
+                                        {% for student in students %}
+                                        <li class="list-group-item">
+                                            <i class='bx bx-user'></i> {{ student.display_name }}
+                                            <small class="text-muted">({{ student.username }})</small>
+                                        </li>
+                                        {% empty %}
+                                        <li class="list-group-item text-muted">No active students in this group</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'events:event_list' %}" class="btn btn-secondary">
+                                <i class='bx bx-arrow-back'></i> Back to Events
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> Schedule Meeting
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-shadow {
+    transition: all 0.3s;
+}
+.hover-shadow:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2) !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.querySelector('input[name="date"]');
+    
+    if (dateInput) {
+        dateInput.addEventListener('change', function() {
+            const selectedDate = this.value;
+            const warningSpan = document.getElementById('date-warning');
+            
+            if (!selectedDate) return;
+            
+            // Clear previous warning
+            if (warningSpan) {
+                warningSpan.innerHTML = '';
+                warningSpan.className = '';
+            }
+            
+            // Make AJAX call to check for existing events
+            fetch(`/events/api/check-date/${selectedDate}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        // Show warning
+                        if (warningSpan) {
+                            warningSpan.innerHTML = `⚠️ There's already an event on ${selectedDate}: "${data.event_title}" at ${data.event_time}`;
+                            warningSpan.className = 'text-danger fw-bold';
+                        }
+                        
+                        // Also show an alert
+                        if (!document.querySelector('.duplicate-warning')) {
+                            const alertDiv = document.createElement('div');
+                            alertDiv.className = 'alert alert-warning mt-2 duplicate-warning';
+                            alertDiv.innerHTML = `
+                                <i class='bx bx-calendar-x'></i>
+                                <strong>Note:</strong> You already have an event on ${selectedDate}.
+                            `;
+                            dateInput.parentNode.appendChild(alertDiv);
+                        }
+                    } else {
+                        // Remove warning if exists
+                        if (warningSpan) {
+                            warningSpan.innerHTML = '✓ This date is available';
+                            warningSpan.className = 'text-success fw-bold';
+                        }
+                        
+                        // Remove alert if exists
+                        const existingAlert = document.querySelector('.duplicate-warning');
+                        if (existingAlert) existingAlert.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking date:', error);
+                });
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-# File: analytics/views.py
+# File: analytics/views.py 
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -14,7 +14,7 @@ from .calculators import StressCalculator, PerformanceCalculator, AnalyticsDashb
 from .forms import SupervisorFeedbackForm
 from accounts.models import User
 # FIXED: Import ProjectActivity instead of ProjectProgress
-from projects.models import Project, ProjectActivity, ProjectLogSheet, SupervisorMeeting
+from projects.models import Project, ProjectActivity, ProjectLogSheet, GroupMeeting  # CHANGED SupervisorMeeting to GroupMeeting
 # Add at the top of analytics/views.py
 from .utils import (
     log_stress_analysis, log_feedback_added, log_meeting_logged,
@@ -31,15 +31,16 @@ def my_analytics(request):
         messages.error(request, "This page is for students only")
         return redirect('dashboard:home')
 
-    # Get ONLY existing stress data - no defaults
-    latest_stress = StressLevel.objects.filter(student=request.user).order_by('-timestamp').first()
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
+    latest_stress = StressLevel.objects.filter(student=request.user).order_by('-calculated_at').first()
     
     # Only calculate trends if we have actual data
     stress_trend = None
     stress_history = None
     if latest_stress:
         stress_trend = StressCalculator.get_stress_trend(request.user, days=30)
-        stress_history = StressLevel.objects.filter(student=request.user).order_by('-timestamp')[:10]
+        # FIXED: Use 'calculated_at' instead of 'timestamp'
+        stress_history = StressLevel.objects.filter(student=request.user).order_by('-calculated_at')[:10]
     
     # Only calculate performance if project exists
     performance = None
@@ -141,13 +142,15 @@ def student_stress_detail(request, student_id):
             return redirect('analytics:supervisor_analytics')
 
     # Get comprehensive stress data - only if exists
-    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
     stress_trend = None
     stress_history = None
     
     if latest_stress:
         stress_trend = StressCalculator.get_stress_trend(student, days=60)
-        stress_history = StressLevel.objects.filter(student=student).order_by('-timestamp')[:20]
+        # FIXED: Use 'calculated_at' instead of 'timestamp'
+        stress_history = StressLevel.objects.filter(student=student).order_by('-calculated_at')[:20]
 
     context = {
         'student': student,
@@ -179,9 +182,10 @@ def run_stress_analysis(request):
         
         # Get previous stress level to detect trends
         from .models import StressLevel
+        # FIXED: Use 'calculated_at' instead of 'timestamp'
         previous_stress = StressLevel.objects.filter(
             student=request.user
-        ).exclude(id=stress_record.id).order_by('-timestamp').first()
+        ).exclude(id=stress_record.id).order_by('-calculated_at').first()
         
         # Log high stress alerts
         if stress_record.level >= 70:
@@ -238,13 +242,14 @@ def supervisor_view_student_profile(request, student_id):
     except Project.DoesNotExist:
         project = None
 
-    # FIXED: Use 'timestamp' instead of 'calculated_at'
-    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
 
     # Get stress trend (last 30 days) - only if stress data exists
     stress_history = None
     if latest_stress:
-        stress_history = StressLevel.objects.filter(student=student).order_by('-timestamp')[:30]
+        # FIXED: Use 'calculated_at' instead of 'timestamp'
+        stress_history = StressLevel.objects.filter(student=student).order_by('-calculated_at')[:30]
 
     # FIXED: Use project.progress_percentage directly
     latest_progress = None
@@ -464,9 +469,10 @@ def get_realtime_stress(request, student_id):
         return JsonResponse({'error': 'Student not found'}, status=404)
     
     # Get latest stress record
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
     latest_stress = StressLevel.objects.filter(
         student=student
-    ).order_by('-timestamp').first()
+    ).order_by('-calculated_at').first()
     
     if latest_stress:
         return JsonResponse({
@@ -477,7 +483,7 @@ def get_realtime_stress(request, student_id):
             'deadline_pressure': latest_stress.deadline_pressure,
             'workload': latest_stress.workload_score,
             'social_isolation': latest_stress.social_isolation_score,
-            'calculated_at': latest_stress.timestamp.isoformat(),
+            'calculated_at': latest_stress.calculated_at.isoformat(),
             'status': 'high' if latest_stress.level >= 70 else 'medium' if latest_stress.level >= 40 else 'low'
         })
     else:
@@ -506,17 +512,18 @@ def supervisor_view_student_profile_fixed(request, student_id):
         messages.error(request, 'You do not supervise this student.')
         return redirect('analytics:supervisor_analytics')
     
-    # FIXED: Use 'timestamp' instead of 'calculated_at'
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
     latest_stress = StressLevel.objects.filter(
         student=student
-    ).order_by('-timestamp').first()
+    ).order_by('-calculated_at').first()
     
     # Get stress trend (last 30 days)
     thirty_days_ago = timezone.now() - timedelta(days=30)
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
     stress_history = StressLevel.objects.filter(
         student=student,
-        timestamp__gte=thirty_days_ago
-    ).order_by('timestamp')
+        calculated_at__gte=thirty_days_ago
+    ).order_by('calculated_at')
     
     # Performance metrics
     performance = PerformanceCalculator.calculate_student_performance(student)
@@ -532,7 +539,7 @@ def supervisor_view_student_profile_fixed(request, student_id):
     ).order_by('-week_number')[:5]
     
     # Meetings
-    meetings = SupervisorMeeting.objects.filter(
+    meetings = GroupMeeting.objects.filter(
         project=project
     ).order_by('-scheduled_date')[:5]
     
@@ -560,14 +567,14 @@ def get_stress_history(request, days=30):
     
     time_threshold = timezone.now() - timedelta(days=days)
     
-    # AFTER (fixed):
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
     recent_stress = StressLevel.objects.filter(
         student=request.user,
-        timestamp__gte=time_threshold
-    ).order_by('-timestamp')
+        calculated_at__gte=time_threshold
+    ).order_by('-calculated_at')
     
     data = [{
-        'timestamp': stress.timestamp.isoformat(),
+        'timestamp': stress.calculated_at.isoformat(),
         'level': stress.level,
         'category': stress.stress_category
     } for stress in recent_stress]
@@ -580,14 +587,14 @@ def get_latest_stress(request):
     if request.user.role != 'student':
         return JsonResponse({'error': 'Students only'}, status=403)
     
-    # AFTER (fixed):
-    latest = StressLevel.objects.filter(student=request.user).order_by('-timestamp').first()
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
+    latest = StressLevel.objects.filter(student=request.user).order_by('-calculated_at').first()
     
     if latest:
         return JsonResponse({
             'level': latest.level,
             'category': latest.stress_category,
-            'timestamp': latest.timestamp.isoformat(),
+            'timestamp': latest.calculated_at.isoformat(),
             'has_data': True
         })
     else:
@@ -599,15 +606,15 @@ def get_stress_trend(request):
     if request.user.role != 'student':
         return JsonResponse({'error': 'Students only'}, status=403)
     
-    # AFTER (fixed):
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
     week_ago = timezone.now() - timedelta(days=7)
     
     stress_data = StressLevel.objects.filter(
         student=request.user,
-        timestamp__gte=week_ago
-    ).order_by('timestamp')
+        calculated_at__gte=week_ago
+    ).order_by('calculated_at')
     
-    dates = [stress.timestamp.strftime('%Y-%m-%d') for stress in stress_data]
+    dates = [stress.calculated_at.strftime('%Y-%m-%d') for stress in stress_data]
     levels = [stress.level for stress in stress_data]
     
     return JsonResponse({
@@ -622,15 +629,16 @@ def get_stress_summary(request):
     if request.user.role != 'student':
         return JsonResponse({'error': 'Students only'}, status=403)
     
-    # AFTER (fixed):
-    latest = StressLevel.objects.filter(student=request.user).latest('timestamp')
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
+    latest = StressLevel.objects.filter(student=request.user).latest('calculated_at')
     
     month_ago = timezone.now() - timedelta(days=30)
+    # FIXED: Use 'calculated_at' instead of 'timestamp'
     previous_month_stress = StressLevel.objects.filter(
         student=request.user,
-        timestamp__gte=month_ago,
-        timestamp__lte=latest.timestamp - timedelta(days=30)
-    ).order_by('timestamp').first()
+        calculated_at__gte=month_ago,
+        calculated_at__lte=latest.calculated_at - timedelta(days=30)
+    ).order_by('calculated_at').first()
     
     context = {
         'current_stress': latest.level,

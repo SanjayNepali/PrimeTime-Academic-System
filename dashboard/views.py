@@ -7,8 +7,9 @@ from django.db.models import Count, Q, Avg
 from django.utils import timezone
 from datetime import timedelta
 from django.http import JsonResponse 
+
 from accounts.models import User, UserProfile
-from projects.models import Project, ProjectDeliverable, ProjectActivity
+from projects.models import Project, ProjectDeliverable, ProjectActivity, ProjectLogSheet, GroupMeeting, MeetingAttendance
 from groups.models import Group, GroupMembership
 from analytics.models import StressLevel
 from analytics.calculators import DashboardCalculator  
@@ -175,6 +176,114 @@ def student_dashboard(request):
             project=project
         ).order_by('-timestamp')[:5]
     
+    # ==================================================================
+    # PENDING LOG SHEETS (NEW)
+    # ==================================================================
+    pending_logsheets = []
+    if project:
+        pending_logsheets = ProjectLogSheet.objects.filter(
+            project=project,
+            is_approved=False
+        ).exclude(
+            Q(tasks_completed__icontains='filled by student') |
+            Q(tasks_completed='')
+        ).select_related('group_meeting').order_by('-week_number')
+    
+    # Check for newly created log sheets after meetings
+    new_logsheets_after_meetings = []
+    if project:
+        # Find meetings student attended but hasn't submitted log sheet for
+        meetings_attended = MeetingAttendance.objects.filter(
+            student=student,
+            attended=True,
+            log_sheet_submitted=False
+        ).select_related('meeting')
+        
+        for attendance in meetings_attended:
+            meeting = attendance.meeting
+            # Check if log sheet already exists
+            existing_logsheet = ProjectLogSheet.objects.filter(
+                project=project,
+                group_meeting=meeting
+            ).first()
+            
+            if not existing_logsheet:
+                # Create a placeholder log sheet for the student
+                week_number = meeting.group.group_meetings.filter(
+                    status='completed',
+                    scheduled_date__lte=meeting.scheduled_date
+                ).count()
+                
+                logsheet = ProjectLogSheet.objects.create(
+                    project=project,
+                    group_meeting=meeting,
+                    week_number=week_number,
+                    start_date=meeting.scheduled_date.date() - timedelta(days=7),
+                    end_date=meeting.scheduled_date.date(),
+                    tasks_completed='[Please fill in tasks completed during this week]',
+                    challenges_faced='',
+                    next_week_plan='[Please fill in your plan for next week]',
+                    hours_spent=0,
+                    is_approved=False
+                )
+                new_logsheets_after_meetings.append(logsheet)
+    
+    # Combine both lists
+    all_pending_logsheets = list(pending_logsheets) + new_logsheets_after_meetings
+    
+    # ==================================================================
+    # RECENTLY APPROVED LOG SHEETS WITH FEEDBACK (NEW)
+    # ==================================================================
+    recent_feedback = []
+    if project:
+        recent_feedback = ProjectLogSheet.objects.filter(
+            project=project,
+            is_approved=True,
+            supervisor_remarks__isnull=False
+        ).select_related('project').order_by('-reviewed_at')[:3]
+    
+    # ==================================================================
+    # UPCOMING GROUP MEETINGS (NEW)
+    # ==================================================================
+    upcoming_group_meetings = []
+    if group:
+        upcoming_group_meetings = GroupMeeting.objects.filter(
+            group=group,
+            status='scheduled',
+            scheduled_date__gte=timezone.now()
+        ).order_by('scheduled_date')[:3]
+    
+    # ==================================================================
+    # LOG SHEET STATISTICS (NEW)
+    # ==================================================================
+    logsheet_stats = {
+        'total_submitted': 0,
+        'total_approved': 0,
+        'pending_count': 0,
+        'average_rating': 0,
+        'total_hours': 0
+    }
+    
+    if project:
+        all_logsheets = ProjectLogSheet.objects.filter(project=project)
+        logsheet_stats['total_submitted'] = all_logsheets.count()
+        logsheet_stats['total_approved'] = all_logsheets.filter(is_approved=True).count()
+        logsheet_stats['pending_count'] = len(all_pending_logsheets)
+        
+        # Calculate average rating
+        approved_with_rating = all_logsheets.filter(
+            is_approved=True,
+            supervisor_rating__isnull=False
+        )
+        if approved_with_rating.exists():
+            logsheet_stats['average_rating'] = approved_with_rating.aggregate(
+                avg=Avg('supervisor_rating')
+            )['avg'] or 0
+        
+        # Calculate total hours
+        total_hours = all_logsheets.aggregate(total=Avg('hours_spent'))['total'] or 0
+        logsheet_stats['total_hours'] = round(total_hours, 1)
+    
     context = {
         'title': 'Student Dashboard - PrimeTime',
         'project': project,
@@ -185,6 +294,12 @@ def student_dashboard(request):
         'latest_stress': latest_stress,
         'upcoming_deadlines': upcoming_deadlines,
         'recent_activities': recent_activities,
+        
+        # NEW: Log sheets data
+        'pending_logsheets': all_pending_logsheets,
+        'recent_feedback': recent_feedback,
+        'upcoming_group_meetings': upcoming_group_meetings,
+        'logsheet_stats': logsheet_stats,
         
         # Quick stats
         'deliverables_submitted': ProjectDeliverable.objects.filter(
@@ -201,7 +316,7 @@ def student_dashboard(request):
         'enrollment_year': student.enrollment_year,
         'batch_year': student.batch_year,
         
-        'feedback_count': 0,
+        'feedback_count': len(recent_feedback),
     }
     
     return render(request, 'dashboard/student/home.html', context)
@@ -370,6 +485,7 @@ def supervisor_dashboard(request):
     }
     
     return render(request, 'dashboard/supervisor/home.html', context)
+
 @login_required
 def switch_role(request):
     """Allow users to switch between roles if they have multiple roles"""
@@ -489,6 +605,7 @@ def student_stress_api(request, student_id):
         'has_data': True,
         'calculated_at': latest_stress.calculated_at
     })
+
 @login_required
 def supervisor_metrics_api(request):
     """Return dashboard metrics for supervisor (AJAX API)"""

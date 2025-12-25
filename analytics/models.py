@@ -71,6 +71,18 @@ class StressLevel(models.Model):
     def is_high_stress(self):
         """Check if stress level is high"""
         return self.level >= 70
+    
+    # ========== ADDED: timestamp property for backward compatibility ==========
+    @property
+    def timestamp(self):
+        """Alias for calculated_at for backward compatibility"""
+        return self.calculated_at
+    
+    @timestamp.setter
+    def timestamp(self, value):
+        """Set calculated_at when timestamp is set"""
+        self.calculated_at = value
+    # ========== END ADDED PROPERTY ==========
 
 
 class ProgressTracking(models.Model):
@@ -349,6 +361,8 @@ class SupervisorFeedback(models.Model):
         if self.rating:
             return dict(self.RATING_CHOICES)[self.rating]
         return "Not Rated"
+
+
 class SystemActivity(models.Model):
     """Track system-wide activities for admin dashboard"""
     

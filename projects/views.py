@@ -1,27 +1,376 @@
-# File: projects/views.py - COMPLETE FIXED VERSION
-from django.db.models import F, Count, Q
+# File: projects/views.py - COMPLETE FIXED VERSION WITH GROUP MEETINGS
+
+from django.db.models import F, Count, Q, Sum, Avg
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Count, Q, Sum, Avg
 from django.http import HttpResponseForbidden
 from django.core.paginator import Paginator
+
 from accounts.models import User
-from .models import Project, ProjectDeliverable, ProjectActivity
+from groups.models import Group, GroupActivity, GroupMembership
+from events.models import Event, EventAttendance, Notification
+
+from .models import (
+    Project, ProjectDeliverable, ProjectActivity, 
+    GroupMeeting, MeetingAttendance, ProjectLogSheet, 
+    StudentProgressNote
+)
 from .forms import (
     ProjectForm, ProjectSubmitForm, ProjectReviewForm,
-    ProjectDeliverableForm, DeliverableReviewForm
+    ProjectDeliverableForm, DeliverableReviewForm,
+    GroupMeetingScheduleForm, MeetingMinutesForm,
+    MeetingAttendanceFormSet, LogSheetApprovalForm,
+    MeetingScheduleForm, ProgressNoteForm
 )
-from groups.models import Group, GroupActivity, GroupMembership
+
 # CRITICAL IMPORTS FOR REAL STRESS ANALYSIS
 from analytics.sentiment import AdvancedSentimentAnalyzer
 from analytics.models import StressLevel
-from analytics.calculators import PerformanceCalculator, ProgressCalculator
+from analytics.calculators import PerformanceCalculator, ProgressCalculator, StressCalculator
 
-from .forms import LogSheetApprovalForm, MeetingScheduleForm, MeetingMinutesForm, ProgressNoteForm
-from .models import ProjectLogSheet, SupervisorMeeting, StudentProgressNote
-from analytics.calculators import PerformanceCalculator, StressCalculator
+
+# ===========================================================================
+# GROUP MEETING VIEWS - NEW FUNCTIONALITY
+# ===========================================================================
+
+@login_required
+def schedule_group_meeting(request, group_id):
+    """
+    Supervisor schedules a meeting for entire group
+    Automatically creates Event and sends notifications
+    """
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can schedule meetings')
+        return redirect('dashboard:home')
+    
+    group = get_object_or_404(Group, pk=group_id, supervisor=request.user)
+    
+    # Get group students
+    group_students = User.objects.filter(
+        group_memberships__group=group,
+        group_memberships__is_active=True,
+        role='student'
+    )
+    
+    if request.method == 'POST':
+        form = GroupMeetingScheduleForm(request.POST)
+        if form.is_valid():
+            meeting = form.save(commit=False)
+            meeting.group = group
+            meeting.status = 'scheduled'
+            meeting.save()
+            
+            # ========== CREATE EVENT ==========
+            event = Event.objects.create(
+                title=f"{group.name} - {meeting.get_meeting_type_display()}",
+                description=f"Group Meeting\n\nAgenda:\n{meeting.agenda}",
+                event_type='meeting',
+                start_datetime=meeting.scheduled_date,
+                end_datetime=meeting.scheduled_date + timezone.timedelta(minutes=meeting.duration_minutes),
+                location=meeting.location,
+                virtual_link=meeting.meeting_link,
+                batch_year=group.batch_year,
+                group=group,
+                organizer=request.user,
+                is_mandatory=True,
+                created_by=request.user
+            )
+            
+            # Add ALL group students as participants
+            event.participants.set(group_students)
+            event.participants.add(request.user)  # Add supervisor too
+            
+            # Link event to meeting
+            meeting.event = event
+            meeting.save()
+            
+            # ========== CREATE ATTENDANCE RECORDS ==========
+            for student in group_students:
+                MeetingAttendance.objects.create(
+                    meeting=meeting,
+                    student=student,
+                    attended=False
+                )
+                
+                # Create EventAttendance for calendar
+                EventAttendance.objects.create(
+                    event=event,
+                    user=student,
+                    status='pending'
+                )
+            
+            # ========== SEND NOTIFICATIONS ==========
+            for student in group_students:
+                Notification.objects.create(
+                    recipient=student,
+                    notification_type='event_update',
+                    title=f'New Group Meeting Scheduled',
+                    message=f'Your supervisor has scheduled a {meeting.get_meeting_type_display()} for {meeting.scheduled_date.strftime("%b %d, %Y at %I:%M %p")}. Location: {meeting.location or "Online"}',
+                    event=event,
+                    link_url=f'/events/{event.pk}/'
+                )
+            
+            messages.success(
+                request,
+                f'✅ Group meeting scheduled successfully!<br>'
+                f'📅 Date: {meeting.scheduled_date.strftime("%b %d, %Y at %I:%M %p")}<br>'
+                f'👥 {group_students.count()} students notified'
+            )
+            
+            return redirect('groups:group_detail', pk=group.pk)
+    else:
+        form = GroupMeetingScheduleForm()
+    
+    context = {
+        'form': form,
+        'group': group,
+        'student_count': group_students.count(),
+        'students': group_students,
+        'title': f'Schedule Group Meeting - {group.name}'
+    }
+    
+    return render(request, 'projects/schedule_group_meeting.html', context)
+
+
+@login_required
+def record_group_meeting_minutes(request, meeting_id):
+    """
+    After meeting, supervisor:
+    1. Takes attendance
+    2. Records meeting minutes
+    3. System creates log sheet entries for attended students
+    """
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can record minutes')
+        return redirect('dashboard:home')
+    
+    meeting = get_object_or_404(GroupMeeting, pk=meeting_id)
+    group = meeting.group
+    
+    # Verify supervisor
+    if group.supervisor != request.user:
+        messages.error(request, 'You are not the supervisor for this group')
+        return redirect('dashboard:home')
+    
+    # Get attendance records
+    attendances = MeetingAttendance.objects.filter(meeting=meeting).select_related('student')
+    
+    if request.method == 'POST':
+        form = MeetingMinutesForm(request.POST)
+        
+        if form.is_valid():
+            # Update meeting minutes
+            meeting.discussion_summary = form.cleaned_data['discussion_summary']
+            meeting.action_items = form.cleaned_data['action_items']
+            meeting.next_steps = form.cleaned_data['next_steps']
+            meeting.supervisor_notes = form.cleaned_data['supervisor_notes']
+            meeting.mark_completed()
+            
+            # ========== PROCESS ATTENDANCE ==========
+            attended_count = 0
+            for attendance in attendances:
+                checkbox_name = f'attendance_{attendance.student.id}'
+                attended = checkbox_name in request.POST
+                
+                attendance.attended = attended
+                attendance.save()
+                
+                if attended:
+                    attended_count += 1
+                    
+                    # Update EventAttendance
+                    if meeting.event:
+                        EventAttendance.objects.update_or_create(
+                            event=meeting.event,
+                            user=attendance.student,
+                            defaults={'status': 'attended'}
+                        )
+            
+            # ========== AUTO-CREATE LOG SHEET ENTRIES ==========
+            # Calculate week number
+            week_number = meeting.group.group_meetings.filter(
+                status='completed',
+                scheduled_date__lte=meeting.scheduled_date
+            ).count()
+            
+            # For each attended student, create log sheet entry
+            for attendance in attendances.filter(attended=True):
+                student = attendance.student
+                
+                # Get student's project
+                try:
+                    project = Project.objects.get(
+                        student=student,
+                        supervisor=request.user
+                    )
+                    
+                    # Create log sheet entry (student will fill it later)
+                    ProjectLogSheet.objects.get_or_create(
+                        project=project,
+                        group_meeting=meeting,
+                        week_number=week_number,
+                        defaults={
+                            'start_date': meeting.scheduled_date.date() - timezone.timedelta(days=7),
+                            'end_date': meeting.scheduled_date.date(),
+                            'tasks_completed': '[To be filled by student after meeting]',
+                            'next_week_plan': '[To be filled by student]',
+                            'hours_spent': 0,
+                            'is_approved': False
+                        }
+                    )
+                    
+                    # Mark attendance as having log sheet created
+                    attendance.log_sheet_submitted = True
+                    attendance.save()
+                    
+                except Project.DoesNotExist:
+                    pass
+            
+            messages.success(
+                request,
+                f'✅ Meeting minutes recorded!<br>'
+                f'📊 Attendance: {attended_count}/{attendances.count()} students<br>'
+                f'📝 Log sheet entries created for attended students'
+            )
+            
+            return redirect('groups:group_detail', pk=group.pk)
+    else:
+        form = MeetingMinutesForm()
+    
+    context = {
+        'form': form,
+        'meeting': meeting,
+        'group': group,
+        'attendances': attendances,
+        'title': f'Record Meeting Minutes - {group.name}'
+    }
+    
+    return render(request, 'projects/record_group_meeting_minutes.html', context)
+
+
+@login_required
+def student_submit_logsheet(request, logsheet_id):
+    """
+    Student fills in their log sheet after attending meeting
+    """
+    if not request.user.is_student:
+        messages.error(request, 'Only students can submit log sheets')
+        return redirect('dashboard:home')
+    
+    logsheet = get_object_or_404(
+        ProjectLogSheet,
+        pk=logsheet_id,
+        project__student=request.user
+    )
+    
+    if logsheet.is_approved:
+        messages.warning(request, 'This log sheet has already been approved')
+        return redirect('projects:my_project')
+    
+    if request.method == 'POST':
+        logsheet.tasks_completed = request.POST.get('tasks_completed', '')
+        logsheet.challenges_faced = request.POST.get('challenges_faced', '')
+        logsheet.next_week_plan = request.POST.get('next_week_plan', '')
+        logsheet.hours_spent = request.POST.get('hours_spent', 0)
+        
+        if 'attachment' in request.FILES:
+            logsheet.attachment = request.FILES['attachment']
+        
+        logsheet.save()
+        
+        # Mark attendance log sheet as submitted
+        if logsheet.group_meeting:
+            MeetingAttendance.objects.filter(
+                meeting=logsheet.group_meeting,
+                student=request.user
+            ).update(log_sheet_submitted=True)
+        
+        # Log activity
+        ProjectActivity.objects.create(
+            project=logsheet.project,
+            user=request.user,
+            action='logsheet_submitted',
+            details=f'Submitted log sheet for Week {logsheet.week_number}'
+        )
+        
+        messages.success(request, 'Log sheet submitted successfully!')
+        return redirect('projects:my_project')
+    
+    context = {
+        'logsheet': logsheet,
+        'meeting': logsheet.group_meeting,
+        'title': f'Submit Log Sheet - Week {logsheet.week_number}'
+    }
+    
+    return render(request, 'projects/student_submit_logsheet.html', context)
+
+
+@login_required
+def approve_group_logsheets(request, meeting_id):
+    """
+    Supervisor reviews and approves all log sheets from a meeting
+    """
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can approve log sheets')
+        return redirect('dashboard:home')
+    
+    meeting = get_object_or_404(GroupMeeting, pk=meeting_id)
+    
+    # Verify supervisor
+    if meeting.group.supervisor != request.user:
+        messages.error(request, 'Access denied')
+        return redirect('dashboard:home')
+    
+    # Get all log sheets for this meeting
+    logsheets = ProjectLogSheet.objects.filter(
+        group_meeting=meeting
+    ).select_related('project__student')
+    
+    if request.method == 'POST':
+        approved_count = 0
+        
+        for logsheet in logsheets:
+            remarks_field = f'remarks_{logsheet.id}'
+            rating_field = f'rating_{logsheet.id}'
+            
+            if remarks_field in request.POST:
+                remarks = request.POST.get(remarks_field, '')
+                rating = request.POST.get(rating_field)
+                
+                if remarks or rating:
+                    if rating:
+                        rating = int(rating)
+                    else:
+                        rating = None
+                    
+                    logsheet.approve(
+                        supervisor=request.user,
+                        remarks=remarks,
+                        rating=rating
+                    )
+                    approved_count += 1
+        
+        messages.success(
+            request,
+            f'✅ Approved {approved_count} log sheets'
+        )
+        
+        return redirect('groups:group_detail', pk=meeting.group.pk)
+    
+    context = {
+        'meeting': meeting,
+        'logsheets': logsheets,
+        'title': f'Approve Log Sheets - {meeting.group.name}'
+    }
+    
+    return render(request, 'projects/approve_group_logsheets.html', context)
+
+
+# ===========================================================================
+# STUDENT PROJECT DASHBOARD WITH STRESS ANALYSIS
+# ===========================================================================
 
 @login_required
 def my_project(request):
@@ -118,8 +467,6 @@ def my_project(request):
                     'level': get_factor_level(latest_stress.social_isolation_score)
                 }
             ]
-            
-            print(f"[STRESS] Factors: {stress_factors}")
     
     # ===========================================================================
     # REAL PERFORMANCE CALCULATION
@@ -132,9 +479,35 @@ def my_project(request):
             performance = PerformanceCalculator.calculate_student_performance(request.user)
             performance_grade = performance['grade']
             performance_score = performance['overall_score']
-            print(f"[PERFORMANCE] Grade: {performance_grade}, Score: {performance_score:.2f}")
         except Exception as e:
             print(f"[PERFORMANCE ERROR] {e}")
+    
+    # ===========================================================================
+    # GROUP MEETINGS & LOG SHEETS
+    # ===========================================================================
+    recent_log_sheets = []
+    upcoming_group_meetings = []
+    
+    if project:
+        recent_log_sheets = ProjectLogSheet.objects.filter(
+            project=project
+        ).order_by('-week_number')[:5]
+        
+        # Get group meetings (if student is in a group)
+        try:
+            group_membership = GroupMembership.objects.filter(
+                student=request.user,
+                is_active=True
+            ).first()
+            
+            if group_membership:
+                upcoming_group_meetings = GroupMeeting.objects.filter(
+                    group=group_membership.group,
+                    status='scheduled',
+                    scheduled_date__gte=timezone.now()
+                ).order_by('scheduled_date')[:5]
+        except:
+            pass
     
     # ===========================================================================
     # DELIVERABLES DATA
@@ -256,6 +629,10 @@ def my_project(request):
         'performance_grade': performance_grade,
         'performance_score': performance_score,
         
+        # GROUP MEETINGS & LOG SHEETS
+        'recent_log_sheets': recent_log_sheets,
+        'upcoming_group_meetings': upcoming_group_meetings,
+        
         # REAL PROGRESS DATA
         'progress_percentage': project.progress_percentage if project else 0,
         'completed_deliverables': completed_deliverables,
@@ -275,6 +652,72 @@ def my_project(request):
     }
     
     return render(request, 'projects/my_project.html', context)
+
+
+@login_required
+def project_analytics(request, pk):
+    """Project analytics dashboard"""
+    project = get_object_or_404(Project, pk=pk)
+    
+    if request.user != project.student and not request.user.is_admin and request.user != project.supervisor:
+        messages.error(request, 'You do not have permission to view these analytics.')
+        return redirect('projects:my_project')
+    
+    deliverables = project.deliverables.all()
+    completed_deliverables = deliverables.filter(is_approved=True).count()
+    total_deliverables = 5
+    
+    approved_deliverables = deliverables.filter(is_approved=True, marks__isnull=False)
+    if approved_deliverables.exists():
+        average_marks = sum(d.marks for d in approved_deliverables) / approved_deliverables.count()
+    else:
+        average_marks = 0
+    
+    # Get stress data
+    latest_stress = StressLevel.objects.filter(
+        student=project.student
+    ).order_by('-calculated_at').first()
+    
+    context = {
+        'project': project,
+        'title': f'Analytics - {project.title}',
+        'progress_percentage': project.progress_percentage,
+        'completed_deliverables': completed_deliverables,
+        'total_deliverables': total_deliverables,
+        'completion_rate': int((completed_deliverables / total_deliverables) * 100) if total_deliverables > 0 else 0,
+        'average_marks': average_marks,
+        'latest_stress': latest_stress,
+        'days_remaining': 30,
+        'progress_timeline_labels': ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current'],
+        'progress_timeline_data': [10, 25, 45, 70, project.progress_percentage],
+        'expected_progress_data': [20, 40, 60, 80, 100],
+        'deliverable_progress': min(100, int((completed_deliverables / total_deliverables) * 100)),
+        'marks_progress': min(100, int(average_marks)),
+        'activity_progress': min(100, project.progress_percentage),
+        'deliverable_labels': ['Proposal', 'Mid Defense', 'Pre Defense', 'Final Defense', 'Documentation'],
+        'deliverable_marks': [85, 78, 92, 0, 0],
+        'activity_heatmap_data': [],
+        'performance_insights': [
+            {
+                'type': 'success',
+                'icon': 'bx-trending-up',
+                'title': 'Good Progress',
+                'description': 'You are maintaining steady progress on your project.'
+            }
+        ],
+        'recommendations': [
+            {
+                'priority': 'medium',
+                'priority_label': 'Medium',
+                'title': 'Focus on Final Deliverables',
+                'description': 'Consider starting work on your final defense materials.',
+                'action_url': '#',
+                'action_label': 'View Resources'
+            }
+        ]
+    }
+    
+    return render(request, 'projects/project_analytics.html', context)
 
 
 # ===========================================================================
@@ -318,7 +761,7 @@ def generate_wellness_tips(stress_score):
 
 
 # ===========================================================================
-# OTHER PROJECT VIEWS (KEEPING EXISTING FUNCTIONALITY)
+# OTHER PROJECT VIEWS (EXISTING FUNCTIONALITY)
 # ===========================================================================
 
 @login_required
@@ -432,6 +875,7 @@ def all_projects(request):
     
     return render(request, 'projects/all_projects.html', context)
 
+
 @login_required
 def project_create(request):
     """Create a new project (students only)"""
@@ -479,6 +923,7 @@ def project_create(request):
         'batch_year': request.user.batch_year,
     }
     return render(request, 'projects/project_form.html', context)
+
 
 @login_required
 def project_edit(request, pk):
@@ -543,6 +988,7 @@ def project_edit(request, pk):
     }
     return render(request, 'projects/project_form.html', context)
 
+
 @login_required
 def project_detail(request, pk):
     """View project details"""
@@ -566,10 +1012,26 @@ def project_detail(request, pk):
     deliverables = project.deliverables.all().order_by('stage')
     activities = project.activities.all()[:10]
     
+    # Get group meetings if student is in a group
+    group_meetings = []
+    if project.student:
+        try:
+            group_membership = GroupMembership.objects.filter(
+                student=project.student,
+                is_active=True
+            ).first()
+            if group_membership:
+                group_meetings = GroupMeeting.objects.filter(
+                    group=group_membership.group
+                ).order_by('-scheduled_date')[:5]
+        except:
+            pass
+    
     context = {
         'project': project,
         'deliverables': deliverables,
         'activities': activities,
+        'group_meetings': group_meetings,
         'can_edit': can_edit,
         'can_review': can_review,
         'can_manage_deliverables': can_manage_deliverables,
@@ -583,67 +1045,9 @@ def project_detail(request, pk):
     return render(request, 'projects/project_detail.html', context)
 
 
-@login_required
-def project_analytics(request, pk):
-    """Project analytics dashboard"""
-    project = get_object_or_404(Project, pk=pk)
-    
-    if request.user != project.student and not request.user.is_admin and request.user != project.supervisor:
-        messages.error(request, 'You do not have permission to view these analytics.')
-        return redirect('projects:my_project')
-    
-    deliverables = project.deliverables.all()
-    completed_deliverables = deliverables.filter(is_approved=True).count()
-    total_deliverables = 5
-    
-    approved_deliverables = deliverables.filter(is_approved=True, marks__isnull=False)
-    if approved_deliverables.exists():
-        average_marks = sum(d.marks for d in approved_deliverables) / approved_deliverables.count()
-    else:
-        average_marks = 0
-    
-    context = {
-        'project': project,
-        'title': f'Analytics - {project.title}',
-        'progress_percentage': project.progress_percentage,
-        'completed_deliverables': completed_deliverables,
-        'total_deliverables': total_deliverables,
-        'completion_rate': int((completed_deliverables / total_deliverables) * 100) if total_deliverables > 0 else 0,
-        'average_marks': average_marks,
-        'days_remaining': 30,
-        'progress_timeline_labels': ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Current'],
-        'progress_timeline_data': [10, 25, 45, 70, project.progress_percentage],
-        'expected_progress_data': [20, 40, 60, 80, 100],
-        'deliverable_progress': min(100, int((completed_deliverables / total_deliverables) * 100)),
-        'marks_progress': min(100, int(average_marks)),
-        'activity_progress': min(100, project.progress_percentage),
-        'deliverable_labels': ['Proposal', 'Mid Defense', 'Pre Defense', 'Final Defense', 'Documentation'],
-        'deliverable_marks': [85, 78, 92, 0, 0],
-        'activity_heatmap_data': [],
-        'performance_insights': [
-            {
-                'type': 'success',
-                'icon': 'bx-trending-up',
-                'title': 'Good Progress',
-                'description': 'You are maintaining steady progress on your project.'
-            }
-        ],
-        'recommendations': [
-            {
-                'priority': 'medium',
-                'priority_label': 'Medium',
-                'title': 'Focus on Final Deliverables',
-                'description': 'Consider starting work on your final defense materials.',
-                'action_url': '#',
-                'action_label': 'View Resources'
-            }
-        ]
-    }
-    
-    return render(request, 'projects/project_analytics.html', context)
-
-# ADD THESE NEW VIEWS TO projects/views.py
-
+# ===========================================================================
+# WELLNESS & STRESS VIEWS
+# ===========================================================================
 
 @login_required
 def project_wellness(request, pk):
@@ -655,7 +1059,6 @@ def project_wellness(request, pk):
         return redirect('projects:my_project')
     
     # Get real stress data
-    from analytics.models import StressLevel
     latest_stress = StressLevel.objects.filter(
         student=request.user
     ).order_by('-calculated_at').first()
@@ -714,6 +1117,10 @@ def stress_analysis(request, pk):
     return redirect('projects:project_wellness', pk=pk)
 
 
+# ===========================================================================
+# TEAM & COLLABORATION VIEWS
+# ===========================================================================
+
 @login_required
 def project_team(request, pk):
     """Project team and collaboration page"""
@@ -724,7 +1131,6 @@ def project_team(request, pk):
         return redirect('projects:my_project')
     
     # Get group members
-    from groups.models import GroupMembership
     try:
         group_membership = GroupMembership.objects.get(
             student=project.student,
@@ -735,9 +1141,16 @@ def project_team(request, pk):
             group_memberships__group=group,
             group_memberships__is_active=True
         ).exclude(id=project.student.id)
+        
+        # Get group meetings
+        group_meetings = GroupMeeting.objects.filter(
+            group=group
+        ).order_by('-scheduled_date')[:10]
+        
     except GroupMembership.DoesNotExist:
         group = None
         group_members = []
+        group_meetings = []
     
     # Get recent activities
     recent_activities = project.activities.all().order_by('-timestamp')[:10]
@@ -747,6 +1160,7 @@ def project_team(request, pk):
         'title': f'Team - {project.title}',
         'group': group,
         'group_members': group_members,
+        'group_meetings': group_meetings,
         'recent_activities': recent_activities,
         'supervisor': project.supervisor,
     }
@@ -758,6 +1172,11 @@ def project_team(request, pk):
 def project_collaboration(request, pk):
     """Project collaboration (redirects to team)"""
     return redirect('projects:project_team', pk=pk)
+
+
+# ===========================================================================
+# RECOMMENDATIONS VIEW
+# ===========================================================================
 
 @login_required
 def project_recommendations(request, pk):
@@ -784,6 +1203,10 @@ def project_recommendations(request, pk):
     return render(request, 'projects/project_recommendations.html', context)
 
 
+# ===========================================================================
+# DELIVERABLE SUBMISSION
+# ===========================================================================
+
 @login_required
 def deliverable_submit(request, pk):
     """Submit project deliverable"""
@@ -795,6 +1218,11 @@ def deliverable_submit(request, pk):
     
     messages.info(request, 'Deliverable submission feature will be implemented soon.')
     return redirect('projects:my_project')
+
+
+# ===========================================================================
+# SUPERVISOR ASSIGNMENT WITH GROUP & CHAT CREATION
+# ===========================================================================
 
 @login_required
 def assign_supervisor_page(request, pk):
@@ -884,53 +1312,57 @@ def assign_supervisor_page(request, pk):
                 student_added_msg = f'⚠ Could not add to group: {str(e)}'
             
             # Step 4: CRITICAL - Create supervisor chat room
-            chat_room_name = f"{group.name} - Supervisor Chat"
-            
-            # Check if supervisor chat already exists for this group
-            existing_supervisor_chat = ChatRoom.objects.filter(
-                room_type='supervisor',
-                group=group,
-                is_active=True
-            ).first()
-            
-            if not existing_supervisor_chat:
-                # Create supervisor chat room
+            try:
                 from chat.models import ChatRoom, ChatRoomMember
                 
-                supervisor_chat = ChatRoom.objects.create(
-                    name=chat_room_name,
+                chat_room_name = f"{group.name} - Supervisor Chat"
+                
+                # Check if supervisor chat already exists for this group
+                existing_supervisor_chat = ChatRoom.objects.filter(
                     room_type='supervisor',
                     group=group,
-                    is_active=True,
-                    is_frozen=supervisor.schedule_enabled,  # Auto-enable if supervisor has schedule
-                    schedule_start_time=supervisor.schedule_start_time if supervisor.schedule_enabled else None,
-                    schedule_end_time=supervisor.schedule_end_time if supervisor.schedule_enabled else None,
-                    schedule_days=supervisor.schedule_days if supervisor.schedule_enabled else None
-                )
+                    is_active=True
+                ).first()
                 
-                # Add supervisor to chat
-                supervisor_chat.participants.add(supervisor)
-                ChatRoomMember.objects.create(room=supervisor_chat, user=supervisor)
-                
-                # Add all group members to chat
-                group_students = User.objects.filter(
-                    group_memberships__group=group,
-                    group_memberships__is_active=True
-                )
-                
-                for group_student in group_students:
-                    supervisor_chat.participants.add(group_student)
-                    ChatRoomMember.objects.create(room=supervisor_chat, user=group_student)
-                
-                chat_created_msg = f'✓ Supervisor chat room created: "{chat_room_name}"'
-            else:
-                # Add student to existing supervisor chat
-                existing_supervisor_chat.participants.add(student)
-                ChatRoomMember.objects.get_or_create(
-                    room=existing_supervisor_chat,
-                    user=student
-                )
-                chat_created_msg = f'✓ Student added to existing supervisor chat'
+                if not existing_supervisor_chat:
+                    # Create supervisor chat room
+                    supervisor_chat = ChatRoom.objects.create(
+                        name=chat_room_name,
+                        room_type='supervisor',
+                        group=group,
+                        is_active=True,
+                        is_frozen=getattr(supervisor, 'schedule_enabled', False),
+                        schedule_start_time=getattr(supervisor, 'schedule_start_time', None),
+                        schedule_end_time=getattr(supervisor, 'schedule_end_time', None),
+                        schedule_days=getattr(supervisor, 'schedule_days', None)
+                    )
+                    
+                    # Add supervisor to chat
+                    supervisor_chat.participants.add(supervisor)
+                    ChatRoomMember.objects.create(room=supervisor_chat, user=supervisor)
+                    
+                    # Add all group members to chat
+                    group_students = User.objects.filter(
+                        group_memberships__group=group,
+                        group_memberships__is_active=True
+                    )
+                    
+                    for group_student in group_students:
+                        supervisor_chat.participants.add(group_student)
+                        ChatRoomMember.objects.create(room=supervisor_chat, user=group_student)
+                    
+                    chat_created_msg = f'✓ Supervisor chat room created: "{chat_room_name}"'
+                else:
+                    # Add student to existing supervisor chat
+                    existing_supervisor_chat.participants.add(student)
+                    ChatRoomMember.objects.get_or_create(
+                        room=existing_supervisor_chat,
+                        user=student
+                    )
+                    chat_created_msg = f'✓ Student added to existing supervisor chat'
+                    
+            except ImportError:
+                chat_created_msg = f'⚠ Chat module not available (skipped chat creation)'
             
             # Step 5: Log activity
             ProjectActivity.objects.create(
@@ -1007,6 +1439,11 @@ def assign_supervisor_page(request, pk):
     }
     
     return render(request, 'projects/assign_supervisor.html', context)
+
+
+# ===========================================================================
+# PROJECT REVIEW & MANAGEMENT
+# ===========================================================================
 
 @login_required
 def project_review(request, pk):
@@ -1109,37 +1546,6 @@ def project_list(request):
 
 
 @login_required
-def project_assign_supervisor(request, pk):
-    """Assign supervisor to project (admin only)"""
-    
-    if not request.user.is_admin:
-        messages.error(request, 'Only admins can assign supervisors.')
-        return redirect('dashboard:home')
-    
-    project = get_object_or_404(Project, pk=pk)
-    
-    if request.method == 'POST':
-        supervisor_id = request.POST.get('supervisor_id')
-        try:
-            supervisor = User.objects.get(id=supervisor_id, role='supervisor')
-            project.supervisor = supervisor
-            project.save()
-            
-            ProjectActivity.objects.create(
-                project=project,
-                user=request.user,
-                action='supervisor_assigned',
-                details=f'Supervisor {supervisor.full_name} assigned to project'
-            )
-            
-            messages.success(request, f'Supervisor {supervisor.full_name} assigned successfully!')
-        except User.DoesNotExist:
-            messages.error(request, 'Invalid supervisor selected.')
-    
-    return redirect('projects:project_detail', pk=project.pk)
-
-
-@login_required
 def supervisor_projects(request):
     """Supervisor's projects dashboard"""
     
@@ -1173,8 +1579,9 @@ def supervisor_projects(request):
     
     return render(request, 'projects/supervisor_projects.html', context)
 
+
 # ===========================================================================
-# NEW SUPERVISOR MANAGEMENT VIEWS
+# SUPERVISOR PROJECT DETAIL VIEW (UPDATED FOR GROUP MEETINGS)
 # ===========================================================================
 
 @login_required
@@ -1183,7 +1590,7 @@ def supervisor_project_detail(request, pk):
     Comprehensive supervisor view of project with:
     - Student info & analytics
     - Log sheets
-    - Meetings
+    - Group meetings
     - Stress monitoring
     - Deliverables tracking
     - Private notes
@@ -1219,30 +1626,49 @@ def supervisor_project_detail(request, pk):
     performance = PerformanceCalculator.calculate_student_performance(student)
     
     # ==================================================================
-    # LOG SHEETS
+    # LOG SHEETS (NOW LINKED TO GROUP MEETINGS)
     # ==================================================================
     
     log_sheets = ProjectLogSheet.objects.filter(
         project=project
-    ).order_by('-week_number')
+    ).select_related('group_meeting').order_by('-week_number')
     
     pending_log_sheets = log_sheets.filter(is_approved=False)
     approved_log_sheets = log_sheets.filter(is_approved=True)
     
     # ==================================================================
-    # MEETINGS
+    # GROUP MEETINGS (REPLACES SUPERVISOR MEETINGS)
     # ==================================================================
     
-    upcoming_meetings = SupervisorMeeting.objects.filter(
-        project=project,
-        scheduled_date__gte=timezone.now(),
-        status='scheduled'
-    ).order_by('scheduled_date')
-    
-    past_meetings = SupervisorMeeting.objects.filter(
-        project=project,
-        status='completed'
-    ).order_by('-scheduled_date')[:10]
+    # Get group for this student
+    group_meetings = []
+    group = None
+    try:
+        group_membership = GroupMembership.objects.get(
+            student=student,
+            is_active=True
+        )
+        group = group_membership.group
+        
+        # Get meetings for this group
+        upcoming_group_meetings = GroupMeeting.objects.filter(
+            group=group,
+            scheduled_date__gte=timezone.now(),
+            status='scheduled'
+        ).order_by('scheduled_date')
+        
+        past_group_meetings = GroupMeeting.objects.filter(
+            group=group,
+            status='completed'
+        ).order_by('-scheduled_date')[:10]
+        
+        group_meetings = {
+            'upcoming': upcoming_group_meetings,
+            'past': past_group_meetings,
+            'group': group
+        }
+    except GroupMembership.DoesNotExist:
+        pass
     
     # ==================================================================
     # DELIVERABLES
@@ -1281,11 +1707,6 @@ def supervisor_project_detail(request, pk):
         avg=Avg('supervisor_rating')
     )['avg']
     
-    meeting_attendance_rate = 0
-    if past_meetings.exists():
-        attended = past_meetings.filter(student_attended=True).count()
-        meeting_attendance_rate = int((attended / past_meetings.count()) * 100)
-    
     context = {
         'title': f'Supervise: {project.title}',
         'project': project,
@@ -1301,9 +1722,9 @@ def supervisor_project_detail(request, pk):
         'pending_log_sheets': pending_log_sheets,
         'approved_log_sheets': approved_log_sheets,
         
-        # Meetings
-        'upcoming_meetings': upcoming_meetings,
-        'past_meetings': past_meetings,
+        # Group meetings
+        'group_meetings': group_meetings,
+        'group': group,
         
         # Deliverables
         'deliverables': deliverables,
@@ -1319,7 +1740,6 @@ def supervisor_project_detail(request, pk):
         # Statistics
         'total_hours_logged': total_hours_logged,
         'average_rating': average_rating,
-        'meeting_attendance_rate': meeting_attendance_rate,
         
         # Tab management
         'active_tab': request.GET.get('tab', 'overview'),
@@ -1327,6 +1747,10 @@ def supervisor_project_detail(request, pk):
     
     return render(request, 'projects/supervisor_project_detail.html', context)
 
+
+# ===========================================================================
+# LOG SHEET APPROVAL (UPDATED FOR GROUP MEETINGS)
+# ===========================================================================
 
 @login_required
 def approve_log_sheet(request, pk):
@@ -1377,97 +1801,9 @@ def approve_log_sheet(request, pk):
     return render(request, 'projects/approve_log_sheet.html', context)
 
 
-@login_required
-def schedule_meeting(request, pk):
-    """Schedule a meeting with student"""
-    if not request.user.is_supervisor:
-        messages.error(request, 'Only supervisors can schedule meetings.')
-        return redirect('dashboard:home')
-    
-    project = get_object_or_404(Project, pk=pk)
-    
-    # Verify supervisor
-    if project.supervisor != request.user:
-        messages.error(request, 'You are not the supervisor for this project.')
-        return redirect('projects:supervisor_projects')
-    
-    if request.method == 'POST':
-        form = MeetingScheduleForm(request.POST)
-        if form.is_valid():
-            meeting = form.save(commit=False)
-            meeting.project = project
-            meeting.status = 'scheduled'
-            meeting.save()
-            
-            # Log activity
-            ProjectActivity.objects.create(
-                project=project,
-                user=request.user,
-                action='meeting_scheduled',
-                details=f'{meeting.get_meeting_type_display()} scheduled for {meeting.scheduled_date.strftime("%b %d, %Y at %I:%M %p")}'
-            )
-            
-            messages.success(
-                request,
-                f'Meeting scheduled successfully for {meeting.scheduled_date.strftime("%b %d, %Y at %I:%M %p")}'
-            )
-            return redirect('projects:supervisor_project_detail', pk=project.pk)
-    else:
-        form = MeetingScheduleForm()
-    
-    context = {
-        'form': form,
-        'project': project,
-        'student': project.student,
-        'title': f'Schedule Meeting - {project.title}',
-    }
-    return render(request, 'projects/schedule_meeting.html', context)
-
-
-@login_required
-def record_meeting_minutes(request, meeting_id):
-    """Record meeting minutes after meeting"""
-    if not request.user.is_supervisor:
-        messages.error(request, 'Only supervisors can record meeting minutes.')
-        return redirect('dashboard:home')
-    
-    meeting = get_object_or_404(SupervisorMeeting, pk=meeting_id)
-    project = meeting.project
-    
-    # Verify supervisor
-    if project.supervisor != request.user:
-        messages.error(request, 'You are not the supervisor for this project.')
-        return redirect('projects:supervisor_projects')
-    
-    if request.method == 'POST':
-        form = MeetingMinutesForm(request.POST, instance=meeting)
-        if form.is_valid():
-            meeting = form.save(commit=False)
-            meeting.status = 'completed'
-            meeting.completed_at = timezone.now()
-            meeting.save()
-            
-            # Log activity
-            ProjectActivity.objects.create(
-                project=project,
-                user=request.user,
-                action='meeting_completed',
-                details=f'{meeting.get_meeting_type_display()} completed - Attendance: {"Present" if meeting.student_attended else "Absent"}'
-            )
-            
-            messages.success(request, 'Meeting minutes recorded successfully!')
-            return redirect('projects:supervisor_project_detail', pk=project.pk)
-    else:
-        form = MeetingMinutesForm(instance=meeting)
-    
-    context = {
-        'form': form,
-        'meeting': meeting,
-        'project': project,
-        'title': f'Record Minutes - {meeting.get_meeting_type_display()}',
-    }
-    return render(request, 'projects/record_meeting_minutes.html', context)
-
+# ===========================================================================
+# PROGRESS NOTE MANAGEMENT
+# ===========================================================================
 
 @login_required
 def add_progress_note(request, pk):

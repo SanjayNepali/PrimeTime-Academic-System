@@ -4,6 +4,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from accounts.models import User
+from groups.models import Group  # Added import
 
 
 class Project(models.Model):
@@ -134,6 +135,117 @@ class Project(models.Model):
         return f"{self.title} ({self.student.display_name} - {self.batch_year})"
 
 
+class GroupMeeting(models.Model):
+    """
+    Group meetings scheduled by supervisor
+    Automatically creates an Event for calendar integration
+    """
+    
+    MEETING_TYPE_CHOICES = [
+        ('weekly', 'Weekly Check-in'),
+        ('progress_review', 'Progress Review'),
+        ('defense_prep', 'Defense Preparation'),
+        ('emergency', 'Emergency Meeting'),
+        ('other', 'Other'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Group this meeting is for
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='group_meetings'
+    )
+    
+    # Meeting details
+    meeting_type = models.CharField(max_length=20, choices=MEETING_TYPE_CHOICES)
+    scheduled_date = models.DateTimeField()
+    duration_minutes = models.IntegerField(default=60)
+    location = models.CharField(max_length=200, blank=True)
+    meeting_link = models.URLField(blank=True)
+    agenda = models.TextField()
+    
+    # Status
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
+    
+    # Link to Event (auto-created)
+    event = models.OneToOneField(
+        'events.Event',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='group_meeting'
+    )
+    
+    # Minutes (after meeting)
+    discussion_summary = models.TextField(blank=True)
+    action_items = models.TextField(blank=True)
+    next_steps = models.TextField(blank=True)
+    supervisor_notes = models.TextField(blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-scheduled_date']
+    
+    def __str__(self):
+        return f"{self.group.name} - {self.get_meeting_type_display()} - {self.scheduled_date.date()}"
+    
+    def mark_completed(self):
+        """Mark meeting as completed"""
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.save()
+    
+    def get_attended_students(self):
+        """Get list of students who attended"""
+        from events.models import EventAttendance
+        if not self.event:
+            return []
+        
+        return User.objects.filter(
+            event_attendances__event=self.event,
+            event_attendances__status='attended'
+        )
+
+
+class MeetingAttendance(models.Model):
+    """Track student attendance for group meetings"""
+    
+    meeting = models.ForeignKey(
+        GroupMeeting,
+        on_delete=models.CASCADE,
+        related_name='attendances'
+    )
+    student = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='meeting_attendances',
+        limit_choices_to={'role': 'student'}
+    )
+    attended = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    
+    # Log sheet for this meeting (created after attendance)
+    log_sheet_submitted = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ['meeting', 'student']
+        ordering = ['student__full_name']
+    
+    def __str__(self):
+        status = "✓" if self.attended else "✗"
+        return f"{status} {self.student.display_name} - {self.meeting}"
+
+
 class ProjectDeliverable(models.Model):
     """Project deliverables/submissions at different stages"""
     
@@ -248,6 +360,16 @@ class ProjectLogSheet(models.Model):
         on_delete=models.CASCADE,
         related_name='log_sheets'
     )
+    
+    # Link to group meeting (NEW FIELD)
+    group_meeting = models.ForeignKey(
+        GroupMeeting,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_logsheets'
+    )
+    
     week_number = models.IntegerField()
     start_date = models.DateField()
     end_date = models.DateField()
@@ -325,70 +447,6 @@ class ProjectLogSheet(models.Model):
         )
 
 
-class SupervisorMeeting(models.Model):
-    """Track meetings between supervisor and student"""
-    
-    MEETING_TYPE_CHOICES = [
-        ('scheduled', 'Scheduled Meeting'),
-        ('adhoc', 'Ad-hoc Discussion'),
-        ('review', 'Progress Review'),
-        ('defense', 'Defense/Presentation'),
-        ('emergency', 'Emergency Meeting'),
-    ]
-    
-    STATUS_CHOICES = [
-        ('scheduled', 'Scheduled'),
-        ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
-        ('rescheduled', 'Rescheduled'),
-    ]
-    
-    project = models.ForeignKey(
-        Project,
-        on_delete=models.CASCADE,
-        related_name='meetings'
-    )
-    meeting_type = models.CharField(max_length=20, choices=MEETING_TYPE_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
-    
-    # Schedule
-    scheduled_date = models.DateTimeField()
-    duration_minutes = models.IntegerField(default=30)
-    location = models.CharField(max_length=200, blank=True)
-    meeting_link = models.URLField(blank=True)
-    
-    # Agenda
-    agenda = models.TextField()
-    
-    # Minutes (after meeting)
-    discussion_summary = models.TextField(blank=True)
-    action_items = models.TextField(blank=True)
-    next_steps = models.TextField(blank=True)
-    
-    # Attendance
-    student_attended = models.BooleanField(default=False)
-    supervisor_notes = models.TextField(blank=True)
-    
-    # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    
-    class Meta:
-        ordering = ['-scheduled_date']
-        verbose_name = "Supervisor Meeting"
-        verbose_name_plural = "Supervisor Meetings"
-    
-    def __str__(self):
-        return f"{self.project.title} - {self.get_meeting_type_display()} - {self.scheduled_date.date()}"
-    
-    def mark_completed(self):
-        """Mark meeting as completed"""
-        self.status = 'completed'
-        self.completed_at = timezone.now()
-        self.save()
-
-
 class StudentProgressNote(models.Model):
     """Private notes by supervisor about student progress"""
     
@@ -434,3 +492,6 @@ class StudentProgressNote(models.Model):
     
     def __str__(self):
         return f"Note for {self.project.student.display_name} - {self.created_at.date()}"
+
+
+# Note: SupervisorMeeting model removed as its functionality is replaced by GroupMeeting

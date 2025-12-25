@@ -126,9 +126,36 @@ class Event(models.Model):
 
     def clean(self):
         """Validate event data"""
-        if self.end_datetime and self.start_datetime:
-            if self.end_datetime <= self.start_datetime:
-                raise ValidationError("End datetime must be after start datetime")
+        # Check that both datetime fields are provided
+        if not self.start_datetime:
+            raise ValidationError("Start datetime is required")
+        
+        if not self.end_datetime:
+            raise ValidationError("End datetime is required")
+        
+        # Check end datetime is after start datetime
+        if self.end_datetime <= self.start_datetime:
+            raise ValidationError("End datetime must be after start datetime")
+        
+        # NEW: Check for existing events on the same day
+        # Get all active, non-cancelled events on the same day
+        existing_events = Event.objects.filter(
+            is_active=True,
+            is_cancelled=False,
+            start_datetime__date=self.start_datetime.date()
+        ).exclude(pk=self.pk)  # Exclude self if updating
+        
+        if existing_events.exists():
+            existing_event = existing_events.first()
+            raise ValidationError(
+                f"Only one event can be scheduled per day. "
+                f"There's already an event on {self.start_datetime.date()}: "
+                f"'{existing_event.title}' at {existing_event.start_datetime.time()}"
+            )
+    def save(self, *args, **kwargs):
+        """Override save to run validation"""
+        self.full_clean()  # This calls clean() method
+        super().save(*args, **kwargs)
 
     @property
     def duration(self):

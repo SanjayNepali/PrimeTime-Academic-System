@@ -1,26 +1,138 @@
-{% extends 'base.html' %}
+<!-- File: templates/projects/schedule_group_meeting.html -->
 
-{% block title %}Schedule Group Meeting{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
 
 {% block content %}
 <div class="container py-4">
-    <h2>Schedule Group Meeting</h2>
-    <p class="text-muted">{{ group.name }} - {{ student_count }} students</p>
-    
-    <div class="alert alert-info">
-        <strong>📅 Group Meeting</strong><br>
-        This meeting will be scheduled for ALL students in your group.
-        All students will receive notifications and see this in their calendar.
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card modern-card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class='bx bx-calendar-plus'></i> Schedule Group Meeting
+                    </h4>
+                    <p class="mb-0 small">{{ group.name }} - {{ student_count }} students</p>
+                </div>
+                <div class="card-body">
+                    <!-- Group Info -->
+                    <div class="alert alert-info">
+                        <h6><i class='bx bx-group'></i> Group Meeting Details</h6>
+                        <ul class="mb-0">
+                            <li><strong>Group:</strong> {{ group.name }}</li>
+                            <li><strong>Students:</strong> {{ student_count }}</li>
+                            <li><strong>Batch:</strong> {{ group.batch_year }}</li>
+                        </ul>
+                    </div>
+
+                    <!-- Students List -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Students in Group</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for student in students %}
+                                <div class="col-md-6 mb-2">
+                                    <i class='bx bx-user'></i> {{ student.display_name }}
+                                    <small class="text-muted">({{ student.user_id }})</small>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meeting Form -->
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Meeting Type -->
+                        <div class="mb-3">
+                            <label for="{{ form.meeting_type.id_for_label }}" class="form-label">
+                                Meeting Type <span class="text-danger">*</span>
+                            </label>
+                            {{ form.meeting_type }}
+                            {% if form.meeting_type.errors %}
+                                <div class="text-danger small">{{ form.meeting_type.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Schedule Date & Duration -->
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="{{ form.scheduled_date.id_for_label }}" class="form-label">
+                                    Date & Time <span class="text-danger">*</span>
+                                </label>
+                                {{ form.scheduled_date }}
+                                {% if form.scheduled_date.errors %}
+                                    <div class="text-danger small">{{ form.scheduled_date.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.duration_minutes.id_for_label }}" class="form-label">
+                                    Duration (minutes) <span class="text-danger">*</span>
+                                </label>
+                                {{ form.duration_minutes }}
+                                {% if form.duration_minutes.errors %}
+                                    <div class="text-danger small">{{ form.duration_minutes.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Location -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.location.id_for_label }}" class="form-label">
+                                    Location
+                                </label>
+                                {{ form.location }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.meeting_link.id_for_label }}" class="form-label">
+                                    Virtual Meeting Link
+                                </label>
+                                {{ form.meeting_link }}
+                            </div>
+                        </div>
+
+                        <!-- Agenda -->
+                        <div class="mb-4">
+                            <label for="{{ form.agenda.id_for_label }}" class="form-label">
+                                Meeting Agenda <span class="text-danger">*</span>
+                            </label>
+                            {{ form.agenda }}
+                            {% if form.agenda.errors %}
+                                <div class="text-danger small">{{ form.agenda.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- What Happens Next -->
+                        <div class="alert alert-success">
+                            <h6><i class='bx bx-info-circle'></i> What Happens After Scheduling?</h6>
+                            <ol class="mb-0">
+                                <li>📅 An <strong>Event</strong> is automatically created</li>
+                                <li>👥 ALL {{ student_count }} students will be notified</li>
+                                <li>📆 Meeting appears in everyone's calendar</li>
+                                <li>✅ After meeting, you take attendance</li>
+                                <li>📝 Students who attended submit log sheets</li>
+                                <li>👨‍🏫 You review and approve their log sheets</li>
+                            </ol>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'groups:group_detail' group.pk %}" class="btn btn-secondary">
+                                <i class='bx bx-x'></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class='bx bx-check-circle'></i> Schedule Meeting for {{ student_count }} Students
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
-    
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        
-        <button type="submit" class="btn btn-primary">
-            Schedule Meeting for {{ student_count }} Students
-        </button>
-        <a href="{% url 'groups:my_group' %}" class="btn btn-secondary">Cancel</a>
-    </form>
 </div>
 {% endblock %}

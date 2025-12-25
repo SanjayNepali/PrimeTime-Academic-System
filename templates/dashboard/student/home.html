@@ -96,23 +96,87 @@
             <div class="stat-card stat-warning">
                 <div class="card-body d-flex align-items-center justify-content-between">
                     <div>
-                        <div class="stat-label">Upcoming</div>
-                        <div class="stat-value">{{ upcoming_deadlines|length }}</div>
+                        <div class="stat-label">Log Sheets</div>
+                        <div class="stat-value">{{ logsheet_stats.total_approved }}/{{ logsheet_stats.total_submitted }}</div>
                         <div class="small text-muted">
-                            {% if upcoming_deadlines %}
-                                Next: {{ upcoming_deadlines.0.date|date:"M d" }}
+                            {% if logsheet_stats.pending_count > 0 %}
+                                <span class="text-danger">{{ logsheet_stats.pending_count }} pending</span>
                             {% else %}
-                                No deadlines
+                                All submitted
                             {% endif %}
                         </div>
                     </div>
                     <div class="stat-icon warning-icon">
-                        <i class='bx bx-time'></i>
+                        <i class='bx bx-notepad'></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Pending Log Sheets Section -->
+    {% if pending_logsheets %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="modern-card">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class='bx bx-notepad'></i> Pending Log Sheets
+                        <span class="badge bg-danger">{{ pending_logsheets|length }}</span>
+                    </h5>
+                    <small class="text-muted">Action required: Fill in your log sheets after meetings</small>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong><i class='bx bx-info-circle'></i> Attention:</strong> 
+                        You have {{ pending_logsheets|length }} log sheet(s) that need to be filled. Please complete them to get supervisor approval.
+                    </div>
+
+                    {% for logsheet in pending_logsheets %}
+                    <div class="logsheet-pending-card mb-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">
+                                    <i class='bx bx-calendar'></i> Week {{ logsheet.week_number }} Log Sheet
+                                </h6>
+                                <p class="mb-1 text-muted">
+                                    <strong>Period:</strong> {{ logsheet.start_date|date:"M d" }} - {{ logsheet.end_date|date:"M d, Y" }}
+                                </p>
+                                {% if logsheet.group_meeting %}
+                                <p class="mb-0 text-muted">
+                                    <strong>Meeting:</strong> {{ logsheet.group_meeting.get_meeting_type_display }} 
+                                    ({{ logsheet.group_meeting.scheduled_date|date:"M d, Y" }})
+                                </p>
+                                {% endif %}
+                                {% if logsheet.tasks_completed == '[Please fill in tasks completed during this week]' %}
+                                <span class="badge bg-danger mt-2">Not Started</span>
+                                {% else %}
+                                <span class="badge bg-warning mt-2">In Progress</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="{% url 'projects:student_submit_logsheet' logsheet.pk %}" 
+                                   class="btn btn-warning btn-lg">
+                                    <i class='bx bx-edit'></i> Fill Log Sheet
+                                </a>
+                                <p class="mt-2 small text-muted">
+                                    <i class='bx bx-time'></i> Due soon
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="mt-3 text-center">
+                        <a href="{% url 'projects:my_project' %}?tab=logsheets" class="btn btn-outline-primary">
+                            <i class='bx bx-list-ul'></i> View All Log Sheets
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Project Overview -->
     <div class="row mb-4">
@@ -271,42 +335,65 @@
                 </div>
             </div>
 
-            <!-- Quick Stats -->
-            <div class="modern-card">
+            <!-- Log Sheet Statistics -->
+            <div class="modern-card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class='bx bx-bar-chart-alt-2'></i> Quick Stats</h5>
+                    <h5 class="mb-0"><i class='bx bx-notepad'></i> Log Sheet Stats</h5>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-6 mb-3">
                             <div class="p-3 bg-light rounded">
-                                <i class='bx bx-folder' style="font-size: 1.5rem; color: var(--primary);"></i>
-                                <h4 class="mt-2 mb-0">{{ deliverables_submitted }}</h4>
-                                <small class="text-muted">Submitted</small>
+                                <i class='bx bx-check-circle' style="font-size: 1.5rem; color: var(--success);"></i>
+                                <h4 class="mt-2 mb-0">{{ logsheet_stats.total_approved }}</h4>
+                                <small class="text-muted">Approved</small>
                             </div>
                         </div>
                         <div class="col-6 mb-3">
                             <div class="p-3 bg-light rounded">
-                                <i class='bx bx-check-circle' style="font-size: 1.5rem; color: var(--success);"></i>
-                                <h4 class="mt-2 mb-0">{{ deliverables_approved }}</h4>
-                                <small class="text-muted">Approved</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-3 bg-light rounded">
-                                <i class='bx bx-message-detail' style="font-size: 1.5rem; color: var(--info);"></i>
-                                <h4 class="mt-2 mb-0">{{ feedback_count|default:"0" }}</h4>
-                                <small class="text-muted">Feedback</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-3 bg-light rounded">
                                 <i class='bx bx-time' style="font-size: 1.5rem; color: var(--warning);"></i>
-                                <h4 class="mt-2 mb-0">{{ upcoming_deadlines|length }}</h4>
-                                <small class="text-muted">Deadlines</small>
+                                <h4 class="mt-2 mb-0">{{ logsheet_stats.pending_count }}</h4>
+                                <small class="text-muted">Pending</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 bg-light rounded">
+                                <i class='bx bx-star' style="font-size: 1.5rem; color: var(--info);"></i>
+                                <h4 class="mt-2 mb-0">{{ logsheet_stats.average_rating|floatformat:1 }}</h4>
+                                <small class="text-muted">Avg Rating</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 bg-light rounded">
+                                <i class='bx bx-time-five' style="font-size: 1.5rem; color: var(--primary);"></i>
+                                <h4 class="mt-2 mb-0">{{ logsheet_stats.total_hours }}</h4>
+                                <small class="text-muted">Total Hours</small>
                             </div>
                         </div>
                     </div>
+                    {% if recent_feedback %}
+                    <div class="mt-3">
+                        <h6><i class='bx bx-message-detail'></i> Recent Feedback</h6>
+                        {% for logsheet in recent_feedback %}
+                        <div class="feedback-item p-2 bg-light rounded mb-2">
+                            <small class="text-muted">Week {{ logsheet.week_number }}</small>
+                            <p class="mb-1 small">{{ logsheet.supervisor_remarks|truncatechars:50 }}</p>
+                            {% if logsheet.supervisor_rating %}
+                            <div class="small">
+                                Rating: 
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= logsheet.supervisor_rating %}
+                                    <i class='bx bxs-star text-warning'></i>
+                                    {% else %}
+                                    <i class='bx bx-star text-muted'></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -330,6 +417,14 @@
                         <a href="{% url 'projects:project_create' %}" class="quick-action-btn">
                             <i class='bx bx-plus'></i>
                             <span>Create Project</span>
+                        </a>
+                        {% endif %}
+                        
+                        {% if pending_logsheets %}
+                        <a href="{% url 'projects:student_submit_logsheet' pending_logsheets.0.pk %}" class="quick-action-btn btn-warning">
+                            <i class='bx bx-notepad'></i>
+                            <span>Fill Log Sheet</span>
+                            <span class="badge bg-danger">{{ pending_logsheets|length }}</span>
                         </a>
                         {% endif %}
                         
@@ -365,18 +460,39 @@
 
     <!-- Two Column Layout -->
     <div class="row">
-        <!-- Upcoming Deadlines -->
+        <!-- Upcoming Deadlines & Meetings -->
         <div class="col-lg-6 mb-4">
             <div class="modern-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class='bx bx-calendar'></i> Upcoming Deadlines</h5>
-                    <span class="badge bg-warning">{{ upcoming_deadlines|length }}</span>
+                    <h5 class="mb-0"><i class='bx bx-calendar'></i> Upcoming Schedule</h5>
+                    <span class="badge bg-warning">{{ upcoming_deadlines|length|add:upcoming_group_meetings|length }}</span>
                 </div>
                 <div class="card-body">
-                    {% if upcoming_deadlines %}
+                    {% if upcoming_deadlines or upcoming_group_meetings %}
                         <div class="list-group list-group-flush">
+                            <!-- Group Meetings -->
+                            {% for meeting in upcoming_group_meetings %}
+                            <div class="list-group-item px-0 border-start-4 border-info">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class='bx bx-group'></i> {{ meeting.get_meeting_type_display }}
+                                        </h6>
+                                        <small class="text-muted">
+                                            <i class='bx bx-time'></i> {{ meeting.scheduled_date|date:"M d, Y H:i" }}
+                                            {% if meeting.location %}
+                                            • {{ meeting.location }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    <span class="badge bg-info">{{ meeting.scheduled_date|timeuntil }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            
+                            <!-- Deadlines -->
                             {% for deadline in upcoming_deadlines %}
-                            <div class="list-group-item px-0">
+                            <div class="list-group-item px-0 border-start-4 border-warning">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6 class="mb-1">{{ deadline.name }}</h6>
@@ -392,7 +508,7 @@
                     {% else %}
                         <div class="empty-state">
                             <i class='bx bx-check-circle'></i>
-                            <h5>No Upcoming Deadlines</h5>
+                            <h5>No Upcoming Schedule</h5>
                             <p>You're all caught up!</p>
                         </div>
                     {% endif %}
@@ -412,7 +528,7 @@
                             {% for activity in recent_activities %}
                             <div class="activity-item">
                                 <div class="activity-icon">
-                                    <i class='bx bx-{% if activity.action == "created" %}plus{% elif activity.action == "updated" %}edit{% elif activity.action == "submitted" %}send{% else %}check{% endif %}'></i>
+                                    <i class='bx bx-{% if activity.action == "created" %}plus{% elif activity.action == "updated" %}edit{% elif activity.action == "submitted" %}send{% elif activity.action == "logsheet_submitted" %}notepad{% elif activity.action == "logsheet_approved" %}check{% else %}info-circle{% endif %}'></i>
                                 </div>
                                 <div class="activity-content">
                                     <strong>{{ activity.get_action_display }}</strong>
@@ -452,7 +568,7 @@
                         <div class="col-md-3 text-center mb-3">
                             <i class='bx bx-group' style="font-size: 2.5rem; color: var(--success);"></i>
                             <h6 class="mt-2">Group Size</h6>
-                            <p class="mb-0 fw-semibold">{{ group.student_count }} students</p>
+                            <p class="mb-0 fw-semibold">{{ group.members.count }} students</p>
                         </div>
                         <div class="col-md-3 text-center mb-3">
                             <i class='bx bx-calendar' style="font-size: 2.5rem; color: var(--info);"></i>
@@ -472,6 +588,7 @@
     {% endif %}
 </div>
 {% endblock %}
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 Student Dashboard Initialized');
@@ -504,7 +621,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function animateStressCircle() {
         const stressCircle = document.querySelector('circle[stroke-dasharray]');
         if (stressCircle) {
-            const stressLevel = {{ stress_score|default:0 }};
+            const stressLevel = {{ stress_level|default:0 }};
             const circumference = 377; // 2 * π * 60
             
             // Start from 0
@@ -652,6 +769,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ==================================================================
+    // LOG SHEET REMINDER NOTIFICATION
+    // ==================================================================
+    function setupLogSheetReminder() {
+        const pendingCount = {{ pending_logsheets|length|default:0 }};
+        
+        if (pendingCount > 0) {
+            // Show reminder after 5 seconds
+            setTimeout(() => {
+                if (Notification.permission === 'granted') {
+                    new Notification('Pending Log Sheets', {
+                        body: `You have ${pendingCount} log sheet(s) waiting to be filled.`,
+                        icon: '/static/images/logo.png'
+                    });
+                }
+            }, 5000);
+            
+            // Highlight pending log sheets
+            const pendingCards = document.querySelectorAll('.logsheet-pending-card');
+            pendingCards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.boxShadow = '0 0 0 3px #ffc107';
+                    setTimeout(() => {
+                        card.style.boxShadow = '';
+                    }, 1000);
+                }, index * 500 + 2000);
+            });
+        }
+    }
+    
+    // ==================================================================
     // INITIALIZE ALL ANIMATIONS
     // ==================================================================
     console.log('🎬 Starting animations...');
@@ -672,6 +819,7 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeTooltips();
         startDeadlineCountdowns();
         setupStressMonitoring();
+        setupLogSheetReminder();
     }, 1000);
     
     console.log('✅ All animations initialized');
@@ -746,6 +894,39 @@ function exportDashboardData() {
     color: #10B981;
     font-size: 12px;
     animation: pulse 2s infinite;
+}
+
+/* Log sheet pending card styles */
+.logsheet-pending-card {
+    padding: 16px;
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.logsheet-pending-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.feedback-item {
+    border-left: 3px solid #0d6efd;
+    transition: all 0.2s;
+}
+
+.feedback-item:hover {
+    background: #e9ecef !important;
+}
+
+.quick-action-btn.btn-warning {
+    background: #ffc107;
+    color: #000;
+    border-color: #ffc107;
+}
+
+.quick-action-btn.btn-warning:hover {
+    background: #ffca2c;
 }
 
 /* Smooth transitions for all interactive elements */

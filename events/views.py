@@ -15,7 +15,6 @@ from .notifications import notify_event_update, notify_event_cancelled
 from analytics.forms import SupervisorReviewForm, AdminReviewForm
 from accounts.models import User
 
-
 @login_required
 def event_list(request):
     """List all events with filtering"""
@@ -26,6 +25,7 @@ def event_list(request):
     print(f"User role: {request.user.role}")
     print(f"User batch_year: {request.user.batch_year}")
     print("=================\n")
+    
     # Get all active events
     all_events = Event.objects.filter(is_active=True).select_related('organizer', 'group')
     print(f"1. Total active events in DB: {all_events.count()}")
@@ -55,27 +55,14 @@ def event_list(request):
         supervised_groups = Group.objects.filter(supervisor=request.user)
         print(f"   Groups supervised by {request.user.username}: {[g.name for g in supervised_groups]}")
         
-        # Original query
-        original_query = events.filter(
+        # Supervisor can see: events they organized, events for their groups, or events they're participating in
+        events = events.filter(
             Q(organizer=request.user) |
             Q(group__supervisor=request.user) |
             Q(participants=request.user)
         ).distinct()
         
-        print(f"   Events after original filter: {original_query.count()}")
-        
-        # Check each condition separately for debugging
-        organized_events = events.filter(organizer=request.user)
-        group_events = events.filter(group__supervisor=request.user)
-        participant_events = events.filter(participants=request.user)
-        
-        print(f"   Events organized by {request.user.username}: {organized_events.count()}")
-        print(f"   Events in groups supervised by {request.user.username}: {group_events.count()}")
-        print(f"   Events where {request.user.username} is participant: {participant_events.count()}")
-        
-        # TEMPORARY: Show all events for supervisor for debugging
-        print(f"\n3. TEMPORARY: Showing all events for supervisor debugging")
-        events = all_events  # Remove filters temporarily
+        print(f"   Events after supervisor filter: {events.count()}")
         
     elif request.user.role == 'admin':
         print(f"\n2. Admin - showing all events")
@@ -88,6 +75,7 @@ def event_list(request):
     # Apply filters from query params
     event_type = request.GET.get('type')
     time_filter = request.GET.get('time', 'upcoming')
+    status_filter = request.GET.get('status', 'all')  # New: all, active, expired
 
     if event_type:
         events = events.filter(event_type=event_type)
@@ -97,6 +85,13 @@ def event_list(request):
     print(f"\n5. Current time: {now}")
     print(f"   Time filter selected: '{time_filter}'")
     
+    # Handle status filter (new)
+    if status_filter == 'active':
+        events = events.filter(is_cancelled=False)
+    elif status_filter == 'expired':
+        events = events.filter(end_datetime__lt=now, is_cancelled=False)
+    
+    # Handle time filter
     if time_filter == 'upcoming':
         events = events.filter(start_datetime__gte=now, is_cancelled=False)
         print(f"   Events after upcoming filter: {events.count()}")
@@ -121,15 +116,21 @@ def event_list(request):
         print(f"   - '{event.title}' (ID: {event.id}, Start: {event.start_datetime}, End: {event.end_datetime})")
     print("=== END DEBUG ===\n")
 
+    # Add expired status to each event for template
+    for event in events:
+        event.is_expired = event.end_datetime < now and not event.is_cancelled
+
     context = {
         'events': events.order_by('start_datetime'),
         'event_types': Event.EVENT_TYPES,
         'selected_type': event_type,
         'time_filter': time_filter,
+        'status_filter': status_filter,
         'can_create': request.user.role == 'admin',
         'can_schedule_meeting': request.user.role == 'supervisor',
     }
     return render(request, 'events/event_list.html', context)
+
 @login_required
 def event_create(request):
     """Create a new event - Only admin can create all events, supervisor can only create meetings for their groups"""
@@ -327,35 +328,50 @@ def rsvp_event(request, pk):
 def my_events(request):
     """View user's personal events calendar"""
     now = timezone.now()
-
-    # Get events user is invited to
-    upcoming_events = Event.objects.filter(
+    
+    # Get filter from URL
+    filter_param = request.GET.get('filter', '')
+    status_filter = request.GET.get('status', 'active')  # active, expired, all
+    
+    # Base queryset: events user is participating in
+    events = Event.objects.filter(
         participants=request.user,
-        start_datetime__gte=now,
-        is_active=True,
-        is_cancelled=False
-    ).order_by('start_datetime')[:10]
-
-    past_events = Event.objects.filter(
-        participants=request.user,
-        end_datetime__lt=now,
         is_active=True
-    ).order_by('-start_datetime')[:10]
+    ).select_related('organizer', 'group').order_by('-start_datetime')
 
-    # Get user's attendance records
-    confirmed_events = EventAttendance.objects.filter(
-        user=request.user,
-        status='confirmed',
-        event__start_datetime__gte=now
-    ).select_related('event').order_by('event__start_datetime')
+    # Apply status filter
+    if status_filter == 'active':
+        events = events.filter(end_datetime__gte=now, is_cancelled=False)
+    elif status_filter == 'expired':
+        events = events.filter(end_datetime__lt=now, is_cancelled=False)
+    # 'all' shows all events including expired
+    
+    # Apply event filter
+    if filter_param == 'attending':
+        # Events where user has confirmed attendance
+        confirmed_event_ids = EventAttendance.objects.filter(
+            user=request.user,
+            status='confirmed'
+        ).values_list('event_id', flat=True)
+        events = events.filter(id__in=confirmed_event_ids)
+    
+    elif filter_param == 'organizing':
+        # Events where user is the organizer
+        events = events.filter(organizer=request.user)
+    
+    # Add expired status to each event for template
+    for event in events:
+        event.is_expired = event.end_datetime < now and not event.is_cancelled
 
     context = {
-        'upcoming_events': upcoming_events,
-        'past_events': past_events,
-        'confirmed_events': confirmed_events,
+        'events': events,
+        'filter': filter_param,
+        'status_filter': status_filter,
+        'is_supervisor': request.user.role == 'supervisor',
+        'is_student': request.user.role == 'student',
+        'is_admin': request.user.role == 'admin',
     }
     return render(request, 'events/my_events.html', context)
-
 
 @login_required
 def calendar_list(request):
@@ -897,6 +913,18 @@ def schedule_group_meeting(request, group_id=None):
                     'default_time': default_time.strftime('%H:%M')
                 })
             
+            # CRITICAL VALIDATION: Prevent past dates
+            now = timezone.now()
+            if start_datetime < now:
+                messages.error(request, "Cannot schedule meetings in the past")
+                return render(request, 'events/schedule_meeting.html', {
+                    'group': group,
+                    'students': students,
+                    'today': today,
+                    'default_time': default_time.strftime('%H:%M'),
+                    'error_date': date_str
+                })
+            
             # CHECK: Ensure only one event per day
             existing_event = Event.objects.filter(
                 is_active=True,
@@ -933,9 +961,12 @@ def schedule_group_meeting(request, group_id=None):
                 priority='medium'
             )
             
-            # Add all group students as participants
+            # CRITICAL FIX: Add all group students as participants
             if students:
                 event.participants.set(students)
+                
+                # CRITICAL FIX: Also add the supervisor as a participant
+                event.participants.add(request.user)
                 
                 # Create attendance records
                 for student in students:
@@ -945,13 +976,22 @@ def schedule_group_meeting(request, group_id=None):
                         status='pending'
                     )
                 
-                # Send notifications
+                # Send notifications to students
                 Notification.create_for_event(
                     event,
                     students,
                     notification_type='event_update',
                     title=f"Group Meeting Scheduled: {event.title}",
                     message=f"Your supervisor {request.user.display_name} scheduled a group meeting on {event.start_datetime.strftime('%B %d, %Y at %I:%M %p')}"
+                )
+                
+                # Send notification to supervisor too
+                Notification.objects.create(
+                    recipient=request.user,
+                    notification_type='event_update',
+                    title=f"Group Meeting Scheduled: {event.title}",
+                    message=f"You have scheduled a group meeting for {group.name} on {event.start_datetime.strftime('%B %d, %Y at %I:%M %p')}",
+                    link_url=f'/events/{event.pk}/'
                 )
             else:
                 messages.warning(request, "Group has no active students to invite")
@@ -983,6 +1023,7 @@ def schedule_group_meeting(request, group_id=None):
         'today': today,
         'default_time': default_time.strftime('%H:%M')
     })
+
 @login_required
 def check_date_availability(request, date_str):
     """API endpoint to check if date has an event"""

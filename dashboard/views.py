@@ -425,16 +425,27 @@ def supervisor_dashboard(request):
             ).order_by('-calculated_at').first()
             stress_level = latest_stress.level if latest_stress else 0
             
-            # Get project progress
+            # Get project progress - FIXED APPROACH
+            student_project = None
             try:
-                student_project = student.projects.first()
-                project_progress = student_project.progress_percentage if student_project else 0
+                # Use filter instead of .first() directly on student.projects
+                student_project = Project.objects.filter(
+                    student=student,
+                    supervisor=supervisor
+                ).first()
+            except Exception:
+                pass
+            
+            if student_project:
+                project_progress = student_project.progress_percentage
                 has_project = True
-                project_status = student_project.status if student_project else None
-            except:
+                project_status = student_project.status
+                project_obj = student_project
+            else:
                 project_progress = 0
                 has_project = False
                 project_status = None
+                project_obj = None
                 
             student_progress_data.append({
                 'student': student,
@@ -442,9 +453,10 @@ def supervisor_dashboard(request):
                 'project_progress': project_progress,
                 'has_project': has_project,
                 'project_status': project_status,
-                'project': student.projects.first() if has_project else None,
+                'project': project_obj,  # Use the object we already have
             })
-        except Exception:
+        except Exception as e:
+            print(f"Error processing student {student.id}: {e}")
             continue
     
     # Supervisor profile info

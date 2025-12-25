@@ -27,6 +27,12 @@
         border-radius: 8px;
         border-left: 4px solid var(--warning);
     }
+    
+    .alert-warning {
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+        color: #856404;
+    }
 </style>
 {% endblock %}
 
@@ -42,6 +48,12 @@
                     <p class="mb-0 small">Create a deadline event with submission requirements</p>
                 </div>
                 <div class="card-body">
+                    <!-- Date Validation Warning -->
+                    <div class="alert alert-warning mb-4">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Important:</strong> Cannot schedule deadlines in the past. Please select future dates and times.
+                    </div>
+                    
                     <form method="post" id="deadlineForm">
                         {% csrf_token %}
                         
@@ -259,6 +271,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const instructionsInput = document.getElementById('{{ form.submission_instructions.id_for_label }}');
     const penaltyInput = document.getElementById('{{ form.late_submission_penalty.id_for_label }}');
     const previewContent = document.getElementById('previewContent');
+    const startInput = document.querySelector('#id_start_datetime');
+    const endInput = document.querySelector('#id_end_datetime');
+    
+    // Set minimum datetime to current time
+    const now = new Date();
+    const timezoneOffset = now.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(now - timezoneOffset).toISOString().slice(0, 16);
+    
+    if (startInput) startInput.min = localISOTime;
+    if (endInput) endInput.min = localISOTime;
     
     // Toggle submission requirements visibility
     function toggleSubmissionRequirements() {
@@ -298,11 +320,43 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Form validation
     document.getElementById('deadlineForm').addEventListener('submit', function(e) {
+        // Check for past dates
+        if (startInput && endInput) {
+            const startValue = startInput.value;
+            const endValue = endInput.value;
+            
+            if (startValue && endValue) {
+                const startDate = new Date(startValue);
+                const endDate = new Date(endValue);
+                const currentDate = new Date();
+                
+                // Check if dates are in the past
+                if (startDate < currentDate) {
+                    e.preventDefault();
+                    alert('Cannot schedule deadlines in the past. Please select a future date and time.');
+                    startInput.focus();
+                    return false;
+                }
+                
+                // Check if end is before start
+                if (endDate <= startDate) {
+                    e.preventDefault();
+                    alert('End time must be after start time.');
+                    endInput.focus();
+                    return false;
+                }
+            }
+        }
+        
+        // Check submission requirements
         if (requiresSubmissionCheckbox.checked && !fileTypeInput.value) {
             e.preventDefault();
             alert('Please specify the expected file type when submission is required.');
             fileTypeInput.focus();
+            return false;
         }
+        
+        return true;
     });
 });
 </script>

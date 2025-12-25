@@ -2,6 +2,7 @@
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from .models import Event, EventAttendance, Calendar, Notification, EventSubmission
 from accounts.models import User
 from groups.models import Group
@@ -34,6 +35,23 @@ class EventForm(forms.ModelForm):
             'reminder_hours_before': forms.NumberInput(attrs={'class': 'form-control'}),
         }
 
+    def clean(self):
+        cleaned_data = super().clean()
+        start_datetime = cleaned_data.get('start_datetime')
+        end_datetime = cleaned_data.get('end_datetime')
+        
+        if start_datetime and end_datetime:
+            now = timezone.now()
+            
+            # Prevent past dates
+            if start_datetime < now:
+                raise ValidationError("Cannot schedule events in the past.")
+            
+            # Ensure end time is after start time
+            if end_datetime <= start_datetime:
+                raise ValidationError("End time must be after start time.")
+        
+        return cleaned_data
 
 class CalendarForm(forms.ModelForm):
     class Meta:
@@ -142,10 +160,9 @@ class EventSubmissionForm(forms.ModelForm):
 
         return file
 
-
 class EventDeadlineForm(forms.ModelForm):
     """Extended form for creating deadline events with submission requirements"""
-
+    
     class Meta:
         model = Event
         fields = [
@@ -203,9 +220,22 @@ class EventDeadlineForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        start_datetime = cleaned_data.get('start_datetime')
+        end_datetime = cleaned_data.get('end_datetime')
         requires_submission = cleaned_data.get('requires_submission')
         submission_file_type = cleaned_data.get('submission_file_type')
-
+        
+        if start_datetime and end_datetime:
+            now = timezone.now()
+            
+            # Prevent past dates
+            if start_datetime < now:
+                raise ValidationError("Cannot schedule deadlines in the past.")
+            
+            # Ensure end time is after start time
+            if end_datetime <= start_datetime:
+                raise ValidationError("End time must be after start time.")
+        
         # If submission is required, file type should be specified
         if requires_submission and not submission_file_type:
             raise ValidationError('Please specify the expected file type when submission is required.')

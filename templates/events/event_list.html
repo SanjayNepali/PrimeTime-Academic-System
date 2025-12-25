@@ -45,14 +45,10 @@
         text-transform: uppercase;
         margin-left: 8px;
     }
-    .trending {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-    .recommended {
-        background: #48bb78;
-        color: white;
-    }
+    .trending { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .recommended { background: #48bb78; color: white; }
+    .expired-badge { background: #f59e0b; color: white; }
+    .cancelled-badge { background: #dc2626; color: white; }
 </style>
 {% endblock %}
 
@@ -140,6 +136,14 @@
                         <option value="past" {% if time_filter == 'past' %}selected{% endif %}>Past</option>
                     </select>
                 </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-control">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Events</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only</option>
+                        <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>Expired Only</option>
+                    </select>
+                </div>
                 <div class="col-md-3 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">
                         <i class='bx bx-filter'></i> Filter
@@ -160,9 +164,20 @@
                 </span>
                 {% endif %}
                 
-                <div class="card-header {% if event.is_cancelled %}bg-secondary{% elif event.priority == 'critical' %}bg-danger{% elif event.priority == 'high' %}bg-warning{% else %}bg-primary{% endif %} text-white">
+                <div class="card-header 
+                    {% if event.is_cancelled %}bg-secondary
+                    {% elif event.is_expired %}bg-warning
+                    {% elif event.priority == 'critical' %}bg-danger
+                    {% elif event.priority == 'high' %}bg-warning
+                    {% else %}bg-primary{% endif %} text-white">
                     <h5 class="mb-0">
                         {{ event.title }}
+                        {% if event.is_expired %}
+                        <span class="badge bg-warning">Expired</span>
+                        {% endif %}
+                        {% if event.is_cancelled %}
+                        <span class="badge bg-danger">Cancelled</span>
+                        {% endif %}
                         {% if event.is_trending %}
                         <span class="analytics-badge trending">Trending</span>
                         {% endif %}

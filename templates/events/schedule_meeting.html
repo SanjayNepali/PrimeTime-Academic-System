@@ -16,6 +16,12 @@
                     <p class="mb-0 small">All students in this group will be automatically invited</p>
                 </div>
                 <div class="card-body">
+                    {% comment %} <!-- Date Validation Warning -->
+                    <div class="alert alert-warning mb-4">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Important:</strong> Cannot schedule meetings in the past. Please select future dates and times.
+                    </div> {% endcomment %}
+                    
                     {% if groups and groups.count > 1 %}
                     <!-- Group Selection (if supervisor has multiple groups) -->
                     <div class="mb-4">
@@ -41,7 +47,7 @@
                     </div>
                     {% else %}
                     <!-- Direct meeting form -->
-                    <form method="post">
+                    <form method="post" id="meetingForm">
                         {% csrf_token %}
                         
                         <!-- Group Information -->
@@ -62,7 +68,8 @@
                             <div class="mb-3">
                                 <label class="form-label">Meeting Title *</label>
                                 <input type="text" name="title" class="form-control" 
-                                       value="Group Meeting - {{ group.name }}" required>
+                                       value="Group Meeting - {{ group.name }}" required
+                                       placeholder="Enter meeting title">
                             </div>
                             
                             <!-- Error message for duplicate date -->
@@ -83,15 +90,15 @@
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Date *</label>
-                                    <input type="date" name="date" class="form-control" required 
-                                           value="{{ today|date:'Y-m-d' }}">
+                                    <input type="date" name="date" id="meetingDate" class="form-control" required 
+                                           value="{{ today|date:'Y-m-d' }}" min="{{ today|date:'Y-m-d' }}">
                                     <div class="form-text">
                                         <span id="date-warning"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Time *</label>
-                                    <input type="time" name="time" class="form-control" required
+                                    <input type="time" name="time" id="meetingTime" class="form-control" required
                                            value="{{ default_time }}">
                                 </div>
                             </div>
@@ -166,15 +173,47 @@
     box-shadow: 0 8px 16px rgba(0,0,0,0.2) !important;
 }
 </style>
-{% endblock %}
 
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const dateInput = document.querySelector('input[name="date"]');
+    const dateInput = document.getElementById('meetingDate');
+    const timeInput = document.getElementById('meetingTime');
+    const form = document.getElementById('meetingForm');
     
-    if (dateInput) {
-        dateInput.addEventListener('change', function() {
+    if (dateInput && timeInput && form) {
+        // Set minimum date to today
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        dateInput.min = todayStr;
+        
+        // Check if selected date is today and time is in the past
+        function validateDateTime() {
+            const selectedDate = dateInput.value;
+            const selectedTime = timeInput.value;
+            
+            if (!selectedDate || !selectedTime) return true;
+            
+            const selectedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+            const now = new Date();
+            
+            return selectedDateTime >= now;
+        }
+        
+        // Form submission validation
+        form.addEventListener('submit', function(e) {
+            if (!validateDateTime()) {
+                e.preventDefault();
+                alert('Cannot schedule meetings in the past. Please select a future date and time.');
+                return false;
+            }
+            return true;
+        });
+    }
+    
+    // Existing date availability check
+    const checkDateInput = document.querySelector('input[name="date"]');
+    if (checkDateInput) {
+        checkDateInput.addEventListener('change', function() {
             const selectedDate = this.value;
             const warningSpan = document.getElementById('date-warning');
             
@@ -205,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <i class='bx bx-calendar-x'></i>
                                 <strong>Note:</strong> You already have an event on ${selectedDate}.
                             `;
-                            dateInput.parentNode.appendChild(alertDiv);
+                            checkDateInput.parentNode.appendChild(alertDiv);
                         }
                     } else {
                         // Remove warning if exists

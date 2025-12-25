@@ -6,18 +6,22 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import Avg
 from django.utils import timezone
+from datetime import timedelta
 
-from .models import StressLevel, ProgressTracking, SupervisorFeedback, SupervisorMeetingLog
+from .models import StressLevel, SupervisorFeedback, SupervisorMeetingLog, SystemActivity
 from .sentiment import AdvancedSentimentAnalyzer
-from .calculators import StressCalculator, ProgressCalculator, PerformanceCalculator, AnalyticsDashboard
+from .calculators import StressCalculator, PerformanceCalculator, AnalyticsDashboard
 from .forms import SupervisorFeedbackForm
 from accounts.models import User
-from projects.models import Project
+# FIXED: Import ProjectActivity instead of ProjectProgress
+from projects.models import Project, ProjectActivity, ProjectLogSheet, SupervisorMeeting
 # Add at the top of analytics/views.py
 from .utils import (
     log_stress_analysis, log_feedback_added, log_meeting_logged,
-    log_analytics_run, log_system_activity
+    log_analytics_run, log_system_activity, log_high_stress_alert
 )
+from groups.models import GroupMembership
+from chat.models import Message
 
 
 @login_required
@@ -28,14 +32,14 @@ def my_analytics(request):
         return redirect('dashboard:home')
 
     # Get ONLY existing stress data - no defaults
-    latest_stress = StressLevel.objects.filter(student=request.user).order_by('-calculated_at').first()
+    latest_stress = StressLevel.objects.filter(student=request.user).order_by('-timestamp').first()
     
     # Only calculate trends if we have actual data
     stress_trend = None
     stress_history = None
     if latest_stress:
         stress_trend = StressCalculator.get_stress_trend(request.user, days=30)
-        stress_history = StressLevel.objects.filter(student=request.user).order_by('-calculated_at')[:10]
+        stress_history = StressLevel.objects.filter(student=request.user).order_by('-timestamp')[:10]
     
     # Only calculate performance if project exists
     performance = None
@@ -126,7 +130,6 @@ def student_stress_detail(request, student_id):
 
     # If supervisor, check if they supervise this student
     if request.user.role == 'supervisor':
-        from groups.models import GroupMembership
         is_supervisor = GroupMembership.objects.filter(
             student=student,
             group__supervisor=request.user,
@@ -138,13 +141,13 @@ def student_stress_detail(request, student_id):
             return redirect('analytics:supervisor_analytics')
 
     # Get comprehensive stress data - only if exists
-    latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
     stress_trend = None
     stress_history = None
     
     if latest_stress:
         stress_trend = StressCalculator.get_stress_trend(student, days=60)
-        stress_history = StressLevel.objects.filter(student=student).order_by('-calculated_at')[:20]
+        stress_history = StressLevel.objects.filter(student=student).order_by('-timestamp')[:20]
 
     context = {
         'student': student,
@@ -178,7 +181,7 @@ def run_stress_analysis(request):
         from .models import StressLevel
         previous_stress = StressLevel.objects.filter(
             student=request.user
-        ).exclude(id=stress_record.id).order_by('-calculated_at').first()
+        ).exclude(id=stress_record.id).order_by('-timestamp').first()
         
         # Log high stress alerts
         if stress_record.level >= 70:
@@ -219,7 +222,6 @@ def supervisor_view_student_profile(request, student_id):
     student = get_object_or_404(User, pk=student_id, role='student')
 
     # Check if supervisor supervises this student
-    from groups.models import GroupMembership
     is_supervisor = GroupMembership.objects.filter(
         student=student,
         group__supervisor=request.user,
@@ -236,18 +238,22 @@ def supervisor_view_student_profile(request, student_id):
     except Project.DoesNotExist:
         project = None
 
-    # Get latest stress level - only if exists
-    latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
+    # FIXED: Use 'timestamp' instead of 'calculated_at'
+    latest_stress = StressLevel.objects.filter(student=student).order_by('-timestamp').first()
 
     # Get stress trend (last 30 days) - only if stress data exists
     stress_history = None
     if latest_stress:
-        stress_history = StressLevel.objects.filter(student=student).order_by('-calculated_at')[:30]
+        stress_history = StressLevel.objects.filter(student=student).order_by('-timestamp')[:30]
 
-    # Get latest progress - only if project exists
+    # FIXED: Use project.progress_percentage directly
     latest_progress = None
     if project:
-        latest_progress = ProgressTracking.objects.filter(project=project).order_by('-calculated_at').first()
+        latest_progress = {
+            'percentage': project.progress_percentage,
+            'timestamp': project.updated_at,
+            'project': project
+        }
 
     # Get supervisor feedback log sheet
     feedback_list = SupervisorFeedback.objects.filter(
@@ -291,7 +297,6 @@ def supervisor_add_feedback(request, student_id):
     student = get_object_or_404(User, pk=student_id, role='student')
 
     # Check if supervisor supervises this student
-    from groups.models import GroupMembership
     is_supervisor = GroupMembership.objects.filter(
         student=student,
         group__supervisor=request.user,
@@ -365,6 +370,7 @@ def student_view_feedback(request):
         'project': project,
     }
     return render(request, 'analytics/student_feedback_list.html', context)
+
 # File: analytics/views.py
 # Fix the debug_stress_calculation function
 
@@ -373,9 +379,6 @@ def debug_stress_calculation(request):
     """Debug view to see stress calculation breakdown"""
     if request.user.role != 'student':
         return JsonResponse({'error': 'Students only'}, status=403)
-    
-    from .sentiment import AdvancedSentimentAnalyzer
-    from chat.models import Message
     
     analyzer = AdvancedSentimentAnalyzer(request.user)
     
@@ -401,6 +404,7 @@ def debug_stress_calculation(request):
         'overall_stress': overall_stress,
         'project': str(analyzer.project) if analyzer.project else None
     })
+
 @login_required
 def admin_view_all_logsheets(request):
     """Admin views all supervisor feedback log sheets and stress levels"""
@@ -462,7 +466,7 @@ def get_realtime_stress(request, student_id):
     # Get latest stress record
     latest_stress = StressLevel.objects.filter(
         student=student
-    ).order_by('-calculated_at').first()
+    ).order_by('-timestamp').first()
     
     if latest_stress:
         return JsonResponse({
@@ -473,7 +477,7 @@ def get_realtime_stress(request, student_id):
             'deadline_pressure': latest_stress.deadline_pressure,
             'workload': latest_stress.workload_score,
             'social_isolation': latest_stress.social_isolation_score,
-            'calculated_at': latest_stress.calculated_at.isoformat(),
+            'calculated_at': latest_stress.timestamp.isoformat(),
             'status': 'high' if latest_stress.level >= 70 else 'medium' if latest_stress.level >= 40 else 'low'
         })
     else:
@@ -484,3 +488,155 @@ def get_realtime_stress(request, student_id):
             'status': 'no_data',
             'message': 'No stress data available yet'
         })
+
+@login_required
+def supervisor_view_student_profile_fixed(request, student_id):
+    """View detailed student analytics - COMPLETELY FIXED VERSION"""
+    
+    if not request.user.is_supervisor:
+        messages.error(request, 'Only supervisors can access this page.')
+        return redirect('dashboard:home')
+    
+    student = get_object_or_404(User, id=student_id, role='student')
+    
+    # Verify supervisor has access to this student
+    try:
+        project = Project.objects.get(student=student, supervisor=request.user)
+    except Project.DoesNotExist:
+        messages.error(request, 'You do not supervise this student.')
+        return redirect('analytics:supervisor_analytics')
+    
+    # FIXED: Use 'timestamp' instead of 'calculated_at'
+    latest_stress = StressLevel.objects.filter(
+        student=student
+    ).order_by('-timestamp').first()
+    
+    # Get stress trend (last 30 days)
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    stress_history = StressLevel.objects.filter(
+        student=student,
+        timestamp__gte=thirty_days_ago
+    ).order_by('timestamp')
+    
+    # Performance metrics
+    performance = PerformanceCalculator.calculate_student_performance(student)
+    
+    # FIXED: Use ProjectActivity instead of non-existent ProjectProgress
+    progress_history = ProjectActivity.objects.filter(
+        project=project
+    ).order_by('-timestamp')[:10]
+    
+    # Log sheets
+    log_sheets = ProjectLogSheet.objects.filter(
+        project=project
+    ).order_by('-week_number')[:5]
+    
+    # Meetings
+    meetings = SupervisorMeeting.objects.filter(
+        project=project
+    ).order_by('-scheduled_date')[:5]
+    
+    context = {
+        'title': f'Analytics - {student.display_name}',
+        'student': student,
+        'project': project,
+        'latest_stress': latest_stress,
+        'stress_history': stress_history,
+        'performance': performance,
+        'progress_history': progress_history,
+        'log_sheets': log_sheets,
+        'meetings': meetings,
+    }
+    
+    return render(request, 'analytics/supervisor_student_profile.html', context)
+
+# ========== ADDITIONAL FIXED FUNCTIONS ==========
+
+@login_required
+def get_stress_history(request, days=30):
+    """Get stress history for the current user"""
+    if request.user.role != 'student':
+        return JsonResponse({'error': 'Students only'}, status=403)
+    
+    time_threshold = timezone.now() - timedelta(days=days)
+    
+    # AFTER (fixed):
+    recent_stress = StressLevel.objects.filter(
+        student=request.user,
+        timestamp__gte=time_threshold
+    ).order_by('-timestamp')
+    
+    data = [{
+        'timestamp': stress.timestamp.isoformat(),
+        'level': stress.level,
+        'category': stress.stress_category
+    } for stress in recent_stress]
+    
+    return JsonResponse({'stress_history': data})
+
+@login_required
+def get_latest_stress(request):
+    """Get latest stress reading for the current user"""
+    if request.user.role != 'student':
+        return JsonResponse({'error': 'Students only'}, status=403)
+    
+    # AFTER (fixed):
+    latest = StressLevel.objects.filter(student=request.user).order_by('-timestamp').first()
+    
+    if latest:
+        return JsonResponse({
+            'level': latest.level,
+            'category': latest.stress_category,
+            'timestamp': latest.timestamp.isoformat(),
+            'has_data': True
+        })
+    else:
+        return JsonResponse({'has_data': False})
+
+@login_required
+def get_stress_trend(request):
+    """Get stress trend data for charts"""
+    if request.user.role != 'student':
+        return JsonResponse({'error': 'Students only'}, status=403)
+    
+    # AFTER (fixed):
+    week_ago = timezone.now() - timedelta(days=7)
+    
+    stress_data = StressLevel.objects.filter(
+        student=request.user,
+        timestamp__gte=week_ago
+    ).order_by('timestamp')
+    
+    dates = [stress.timestamp.strftime('%Y-%m-%d') for stress in stress_data]
+    levels = [stress.level for stress in stress_data]
+    
+    return JsonResponse({
+        'dates': dates,
+        'levels': levels,
+        'count': len(dates)
+    })
+
+@login_required
+def get_stress_summary(request):
+    """Get stress summary for dashboard"""
+    if request.user.role != 'student':
+        return JsonResponse({'error': 'Students only'}, status=403)
+    
+    # AFTER (fixed):
+    latest = StressLevel.objects.filter(student=request.user).latest('timestamp')
+    
+    month_ago = timezone.now() - timedelta(days=30)
+    previous_month_stress = StressLevel.objects.filter(
+        student=request.user,
+        timestamp__gte=month_ago,
+        timestamp__lte=latest.timestamp - timedelta(days=30)
+    ).order_by('timestamp').first()
+    
+    context = {
+        'current_stress': latest.level,
+        'previous_stress': previous_month_stress.level if previous_month_stress else None,
+        'trend': 'up' if previous_month_stress and latest.level > previous_month_stress.level else 'down',
+        'category': latest.stress_category
+    }
+    
+    return JsonResponse(context)

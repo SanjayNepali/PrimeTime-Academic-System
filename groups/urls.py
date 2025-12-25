@@ -1,4 +1,4 @@
-# File: groups/urls.py
+# File: groups/urls.py - UPDATED
 
 from django.urls import path
 from . import views
@@ -9,6 +9,7 @@ urlpatterns = [
     # Group management
     path('', views.group_list, name='group_list'),
     path('create/', views.group_create, name='group_create'),
+    path('quick-create/', views.quick_create_group, name='quick_create'),
     path('<int:pk>/', views.group_detail, name='group_detail'),
     path('<int:pk>/edit/', views.group_update, name='group_update'),
     path('<int:pk>/delete/', views.group_delete, name='group_delete'),

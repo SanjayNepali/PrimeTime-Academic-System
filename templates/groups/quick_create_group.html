@@ -1,0 +1,134 @@
+<!-- File: templates/groups/quick_create_group.html -->
+
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Quick Create Group - PrimeTime{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quick-create-card {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .info-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .info-box h5 {
+        margin-bottom: 10px;
+    }
+    
+    .info-box ul {
+        margin-bottom: 0;
+        padding-left: 20px;
+    }
+    
+    .info-box li {
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="quick-create-card">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class='bx bx-zap'></i> Quick Create Group
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Info Box -->
+                <div class="info-box">
+                    <h5><i class='bx bx-info-circle'></i> Quick Create</h5>
+                    <p class="mb-2">This will instantly create a group with default settings:</p>
+                    <ul>
+                        <li>Minimum students: 5</li>
+                        <li>Maximum students: 7</li>
+                        <li>Auto-generated group name (or choose custom)</li>
+                        <li>Batch year: Current year</li>
+                    </ul>
+                    <p class="mb-0 mt-2">
+                        <small>
+                            <i class='bx bx-bulb'></i> 
+                            After creation, you'll be redirected to add students immediately.
+                        </small>
+                    </p>
+                </div>
+
+                <!-- Form -->
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.supervisor.id_for_label }}" class="form-label">
+                            <i class='bx bx-user-pin'></i> Select Supervisor <span class="text-danger">*</span>
+                        </label>
+                        {{ form.supervisor }}
+                        {% if form.supervisor.errors %}
+                        <div class="text-danger small mt-1">{{ form.supervisor.errors.0 }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Each supervisor can only have one active group per batch year
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.group_name.id_for_label }}" class="form-label">
+                            <i class='bx bx-rename'></i> Group Name (Optional)
+                        </label>
+                        {{ form.group_name }}
+                        {% if form.group_name.errors %}
+                        <div class="text-danger small mt-1">{{ form.group_name.errors.0 }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Leave blank to auto-generate (e.g., "Smith's Group")
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.batch_year.id_for_label }}" class="form-label">
+                            <i class='bx bx-calendar'></i> Batch Year <span class="text-danger">*</span>
+                        </label>
+                        {{ form.batch_year }}
+                        {% if form.batch_year.errors %}
+                        <div class="text-danger small mt-1">{{ form.batch_year.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors }}
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'groups:group_list' %}" class="btn btn-secondary">
+                            <i class='bx bx-x'></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class='bx bx-zap'></i> Quick Create & Add Students
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <p class="text-muted mb-2">Need more options?</p>
+                    <a href="{% url 'groups:group_create' %}" class="btn btn-outline-primary">
+                        <i class='bx bx-cog'></i> Advanced Group Creation
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

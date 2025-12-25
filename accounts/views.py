@@ -266,7 +266,22 @@ def create_user(request):
                 f'Initial password: {initial_password}'
             )
             return redirect('accounts:user_list')
-
+        # FIX ADDED: Return form with errors if POST but invalid
+        else:
+            context = {
+                'form': form,
+                'title': 'Create New User - PrimeTime'
+            }
+            return render(request, 'accounts/create_user.html', context)
+    else:
+        # FIX ADDED: Handle GET request
+        form = UserCreationByIDForm()
+        context = {
+            'form': form,
+            'title': 'Create New User - PrimeTime'
+        }
+        return render(request, 'accounts/create_user.html', context)
+    
 @login_required
 def lookup_user_by_id(request):
     """AJAX endpoint to lookup user in university database"""

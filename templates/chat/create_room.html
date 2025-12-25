@@ -1,64 +1,15 @@
-<!-- File: templates/chat/create_room.html - UPDATED WITH BETTER ERROR DISPLAY -->
+<!-- File: templates/chat/create_room.html - COMPLETE UPDATED -->
 
 {% extends 'base.html' %}
 {% load static %}
-{% load chat_extras %}
+
 {% block title %}Create Chat Room - {{ block.super }}{% endblock %}
 
 {% block extra_css %}
 <style>
-    .role-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 10px;
-        font-weight: 600;
-        text-transform: uppercase;
-        margin-left: 8px;
-    }
-
-    .role-admin {
-        background: rgba(59, 130, 246, 0.1);
-        color: #2563EB;
-    }
-
-    .role-supervisor {
-        background: rgba(245, 158, 11, 0.1);
-        color: #D97706;
-    }
-
-    .role-student {
-        background: rgba(34, 197, 94, 0.1);
-        color: #16A34A;
-    }
-
-    .participant-name {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
     .create-room-container {
         max-width: 800px;
         margin: 0 auto;
-    }
-
-    .page-header {
-        margin-bottom: 32px;
-    }
-
-    .page-title {
-        font-size: 28px;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .page-subtitle {
-        color: var(--text-secondary);
-        font-size: 16px;
     }
 
     .form-card {
@@ -98,17 +49,16 @@
         color: #EF4444;
     }
 
-    .form-control, .form-select {
+    .form-control {
         width: 100%;
         padding: 12px 16px;
         border: 2px solid var(--border);
         border-radius: 10px;
         font-size: 14px;
         transition: all 0.2s;
-        font-family: inherit;
     }
 
-    .form-control:focus, .form-select:focus {
+    .form-control:focus {
         outline: none;
         border-color: var(--primary);
         box-shadow: 0 0 0 3px rgba(85, 104, 254, 0.1);
@@ -147,99 +97,6 @@
         cursor: pointer;
         margin: 0;
         font-weight: 500;
-    }
-
-    .info-box {
-        background: rgba(59, 130, 246, 0.1);
-        border-left: 4px solid #3B82F6;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 24px;
-    }
-
-    .info-title {
-        font-weight: 600;
-        color: #1E40AF;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .info-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    .info-list li {
-        padding: 6px 0;
-        padding-left: 20px;
-        position: relative;
-        color: #1E40AF;
-        font-size: 14px;
-    }
-
-    .info-list li::before {
-        content: '•';
-        position: absolute;
-        left: 8px;
-        font-weight: 700;
-    }
-
-    .warning-box {
-        background: rgba(245, 158, 11, 0.1);
-        border-left: 4px solid #F59E0B;
-        padding: 16px;
-        border-radius: 8px;
-        margin-top: 16px;
-        display: none;
-    }
-
-    .warning-box.active {
-        display: block;
-    }
-
-    .warning-title {
-        font-weight: 600;
-        color: #D97706;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .warning-text {
-        color: #92400E;
-        font-size: 14px;
-    }
-
-    .schedule-info-box {
-        background: rgba(139, 92, 246, 0.1);
-        border-left: 4px solid #8B5CF6;
-        padding: 16px;
-        border-radius: 8px;
-        margin-top: 16px;
-        display: none;
-    }
-
-    .schedule-info-box.active {
-        display: block;
-    }
-
-    .schedule-info-title {
-        font-weight: 600;
-        color: #7C3AED;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .schedule-detail {
-        color: #6B21A8;
-        font-size: 14px;
-        margin-bottom: 4px;
     }
 
     .participants-selector {
@@ -296,12 +153,28 @@
         font-weight: 600;
         font-size: 14px;
         color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     .participant-meta {
         font-size: 12px;
         color: var(--text-secondary);
     }
+
+    .role-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .role-admin { background: rgba(59, 130, 246, 0.1); color: #2563EB; }
+    .role-supervisor { background: rgba(245, 158, 11, 0.1); color: #D97706; }
+    .role-student { background: rgba(34, 197, 94, 0.1); color: #16A34A; }
 
     .selection-counter {
         background: rgba(59, 130, 246, 0.1);
@@ -337,6 +210,61 @@
     .selection-btn:hover {
         background: #3B82F6;
         color: white;
+    }
+
+    .schedule-info-box {
+        background: rgba(139, 92, 246, 0.1);
+        border-left: 4px solid #8B5CF6;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+        display: none;
+    }
+
+    .schedule-info-box.active {
+        display: block;
+    }
+
+    .schedule-info-title {
+        font-weight: 600;
+        color: #7C3AED;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .schedule-detail {
+        color: #6B21A8;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    .warning-box {
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 4px solid #F59E0B;
+        padding: 16px;
+        border-radius: 8px;
+        margin-top: 16px;
+        display: none;
+    }
+
+    .warning-box.active {
+        display: block;
+    }
+
+    .warning-title {
+        font-weight: 600;
+        color: #D97706;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .warning-text {
+        color: #92400E;
+        font-size: 14px;
     }
 
     .form-actions {
@@ -391,113 +319,28 @@
         color: #EF4444;
         font-size: 13px;
         padding: 4px 0;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    .errorlist li::before {
-        content: '⚠️';
-    }
-    
-    /* ADDED: Better form-level error display */
-    .form-errors-summary {
-        background: rgba(239, 68, 68, 0.1);
-        border-left: 4px solid #EF4444;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 24px;
-    }
-    
-    .form-errors-summary-title {
-        font-weight: 600;
-        color: #DC2626;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .form-errors-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    
-    .form-errors-list li {
-        color: #DC2626;
-        font-size: 14px;
-        padding: 4px 0;
-        padding-left: 20px;
-        position: relative;
-    }
-    
-    .form-errors-list li::before {
-        content: '❌';
-        position: absolute;
-        left: 0;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="create-room-container">
-    <div class="page-header">
+    <div class="page-header mb-4">
         <h1 class="page-title">
-            <i class='bx bx-plus-circle'></i>
-            Create Chat Room
+            <i class='bx bx-plus-circle'></i> Create Chat Room
         </h1>
-        <p class="page-subtitle">Set up a new chat room for your team</p>
+        <p class="page-subtitle">Set up a new chat room for your group</p>
     </div>
 
     <div class="form-card">
-        <!-- ADDED: Display all form errors at the top -->
-        {% if form.errors %}
-        <div class="form-errors-summary">
-            <div class="form-errors-summary-title">
-                <i class='bx bx-error'></i>
-                Please correct the following errors:
-            </div>
-            <ul class="form-errors-list">
-                {% if form.non_field_errors %}
-                    {% for error in form.non_field_errors %}
-                    <li>{{ error }}</li>
-                    {% endfor %}
-                {% endif %}
-                {% for field in form %}
-                    {% if field.errors %}
-                        {% for error in field.errors %}
-                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
-                        {% endfor %}
-                    {% endif %}
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-        
         <form method="post" id="createRoomForm">
             {% csrf_token %}
-
-            <!-- Room Type Info -->
-            <div class="info-box">
-                <div class="info-title">
-                    <i class='bx bx-info-circle'></i>
-                    Room Types & Restrictions
-                </div>
-                <ul class="info-list">
-                    <li><strong>Group:</strong> Chat room for student groups with all members</li>
-                    <li><strong>Direct:</strong> One-on-one conversation between two people</li>
-                    <li><strong>Supervisor:</strong> Monitored room with time restrictions - students can only message during supervisor's available hours</li>
-                    <li><strong>⚠️ Important:</strong> Each student can only be in ONE supervisor chat room at a time</li>
-                    <li><strong>⚠️ Important:</strong> Each supervisor can only have ONE supervisor chat per group</li>
-                </ul>
-            </div>
 
             <!-- Basic Information -->
             <div class="form-section">
                 <h3 class="section-title">
                     <i class='bx bx-info-circle'></i>
-                    Basic Information
+                    Room Information
                 </h3>
 
                 <div class="form-group">
@@ -512,7 +355,7 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">Choose a unique, descriptive name for your chat room</div>
+                    <div class="form-help">Choose a descriptive name for your chat room</div>
                 </div>
 
                 <div class="form-group">
@@ -527,7 +370,22 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">Select the type of chat room you want to create</div>
+                    <div class="form-help">Supervisor chat rooms are linked to groups</div>
+                </div>
+
+                <div class="form-group" id="groupField">
+                    <label class="form-label" for="{{ form.group.id_for_label }}">
+                        Group <span class="required" id="groupRequired">*</span>
+                    </label>
+                    {{ form.group }}
+                    {% if form.group.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.group.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    <div class="form-help">Select the group for this supervisor chat</div>
                 </div>
             </div>
 
@@ -535,70 +393,44 @@
             <div class="form-section">
                 <h3 class="section-title">
                     <i class='bx bx-group'></i>
-                    Participants
+                    Add Participants
                 </h3>
 
                 <div class="form-group">
-                    <label class="form-label">
-                        Select Participants <span class="required">*</span>
-                    </label>
+                    <label class="form-label">Select Participants</label>
                     
-                    {% if form.participants.field.queryset.count > 0 %}
-                        <div class="selection-counter">
-                            <span class="counter-text">
-                                <strong id="selectedCount">0</strong> participant(s) selected
-                            </span>
-                            <div class="selection-actions">
-                                <button type="button" class="selection-btn" onclick="selectAllParticipants()">
-                                    Select All
-                                </button>
-                                <button type="button" class="selection-btn" onclick="deselectAllParticipants()">
-                                    Clear All
-                                </button>
-                            </div>
+                    <div class="selection-counter">
+                        <span class="counter-text">
+                            <strong id="selectedCount">0</strong> participant(s) selected
+                        </span>
+                        <div class="selection-actions">
+                            <button type="button" class="selection-btn" onclick="selectAllParticipants()">
+                                Select All
+                            </button>
+                            <button type="button" class="selection-btn" onclick="deselectAllParticipants()">
+                                Clear All
+                            </button>
                         </div>
-                        
-                        <div class="participants-selector">
-                            {% for choice in form.participants %}
-                                {% with role=choice.choice_label|extract_role name=choice.choice_label|extract_name %}
-                                <label class="participant-checkbox-item">
-                                    {{ choice.tag }}
-                                    <div class="participant-avatar">
-                                        {{ name|slice:":1"|upper }}
-                                    </div>
-                                    <div class="participant-info">
-                                        <div class="participant-name">
-                                            <span>{{ name }}</span>
-                                            <span class="role-badge {{ role|role_badge_class }}">
-                                                {{ role }}
-                                            </span>
-                                        </div>
-                                        <div class="participant-meta">
-                                            User ID: {{ choice.data.value }}
-                                        </div>
-                                    </div>
-                                </label>
-                                {% endwith %}
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="warning-box active">
-                            <div class="warning-title">
-                                <i class='bx bx-info-circle'></i>
-                                No Available Participants
+                    </div>
+                    
+                    <div class="participants-selector">
+                        {% for choice in form.participants %}
+                        <label class="participant-checkbox-item">
+                            {{ choice.tag }}
+                            <div class="participant-avatar">
+                                {{ choice.choice_label|slice:":1"|upper }}
                             </div>
-                            <div class="warning-text">
-                                {% if user.role == 'supervisor' %}
-                                All students from your group are already assigned to supervisor chat rooms.
-                                Each student can only be in ONE supervisor chat at a time.
-                                If you need to add more students, please ensure they are members of your group
-                                and not already in another supervisor chat.
-                                {% else %}
-                                No users are currently available to add to this chat room.
-                                {% endif %}
+                            <div class="participant-info">
+                                <div class="participant-name">
+                                    {{ choice.choice_label }}
+                                </div>
+                                <div class="participant-meta">
+                                    User ID: {{ choice.data.value }}
+                                </div>
                             </div>
-                        </div>
-                    {% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
                     
                     {% if form.participants.errors %}
                         <ul class="errorlist">
@@ -607,7 +439,7 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">{{ form.participants.help_text }}</div>
+                    <div class="form-help">Select students and supervisors to add to this room</div>
                 </div>
             </div>
 
@@ -615,14 +447,14 @@
             <div class="form-section">
                 <h3 class="section-title">
                     <i class='bx bx-shield'></i>
-                    Access Control & Time Restrictions
+                    Access Control
                 </h3>
 
                 <div class="form-group">
                     <div class="checkbox-group" onclick="toggleFrozenWarning()">
                         {{ form.is_frozen }}
                         <label class="checkbox-label" for="{{ form.is_frozen.id_for_label }}">
-                            Enable scheduled access (Students can only message during your available hours)
+                            Enable scheduled access (Time restrictions for supervisor availability)
                         </label>
                     </div>
                     {% if form.is_frozen.errors %}
@@ -632,20 +464,7 @@
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    <div class="form-help">When enabled, students cannot send messages outside your scheduled hours. Messages will be queued for delivery.</div>
-                </div>
-
-                <!-- Warning Box -->
-                <div class="warning-box" id="frozenWarning">
-                    <div class="warning-title">
-                        <i class='bx bx-lock'></i>
-                        Time-Restricted Room
-                    </div>
-                    <div class="warning-text">
-                        ⚠️ <strong>Important:</strong> When time restrictions are enabled, students CANNOT message you outside your scheduled hours. 
-                        Their messages will be queued and delivered automatically when you become available.
-                        This helps maintain work-life balance for supervisors.
-                    </div>
+                    <div class="form-help">When enabled, messages are queued outside supervisor's available hours</div>
                 </div>
 
                 <!-- Schedule Info Box -->
@@ -664,7 +483,7 @@
                     </div>
                     {% endif %}
                     <div class="form-help" style="margin-top: 8px; color: #6B21A8;">
-                        ✅ These settings will be applied to the chat room. To change them, go to your Profile > Time Restrictions.
+                        The room will use these schedule settings. Change them in Profile > Time Restrictions.
                     </div>
                 </div>
                 {% elif user.role == 'supervisor' and not user.schedule_enabled %}
@@ -674,18 +493,31 @@
                         Time Restrictions Not Set
                     </div>
                     <div class="warning-text">
-                        ❌ You need to enable time restrictions in your profile settings before you can create a time-restricted room.
-                        Go to <strong>Profile > Time Restrictions</strong> to set your schedule.
+                        Enable time restrictions in your profile settings to use this feature.
+                        Go to <strong>Profile > Time Restrictions</strong>.
                     </div>
                 </div>
                 {% endif %}
             </div>
 
+            <!-- Non-field errors -->
+            {% if form.non_field_errors %}
+            <div class="warning-box active">
+                <div class="warning-title">
+                    <i class='bx bx-error'></i>
+                    Error
+                </div>
+                {% for error in form.non_field_errors %}
+                <div class="warning-text">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <!-- Form Actions -->
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
                     <i class='bx bx-check'></i>
-                    Create Room
+                    Create Chat Room
                 </button>
                 <a href="{% url 'chat:chat_home' %}" class="btn btn-secondary">
                     <i class='bx bx-x'></i>
@@ -695,33 +527,38 @@
         </form>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const roomTypeField = document.querySelector('select[name="room_type"]');
+    const groupField = document.getElementById('groupField');
     const frozenCheckbox = document.querySelector('input[name="is_frozen"]');
-    const frozenWarning = document.getElementById('frozenWarning');
     const scheduleInfo = document.getElementById('scheduleInfo');
     
-    function toggleFrozenWarning() {
-        const isFrozen = frozenCheckbox.checked;
-        
-        if (isFrozen) {
-            frozenWarning.classList.add('active');
-            if (scheduleInfo) {
-                scheduleInfo.classList.add('active');
-            }
+    // Show/hide group field based on room type
+    function updateGroupField() {
+        if (roomTypeField.value === 'supervisor') {
+            groupField.style.display = 'block';
         } else {
-            frozenWarning.classList.remove('active');
-            if (scheduleInfo) {
+            groupField.style.display = 'none';
+        }
+    }
+    
+    roomTypeField.addEventListener('change', updateGroupField);
+    updateGroupField();
+    
+    // Toggle schedule info
+    function toggleFrozenWarning() {
+        frozenCheckbox.checked = !frozenCheckbox.checked;
+        
+        if (scheduleInfo) {
+            if (frozenCheckbox.checked) {
+                scheduleInfo.classList.add('active');
+            } else {
                 scheduleInfo.classList.remove('active');
             }
         }
     }
-    
-    // Initialize state
-    toggleFrozenWarning();
     
     // Update participant counter
     const checkboxes = document.querySelectorAll('.participants-selector input[type="checkbox"]');
@@ -738,37 +575,37 @@ document.addEventListener('DOMContentLoaded', function() {
         cb.addEventListener('change', updateCounter);
     });
     
-    // Initial count
     updateCounter();
+    
+    // Initialize frozen state
+    if (frozenCheckbox && frozenCheckbox.checked && scheduleInfo) {
+        scheduleInfo.classList.add('active');
+    }
 });
 
 function selectAllParticipants() {
     const checkboxes = document.querySelectorAll('.participants-selector input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = true);
-    document.getElementById('selectedCount').textContent = checkboxes.length;
+    const count = document.getElementById('selectedCount');
+    if (count) count.textContent = checkboxes.length;
 }
 
 function deselectAllParticipants() {
     const checkboxes = document.querySelectorAll('.participants-selector input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
-    document.getElementById('selectedCount').textContent = '0';
+    const count = document.getElementById('selectedCount');
+    if (count) count.textContent = '0';
 }
 
 function toggleFrozenWarning() {
     const checkbox = document.querySelector('input[name="is_frozen"]');
     checkbox.checked = !checkbox.checked;
     
-    const frozenWarning = document.getElementById('frozenWarning');
     const scheduleInfo = document.getElementById('scheduleInfo');
-    
-    if (checkbox.checked) {
-        frozenWarning.classList.add('active');
-        if (scheduleInfo) {
+    if (scheduleInfo) {
+        if (checkbox.checked) {
             scheduleInfo.classList.add('active');
-        }
-    } else {
-        frozenWarning.classList.remove('active');
-        if (scheduleInfo) {
+        } else {
             scheduleInfo.classList.remove('active');
         }
     }

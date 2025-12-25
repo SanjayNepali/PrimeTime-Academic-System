@@ -22,6 +22,10 @@
                 <button class="btn btn-outline-primary me-2" onclick="location.reload()">
                     <i class='bx bx-refresh'></i> Refresh
                 </button>
+                <!-- ADD THIS: Supervisor Projects Link -->
+                <a href="{% url 'projects:supervisor_projects' %}" class="btn btn-primary me-2">
+                    <i class='bx bx-folder-open'></i> My Projects
+                </a>
                 <a href="{% url 'analytics:supervisor_analytics' %}" class="btn btn-primary">
                     <i class='bx bx-stats'></i> View Analytics
                 </a>
@@ -29,7 +33,6 @@
         </div>
     </div>
 </div>
-
 <div class="container-fluid">
     <!-- Key Metrics -->
     <div class="row mb-4">
@@ -120,6 +123,11 @@
                             <i class='bx bx-group'></i>
                             <span>Manage Groups</span>
                         </a>
+                        <!-- ADD THIS: Supervisor Projects Button -->
+                        <a href="{% url 'projects:supervisor_projects' %}" class="quick-action-btn">
+                            <i class='bx bx-folder-open'></i>
+                            <span>My Projects</span>
+                        </a>
                         <a href="{% url 'projects:supervisor_projects' %}" class="quick-action-btn">
                             <i class='bx bx-folder'></i>
                             <span>View Projects</span>
@@ -152,35 +160,35 @@
             <div class="modern-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class='bx bx-group'></i> My Groups</h5>
-                    <span class="badge bg-primary">{{ supervised_groups.count }}</span>
+                    <span class="badge bg-primary">{{ groups_data|length }}</span>
                 </div>
                 <div class="card-body">
-                    {% if supervised_groups %}
+                    {% if groups_data %}
                         <div class="row">
-                            {% for group in supervised_groups %}
+                            {% for group_info in groups_data %}
+                            {% with group=group_info.group %}
                             <div class="col-lg-4 col-md-6 mb-3">
                                 <div class="card border-0 bg-light h-100">
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-start mb-3">
                                             <h6 class="mb-0">{{ group.name }}</h6>
-                                            <span class="badge bg-{% if group.is_full %}success{% else %}warning{% endif %}">
-                                                {% if group.is_full %}Full{% else %}{{ group.available_slots }} slots{% endif %}
+                                            <span class="badge bg-{% if group_info.is_full %}success{% else %}warning{% endif %}">
+                                                {% if group_info.is_full %}Full{% else %}{{ group_info.available_slots }} slots{% endif %}
                                             </span>
                                         </div>
                                         
                                         <div class="mb-3">
                                             <small class="text-muted d-block mb-1">Group Size</small>
                                             <div class="progress" style="height: 20px;">
-                                                {% widthratio group.student_count group.max_students 100 as capacity_pct %}
                                                 <div class="progress-bar" role="progressbar" 
-                                                     style="width: {{ capacity_pct }}%"
-                                                     aria-valuenow="{{ capacity_pct }}" 
-                                                     aria-valuemin="0" 
-                                                     aria-valuemax="100">
-                                                    {{ capacity_pct }}%
+                                                    style="width: {{ group_info.capacity_pct }}%"
+                                                    aria-valuenow="{{ group_info.capacity_pct }}" 
+                                                    aria-valuemin="0" 
+                                                    aria-valuemax="100">
+                                                    {{ group_info.capacity_pct }}%
                                                 </div>
                                             </div>
-                                            <small class="text-muted">{{ group.student_count }}/{{ group.max_students }} students</small>
+                                            <small class="text-muted">{{ group_info.student_count }}/{{ group.max_students }} students</small>
                                         </div>
 
                                         <div class="mb-3">
@@ -190,7 +198,8 @@
                                         </div>
 
                                         <div class="d-flex gap-2">
-                                            <a href="{% url 'groups:group_detail' group.pk %}" class="btn btn-sm btn-primary flex-grow-1">
+                                            <!-- FIXED: Explicit group URL -->
+                                            <a href="/groups/{{ group.pk }}/" class="btn btn-sm btn-primary flex-grow-1">
                                                 <i class='bx bx-show'></i> View
                                             </a>
                                             <a href="{% url 'chat:chat_home' %}" class="btn btn-sm btn-outline-secondary">
@@ -200,6 +209,7 @@
                                     </div>
                                 </div>
                             </div>
+                            {% endwith %}
                             {% endfor %}
                         </div>
                     {% else %}
@@ -213,7 +223,6 @@
             </div>
         </div>
     </div>
-
     <!-- Two Column Layout -->
     <div class="row">
         <!-- Pending Reviews -->
@@ -290,7 +299,7 @@
                                             </span>
                                         </small>
                                     </div>
-                                    <a href="{% url 'analytics:supervisor_view_student' student.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{% url 'analytics:supervisor_view_student' student.id %}" class="btn btn-sm btn-outline-primary">
                                         View
                                     </a>
                                 </div>
@@ -332,7 +341,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for student in supervised_students|slice:":10" %}
+                                    {% for data in student_progress_data|slice:":10" %}
+                                    {% with student=data.student %}
                                     <tr>
                                         <td>
                                             <div class="d-flex align-items-center">
@@ -348,8 +358,8 @@
                                             </div>
                                         </td>
                                         <td>
-                                            {% if student.projects.exists %}
-                                                {{ student.projects.first.title|truncatechars:25 }}
+                                            {% if data.has_project %}
+                                                {{ data.project.title|truncatechars:25 }}
                                             {% else %}
                                                 <span class="text-muted">No project</span>
                                             {% endif %}
@@ -358,30 +368,30 @@
                                             <div class="d-flex align-items-center">
                                                 <div class="progress" style="width: 100px; height: 8px;">
                                                     <div class="progress-bar" role="progressbar" 
-                                                         style="width: {% if student.projects.exists %}{{ student.projects.first.progress_percentage }}{% else %}0{% endif %}%">
+                                                        style="width: {{ data.project_progress }}%">
                                                     </div>
                                                 </div>
-                                                <span class="ms-2 small">{% if student.projects.exists %}{{ student.projects.first.progress_percentage }}%{% else %}0%{% endif %}</span>
+                                                <span class="ms-2 small">{{ data.project_progress }}%</span>
                                             </div>
                                         </td>
                                         <td>
-                                            {% if student.projects.exists %}
-                                                <span class="badge bg-{% if student.projects.first.status == 'in_progress' %}info{% elif student.projects.first.status == 'completed' %}success{% else %}secondary{% endif %}">
-                                                    {{ student.projects.first.get_status_display }}
+                                            {% if data.has_project and data.project_status %}
+                                                <span class="badge bg-{% if data.project_status == 'in_progress' %}info{% elif data.project_status == 'completed' %}success{% else %}secondary{% endif %}">
+                                                    {{ data.project.get_status_display|default:"No Status" }}
                                                 </span>
                                             {% else %}
                                                 <span class="badge bg-secondary">No Project</span>
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <span class="badge bg-{% if student.stress_level < 40 %}success{% elif student.stress_level < 70 %}warning{% else %}danger{% endif %}">
-                                                {{ student.stress_level|floatformat:0 }}%
+                                            <span class="badge bg-{% if data.stress_level < 40 %}success{% elif data.stress_level < 70 %}warning{% else %}danger{% endif %}">
+                                                {{ data.stress_level|floatformat:0 }}%
                                             </span>
                                         </td>
                                         <td>
                                             <small class="text-muted">
-                                                {% if student.projects.exists and student.projects.first.updated_at %}
-                                                    {{ student.projects.first.updated_at|timesince }} ago
+                                                {% if data.has_project and data.project.updated_at %}
+                                                    {{ data.project.updated_at|timesince }} ago
                                                 {% else %}
                                                     Never
                                                 {% endif %}
@@ -389,9 +399,9 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                {% if student.projects.exists %}
-                                                <a href="{% url 'projects:supervisor_project_detail' student.projects.first.pk %}" 
-                                                   class="btn btn-outline-primary" title="View Details">
+                                                {% if data.has_project %}
+                                                <a href="{% url 'projects:supervisor_project_detail' data.project.pk %}" 
+                                                class="btn btn-outline-primary" title="View Details">
                                                     <i class='bx bx-show'></i>
                                                 </a>
                                                 {% endif %}
@@ -401,6 +411,7 @@
                                             </div>
                                         </td>
                                     </tr>
+                                    {% endwith %}
                                     {% endfor %}
                                 </tbody>
                             </table>
@@ -425,26 +436,369 @@
     </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('👨‍🏫 Supervisor Dashboard Initialized');
+    
+    // ==================================================================
+    // ANIMATE PROGRESS BARS
+    // ==================================================================
+    function animateProgressBars() {
+        const progressBars = document.querySelectorAll('.progress-bar, .progress div[role="progressbar"]');
+        
+        progressBars.forEach((bar, index) => {
+            const targetWidth = bar.style.width || bar.getAttribute('aria-valuenow') + '%';
+            bar.style.width = '0%';
+            
+            setTimeout(() => {
+                bar.style.transition = 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
+                bar.style.width = targetWidth;
+            }, 50 + (index * 100));
+        });
+    }
+    
+    // ==================================================================
+    // ANIMATE STAT CARDS WITH STAGGER
+    // ==================================================================
+    function animateStatCards() {
+        const statCards = document.querySelectorAll('.stat-card');
+        
+        statCards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(30px)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 80);
+        });
+    }
+    
+    // ==================================================================
+    // ANIMATE GROUP CARDS
+    // ==================================================================
+    function animateGroupCards() {
+        const groupCards = document.querySelectorAll('.card.border-0.bg-light');
+        
+        groupCards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.4s ease-out';
+                card.style.opacity = '1';
+                card.style.transform = 'scale(1)';
+            }, 200 + (index * 100));
+        });
+    }
+    
+    // ==================================================================
+    // REAL-TIME STRESS MONITORING
+    // ==================================================================
+    function setupStressMonitoring() {
+        const stressElements = document.querySelectorAll('[data-stress-level]');
+        
+        stressElements.forEach(el => {
+            const studentId = el.getAttribute('data-student-id');
+            if (!studentId) return;
+            
+            // Add pulse animation to high stress badges
+            const stressLevel = parseFloat(el.textContent);
+            if (stressLevel >= 70) {
+                el.style.animation = 'pulse 2s infinite';
+            }
+        });
+        
+        // Auto-refresh stress data every 5 minutes
+        setInterval(refreshStressLevels, 300000);
+    }
+    
+    function refreshStressLevels() {
+        console.log('🔄 Refreshing stress levels...');
+        
+        const stressElements = document.querySelectorAll('[data-student-id]');
+        
+        stressElements.forEach(el => {
+            const studentId = el.getAttribute('data-student-id');
+            if (!studentId) return;
+            
+            fetch(`/dashboard/api/student-stress/${studentId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.has_data) {
+                        updateStudentStressDisplay(studentId, data.stress_level);
+                    }
+                })
+                .catch(err => console.log('Error refreshing stress:', err));
+        });
+    }
+    
+    function updateStudentStressDisplay(studentId, newStressLevel) {
+        const badge = document.querySelector(`[data-student-id="${studentId}"] .badge`);
+        if (!badge) return;
+        
+        // Animate the change
+        badge.style.transition = 'all 0.3s ease';
+        badge.style.transform = 'scale(1.2)';
+        
+        setTimeout(() => {
+            badge.textContent = newStressLevel.toFixed(0) + '%';
+            
+            // Update badge color
+            badge.className = 'badge';
+            if (newStressLevel < 40) {
+                badge.classList.add('bg-success');
+            } else if (newStressLevel < 70) {
+                badge.classList.add('bg-warning');
+            } else {
+                badge.classList.add('bg-danger');
+                badge.style.animation = 'pulse 2s infinite';
+            }
+            
+            badge.style.transform = 'scale(1)';
+        }, 300);
+    }
+    
+    // ==================================================================
+    // TABLE ROW HOVER EFFECTS
+    // ==================================================================
+    function setupTableInteractions() {
+        const tableRows = document.querySelectorAll('.table tbody tr');
+        
+        tableRows.forEach(row => {
+            row.style.cursor = 'pointer';
+            row.style.transition = 'all 0.2s ease';
+            
+            row.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+                this.style.transform = 'scale(1.01)';
+            });
+            
+            row.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+                this.style.transform = 'scale(1)';
+            });
+        });
+    }
+    
+    // ==================================================================
+    // PENDING REVIEWS COUNTER ANIMATION
+    // ==================================================================
+    function animatePendingCounter() {
+        const pendingBadge = document.querySelector('.badge.bg-warning');
+        if (!pendingBadge) return;
+        
+        const targetValue = parseInt(pendingBadge.textContent) || 0;
+        
+        if (targetValue > 0) {
+            let currentValue = 0;
+            const duration = 1000;
+            const increment = targetValue / (duration / 16);
+            
+            const timer = setInterval(() => {
+                currentValue += increment;
+                if (currentValue >= targetValue) {
+                    currentValue = targetValue;
+                    clearInterval(timer);
+                    pendingBadge.style.animation = 'pulse 2s infinite';
+                }
+                pendingBadge.textContent = Math.round(currentValue);
+            }, 16);
+        }
+    }
+    
+    // ==================================================================
+    // GROUP CAPACITY BARS ANIMATION
+    // ==================================================================
+    function animateCapacityBars() {
+        const capacityBars = document.querySelectorAll('.progress .progress-bar');
+        
+        capacityBars.forEach((bar, index) => {
+            const percentage = bar.getAttribute('aria-valuenow');
+            bar.style.width = '0%';
+            
+            setTimeout(() => {
+                bar.style.transition = 'width 1.5s ease-out';
+                bar.style.width = percentage + '%';
+                
+                // Change color based on capacity
+                if (percentage >= 90) {
+                    bar.style.backgroundColor = '#dc3545'; // Red
+                } else if (percentage >= 70) {
+                    bar.style.backgroundColor = '#ffc107'; // Yellow
+                } else {
+                    bar.style.backgroundColor = '#28a745'; // Green
+                }
+            }, 100 + (index * 150));
+        });
+    }
+    
+    // ==================================================================
+    // INITIALIZE ALL ANIMATIONS
+    // ==================================================================
+    console.log('🎬 Starting supervisor dashboard animations...');
+    
+    setTimeout(() => {
+        animateStatCards();
+    }, 100);
+    
+    setTimeout(() => {
+        animateGroupCards();
+    }, 300);
+    
+    setTimeout(() => {
+        animateProgressBars();
+    }, 500);
+    
+    setTimeout(() => {
+        animateCapacityBars();
+    }, 700);
+    
+    setTimeout(() => {
+        animatePendingCounter();
+        setupStressMonitoring();
+        setupTableInteractions();
+    }, 1000);
+    
+    console.log('✅ All supervisor animations initialized');
+    
+    // ==================================================================
+    // QUICK ACTION BUTTONS
+    // ==================================================================
+    const quickActionBtns = document.querySelectorAll('.quick-action-btn');
+    quickActionBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 100);
+        });
+    });
+});
+
+// ==================================================================
+// GLOBAL FUNCTIONS
+// ==================================================================
+function refreshSupervisorDashboard() {
+    console.log('🔄 Refreshing supervisor dashboard...');
+    location.reload();
+}
+
+function exportSupervisorReport() {
+    console.log('📥 Exporting supervisor report...');
+    alert('Export feature coming soon!');
+}
+
+function viewStudentDetails(studentId) {
+    window.location.href = `/analytics/supervisor/student/${studentId}/`;
+}
+
+function quickMessage(studentId) {
+    window.location.href = `/chat/user/${studentId}/`;
+}
+</script>
+
 <style>
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
+/* Enhanced Supervisor Dashboard Styles */
+.stat-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.empty-state i {
-    font-size: 48px;
-    color: #d1d5db;
-    margin-bottom: 12px;
+.stat-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15) !important;
 }
 
-.empty-state h5 {
-    margin-bottom: 8px;
-    color: #374151;
+.card.border-0.bg-light:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+    transform: translateY(-2px) !important;
 }
 
-.empty-state p {
-    color: #6b7280;
-    margin: 0;
+@keyframes pulse {
+    0%, 100% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+}
+
+.badge.bg-danger {
+    animation: pulse 2s infinite;
+}
+
+.progress-bar {
+    transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+}
+
+/* Table enhancements */
+.table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Quick action buttons */
+.quick-action-btn {
+    transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(85, 104, 254, 0.2);
+}
+
+.quick-action-btn:active {
+    transform: scale(0.95);
+}
+
+/* Pending badge pulse */
+.badge.bg-warning {
+    transition: all 0.3s ease;
+}
+
+/* Success animations */
+@keyframes successGlow {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.success-glow {
+    animation: successGlow 0.6s ease;
+}
+
+/* Loading state */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.loading-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
 }
 </style>
 {% endblock %}

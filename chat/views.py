@@ -45,7 +45,7 @@ def check_user_availability(user, current_user):
 
 @login_required
 def chat_home(request):
-    """Enhanced chat home with groups and direct messages separated"""
+    """Enhanced chat home with FIXED accurate unread counts"""
     
     # Get user's chat rooms
     rooms = ChatRoom.objects.filter(
@@ -66,14 +66,16 @@ def chat_home(request):
         # Get last message
         last_message = room.messages.filter(is_deleted=False).order_by('-timestamp').first()
         
-        # Calculate ACCURATE unread count
+        # FIXED: Calculate ACCURATE unread count
         try:
             member = room.members.get(user=request.user)
+            # Only count messages AFTER last_read_at from OTHER users
             unread = room.messages.filter(
                 timestamp__gt=member.last_read_at,
                 is_deleted=False
             ).exclude(sender=request.user).count()
         except ChatRoomMember.DoesNotExist:
+            # If no member record, count all non-self messages
             unread = room.messages.filter(
                 is_deleted=False
             ).exclude(sender=request.user).count()
@@ -94,26 +96,22 @@ def chat_home(request):
         # Get participant count
         participant_count = room.participants.count()
         
-        # ============================================
-        # UPDATED: CHECK ACCESSIBILITY WITH SUPERVISOR SCHEDULE
-        # ============================================
+        # Check accessibility with supervisor schedule
         is_accessible = True
         restriction_msg = None
         
         if room.room_type == 'supervisor' or room.group:
-            # Group chat - check supervisor's schedule
             if room.group and room.group.supervisor:
                 supervisor = room.group.supervisor
                 if supervisor.schedule_enabled and not supervisor.is_available_now():
-                    is_accessible = True  # Chat is accessible but messages will be pending
+                    is_accessible = True  # Chat accessible but messages pending
                     restriction_msg = supervisor.get_availability_message()
         
         elif room.room_type == 'direct':
-            # Direct message - check recipient's schedule
             other_user = room.participants.exclude(id=request.user.id).first()
             if other_user and other_user.role == 'supervisor':
                 is_available, msg = check_user_availability(other_user, request.user)
-                is_accessible = True  # Chat is accessible but messages will be pending
+                is_accessible = True
                 restriction_msg = msg if not is_available else None
         
         # Calculate average sentiment
@@ -154,7 +152,6 @@ def chat_home(request):
     }
     
     return render(request, 'chat/chat_home.html', context)
-
 
 @login_required
 def search_users(request):

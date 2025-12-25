@@ -799,8 +799,7 @@ def deliverable_submit(request, pk):
 @login_required
 def assign_supervisor_page(request, pk):
     """
-    Supervisor assignment page with automatic group creation
-    When a supervisor is assigned to a project, a group is automatically created
+    COMPLETE FIXED: Supervisor assignment with automatic group AND chat creation
     """
     if not request.user.is_admin:
         messages.error(request, 'Only admins can assign supervisors.')
@@ -829,10 +828,9 @@ def assign_supervisor_page(request, pk):
                 project.status = 'in_progress'
             project.save()
             
-            # Step 2: Find or create a group for this supervisor and batch
+            # Step 2: Find or create group
             group_name = f"{supervisor.display_name}'s Group - Batch {project.batch_year}"
             
-            # Try to find existing active group for this supervisor and batch with space
             group = Group.objects.filter(
                 supervisor=supervisor,
                 batch_year=project.batch_year,
@@ -840,12 +838,10 @@ def assign_supervisor_page(request, pk):
             ).annotate(
                 student_count=Count('members', filter=Q(members__is_active=True))
             ).filter(
-                student_count__lt=F('max_students')  # Group not full
+                student_count__lt=F('max_students')
             ).first()
             
-            # If no suitable group exists, create one
             if not group:
-                # Count existing groups for unique naming
                 existing_groups_count = Group.objects.filter(
                     supervisor=supervisor,
                     batch_year=project.batch_year
@@ -864,17 +860,15 @@ def assign_supervisor_page(request, pk):
                     created_by=request.user
                 )
                 
-                # Log group creation
                 GroupActivity.objects.create(
                     group=group,
                     action='created',
                     user=request.user,
-                    details=f'Group created automatically when assigning supervisor to {project.title}'
+                    details=f'Group created when assigning supervisor to {project.title}'
                 )
             
-            # Step 3: Add student to the group
+            # Step 3: Add student to group
             try:
-                # Check if student is already in this group
                 existing_membership = GroupMembership.objects.filter(
                     group=group,
                     student=student,
@@ -882,34 +876,77 @@ def assign_supervisor_page(request, pk):
                 ).first()
                 
                 if not existing_membership:
-                    # Add student to group
                     group.add_student(student, added_by=request.user)
-                    
-                    messages.success(
-                        request,
-                        f'✓ Supervisor {supervisor.display_name} assigned to project<br>'
-                        f'✓ Student added to group "{group.name}"'
-                    )
+                    student_added_msg = f'✓ Student added to group "{group.name}"'
                 else:
-                    messages.success(
-                        request,
-                        f'✓ Supervisor {supervisor.display_name} assigned to project<br>'
-                        f'✓ Student already in group "{group.name}"'
-                    )
+                    student_added_msg = f'✓ Student already in group "{group.name}"'
             except ValueError as e:
-                # If group is full or other error, still complete the assignment
-                messages.warning(
-                    request,
-                    f'✓ Supervisor {supervisor.display_name} assigned to project<br>'
-                    f'⚠ Could not add to group: {str(e)}'
-                )
+                student_added_msg = f'⚠ Could not add to group: {str(e)}'
             
-            # Step 4: Log activity
+            # Step 4: CRITICAL - Create supervisor chat room
+            chat_room_name = f"{group.name} - Supervisor Chat"
+            
+            # Check if supervisor chat already exists for this group
+            existing_supervisor_chat = ChatRoom.objects.filter(
+                room_type='supervisor',
+                group=group,
+                is_active=True
+            ).first()
+            
+            if not existing_supervisor_chat:
+                # Create supervisor chat room
+                from chat.models import ChatRoom, ChatRoomMember
+                
+                supervisor_chat = ChatRoom.objects.create(
+                    name=chat_room_name,
+                    room_type='supervisor',
+                    group=group,
+                    is_active=True,
+                    is_frozen=supervisor.schedule_enabled,  # Auto-enable if supervisor has schedule
+                    schedule_start_time=supervisor.schedule_start_time if supervisor.schedule_enabled else None,
+                    schedule_end_time=supervisor.schedule_end_time if supervisor.schedule_enabled else None,
+                    schedule_days=supervisor.schedule_days if supervisor.schedule_enabled else None
+                )
+                
+                # Add supervisor to chat
+                supervisor_chat.participants.add(supervisor)
+                ChatRoomMember.objects.create(room=supervisor_chat, user=supervisor)
+                
+                # Add all group members to chat
+                group_students = User.objects.filter(
+                    group_memberships__group=group,
+                    group_memberships__is_active=True
+                )
+                
+                for group_student in group_students:
+                    supervisor_chat.participants.add(group_student)
+                    ChatRoomMember.objects.create(room=supervisor_chat, user=group_student)
+                
+                chat_created_msg = f'✓ Supervisor chat room created: "{chat_room_name}"'
+            else:
+                # Add student to existing supervisor chat
+                existing_supervisor_chat.participants.add(student)
+                ChatRoomMember.objects.get_or_create(
+                    room=existing_supervisor_chat,
+                    user=student
+                )
+                chat_created_msg = f'✓ Student added to existing supervisor chat'
+            
+            # Step 5: Log activity
             ProjectActivity.objects.create(
                 project=project,
                 user=request.user,
                 action='supervisor_assigned',
-                details=f'Supervisor {supervisor.display_name} assigned and student added to group {group.name}'
+                details=f'Supervisor {supervisor.display_name} assigned, group and chat created'
+            )
+            
+            # Success message
+            messages.success(
+                request,
+                f'✅ Supervisor Assignment Complete!<br>'
+                f'✓ Supervisor {supervisor.display_name} assigned<br>'
+                f'{student_added_msg}<br>'
+                f'{chat_created_msg}'
             )
             
             return redirect('projects:all_projects')
@@ -923,12 +960,10 @@ def assign_supervisor_page(request, pk):
         supervised_count=Count('supervised_projects', filter=Q(supervised_projects__status__in=['in_progress', 'approved']))
     ).order_by('supervised_count', 'full_name')
     
-    # Calculate availability for each supervisor
     supervisor_data = []
     for supervisor in supervisors:
         supervised_count = supervisor.supervised_count
         
-        # Get supervisor's groups for this batch
         supervisor_groups = Group.objects.filter(
             supervisor=supervisor,
             batch_year=project.batch_year,
@@ -937,17 +972,14 @@ def assign_supervisor_page(request, pk):
             student_count=Count('members', filter=Q(members__is_active=True))
         )
         
-        # Calculate total capacity
         total_capacity = sum(g.max_students for g in supervisor_groups)
         current_students = sum(g.student_count for g in supervisor_groups)
         
-        # Check if supervisor can take more students
-        max_capacity_per_supervisor = 21  # 3 groups × 7 students
+        max_capacity_per_supervisor = 21
         is_available = current_students < max_capacity_per_supervisor
         
         workload_percentage = min(int((supervised_count / 21) * 100), 100)
         
-        # Get current students
         current_students_list = User.objects.filter(
             projects__supervisor=supervisor,
             projects__status__in=['in_progress', 'approved']
@@ -975,6 +1007,7 @@ def assign_supervisor_page(request, pk):
     }
     
     return render(request, 'projects/assign_supervisor.html', context)
+
 @login_required
 def project_review(request, pk):
     """Review project (admin only)"""

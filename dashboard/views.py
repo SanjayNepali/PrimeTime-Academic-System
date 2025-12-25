@@ -209,7 +209,7 @@ def student_dashboard(request):
 
 @login_required
 def supervisor_dashboard(request):
-    """Supervisor dashboard with group management - COMPLETELY FIXED"""
+    """Supervisor dashboard - COMPLETELY FIXED with accurate counts"""
     
     if not request.user.is_supervisor:
         messages.error(request, 'Access denied. Supervisors only.')
@@ -217,20 +217,33 @@ def supervisor_dashboard(request):
     
     supervisor = request.user
     
-    # Get supervisor's groups - FIXED QUERY
+    # FIXED: Get supervisor's groups WITHOUT annotation
     supervised_groups = Group.objects.filter(
         supervisor=supervisor,
         is_active=True
-    ).annotate(
-        student_count=Count('members', filter=Q(members__is_active=True))
     ).prefetch_related('members__student')
     
-    # Get all supervised students - FIXED QUERY
+    # Create a custom list with calculated student counts
+    groups_data = []
+    for group in supervised_groups:
+        # Calculate student count safely
+        student_count = group.members.filter(is_active=True).count()
+        
+        groups_data.append({
+            'group': group,
+            'student_count': student_count,
+            'max_students': group.max_students,
+            'available_slots': max(0, group.max_students - student_count),
+            'is_full': student_count >= group.max_students,
+            'capacity_pct': round((student_count / group.max_students) * 100) if group.max_students > 0 else 0,
+        })
+    
+    # FIXED: Get all supervised students (distinct to avoid duplicates)
     supervised_students = User.objects.filter(
         group_memberships__group__supervisor=supervisor,
         group_memberships__is_active=True,
         role='student'
-    ).distinct().prefetch_related('projects')
+    ).distinct().prefetch_related('projects', 'stress_levels')
     
     # Get projects needing review
     projects_to_review = Project.objects.filter(
@@ -238,16 +251,17 @@ def supervisor_dashboard(request):
         status='in_progress'
     ).select_related('student')
     
-    # Get pending deliverables
+    # FIXED: Get pending deliverables (accurate count)
     pending_deliverables = ProjectDeliverable.objects.filter(
         project__supervisor=supervisor,
-        is_approved=False
+        is_approved=False,
+        submitted_at__isnull=False  # Only count submitted deliverables
     ).select_related('project', 'project__student')
     
     # Calculate statistics
     total_students = supervised_students.count()
     
-    # Calculate average progress from actual projects
+    # FIXED: Calculate average progress from actual projects
     avg_progress = 0
     if total_students > 0:
         projects_with_progress = Project.objects.filter(
@@ -259,24 +273,64 @@ def supervisor_dashboard(request):
                 Avg('progress_percentage')
             )['progress_percentage__avg'] or 0
     
-    # Get high stress students - FIXED QUERY
-    high_stress_students = []
-    for student in supervised_students[:10]:
+    # FIXED: Get high stress students with latest stress level
+    high_stress_students_data = []
+    for student in supervised_students[:20]:  # Limit for performance
         try:
             latest_stress = StressLevel.objects.filter(
                 student=student
             ).order_by('-calculated_at').first()
             
             if latest_stress and latest_stress.level >= 60:
-                student.stress_level = latest_stress.level
-                high_stress_students.append(student)
+                high_stress_students_data.append({
+                    'id': student.id,
+                    'user_id': student.user_id,
+                    'display_name': student.display_name,
+                    'stress_level': latest_stress.level,
+                    'calculated_at': latest_stress.calculated_at
+                })
         except Exception:
             continue
+    
+    # Sort high stress students by stress level
+    high_stress_students_data.sort(key=lambda x: x['stress_level'], reverse=True)
     
     # Recent submissions
     recent_submissions = ProjectDeliverable.objects.filter(
         project__supervisor=supervisor
     ).order_by('-submitted_at')[:5]
+    
+    # Get student progress data for template
+    student_progress_data = []
+    for student in supervised_students[:20]:  # Limit for performance
+        try:
+            # Get latest stress
+            latest_stress = StressLevel.objects.filter(
+                student=student
+            ).order_by('-calculated_at').first()
+            stress_level = latest_stress.level if latest_stress else 0
+            
+            # Get project progress
+            try:
+                student_project = student.projects.first()
+                project_progress = student_project.progress_percentage if student_project else 0
+                has_project = True
+                project_status = student_project.status if student_project else None
+            except:
+                project_progress = 0
+                has_project = False
+                project_status = None
+                
+            student_progress_data.append({
+                'student': student,
+                'stress_level': stress_level,
+                'project_progress': project_progress,
+                'has_project': has_project,
+                'project_status': project_status,
+                'project': student.projects.first() if has_project else None,
+            })
+        except Exception:
+            continue
     
     # Supervisor profile info
     try:
@@ -288,31 +342,25 @@ def supervisor_dashboard(request):
         max_groups = 3
         specialization = ""
     
-    # Add stress levels to supervised students for display
-    for student in supervised_students[:20]:
-        try:
-            latest_stress = StressLevel.objects.filter(
-                student=student
-            ).order_by('-calculated_at').first()
-            student.stress_level = latest_stress.level if latest_stress else 0
-        except Exception:
-            student.stress_level = 0
-    
     context = {
         'title': 'Supervisor Dashboard - PrimeTime',
-        'supervised_groups': supervised_groups,
+        'supervised_groups': supervised_groups,  # Original queryset
+        'groups_data': groups_data,  # New: custom data structure
         'supervised_students': supervised_students,
         'projects_to_review': projects_to_review,
         'pending_deliverables': pending_deliverables,
         
         # Statistics - FIXED
-        'total_groups': supervised_groups.count(),
+        'total_groups': len(groups_data),
         'total_students': total_students,
         'avg_progress': round(avg_progress, 1),
         'pending_reviews': pending_deliverables.count(),
         
-        'high_stress_students': high_stress_students,
+        'high_stress_students': high_stress_students_data[:10],  # Top 10
         'recent_submissions': recent_submissions,
+        
+        # Student progress data for template
+        'student_progress_data': student_progress_data,
         
         # Supervisor info
         'supervisor_profile': supervisor_profile,
@@ -322,8 +370,6 @@ def supervisor_dashboard(request):
     }
     
     return render(request, 'dashboard/supervisor/home.html', context)
-
-
 @login_required
 def switch_role(request):
     """Allow users to switch between roles if they have multiple roles"""

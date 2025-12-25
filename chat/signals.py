@@ -34,9 +34,10 @@ def create_group_chat_room(sender, instance, created, **kwargs):
             group=instance,
             is_active=True,
             is_frozen=True,  # Groups are time-restricted by default
-            schedule_start_time=instance.supervisor.profile.schedule_start_time if hasattr(instance.supervisor, 'profile') else None,
-            schedule_end_time=instance.supervisor.profile.schedule_end_time if hasattr(instance.supervisor, 'profile') else None,
-            schedule_days=getattr(instance.supervisor.profile, 'schedule_days', None) if hasattr(instance.supervisor, 'profile') else None
+            # FIX: Access schedule times from User model, not UserProfile
+            schedule_start_time=instance.supervisor.schedule_start_time,
+            schedule_end_time=instance.supervisor.schedule_end_time,
+            schedule_days=instance.supervisor.schedule_days
         )
         
         # Add supervisor to the room
@@ -46,7 +47,6 @@ def create_group_chat_room(sender, instance, created, **kwargs):
             user=instance.supervisor,
             notifications_enabled=True
         )
-
 
 @receiver(post_save, sender=GroupMembership)
 def add_student_to_group_chat(sender, instance, created, **kwargs):

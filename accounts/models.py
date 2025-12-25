@@ -409,6 +409,11 @@ class UniversityDatabase(models.Model):
     def __str__(self):
         return f"{self.user_id} - {self.full_name}"
     
+    def get_role_display(self):
+        """Get human-readable role name"""
+        role_dict = dict(User.ROLE_CHOICES)
+        return role_dict.get(self.role, self.role)
+    
     def create_user_from_entry(self, created_by=None):
         """Create a User instance from this database entry"""
         user = User(

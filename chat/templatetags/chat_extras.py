@@ -1,32 +1,34 @@
-# File: chat/templatetags/chat_extras.py
+# File: chat/templatetags/chat_extras.py - NEW FILE
+
 from django import template
 
 register = template.Library()
 
-@register.filter
-def extract_role(choice_label):
-    """Extract role from choice label format: 'Name (Role)'"""
-    if '(' in choice_label and ')' in choice_label:
-        role_start = choice_label.find('(') + 1
-        role_end = choice_label.find(')')
-        return choice_label[role_start:role_end]
-    return 'User'
 
 @register.filter
-def extract_name(choice_label):
-    """Extract name from choice label format: 'Name (Role)'"""
-    if '(' in choice_label:
-        return choice_label.split('(')[0].strip()
-    return choice_label
+def extract_name(label):
+    """Extract name from label like 'John Doe (Student)'"""
+    if '(' in label:
+        return label.split('(')[0].strip()
+    return label
+
+
+@register.filter
+def extract_role(label):
+    """Extract role from label like 'John Doe (Student)'"""
+    if '(' in label and ')' in label:
+        role = label.split('(')[1].split(')')[0].strip().lower()
+        return role
+    return 'student'
+
 
 @register.filter
 def role_badge_class(role):
-    """Get CSS class for role badge"""
+    """Return CSS class for role badge"""
     role = role.lower()
     if role == 'admin':
         return 'role-admin'
     elif role == 'supervisor':
         return 'role-supervisor'
-    elif role == 'student':
+    else:
         return 'role-student'
-    return 'role-user'

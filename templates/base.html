@@ -232,8 +232,12 @@
                     {% endif %}
                     
                     {% if user.is_supervisor %}
-                    <a href="{% url 'projects:supervisor_projects' %}" class="nav-link">
+                    <a href="/groups/my-group/" class="nav-link">
                         <i class='bx bx-group'></i> My Group
+                    </a>
+                    <!-- ADD THIS LINE: -->
+                    <a href="{% url 'projects:supervisor_projects' %}" class="nav-link">
+                        <i class='bx bx-folder-open'></i> My Projects
                     </a>
                     <a href="{% url 'analytics:supervisor_analytics' %}" class="nav-link">
                         <i class='bx bx-stats'></i> Analytics
@@ -243,6 +247,9 @@
                     {% if user.is_superuser or user.is_admin %}
                     <a href="{% url 'projects:all_projects' %}" class="nav-link">
                         <i class='bx bx-folder-open'></i> Projects
+                    </a>
+                    <a href="{% url 'groups:group_list' %}" class="nav-link">
+                        <i class='bx bx-group'></i> Groups
                     </a>
                     <a href="{% url 'accounts:user_list' %}" class="nav-link">
                         <i class='bx bx-user'></i> Users
@@ -348,7 +355,7 @@
                         </a>
                         {% endif %}
                         
-                        {% if user.is_supervisor %}
+                        {% if user.is_admin %}
                         <a href="{% url 'groups:group_list' %}">
                             <i class='bx bx-group'></i> Manage Groups
                         </a>

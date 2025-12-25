@@ -1,13 +1,67 @@
+<!-- File: templates/groups/group_form.html - IMPROVED -->
+
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
 
 {% block title %}{{ title }} - Groups{% endblock %}
 
+{% block extra_css %}
+<style>
+    .form-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .form-section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .info-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .checkbox-grid {
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 10px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    
+    .student-checkbox-item {
+        padding: 10px;
+        border-bottom: 1px solid #f3f4f6;
+        transition: background 0.2s;
+    }
+    
+    .student-checkbox-item:hover {
+        background: #f9fafb;
+    }
+    
+    .student-checkbox-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
+        <div class="col-md-10">
+            <div class="card shadow">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">
                         <i class='bx {% if group %}bx-edit{% else %}bx-plus{% endif %}'></i>
@@ -15,9 +69,135 @@
                     </h4>
                 </div>
                 <div class="card-body">
+                    {% if is_creating %}
+                    <div class="info-banner">
+                        <div class="d-flex align-items-start">
+                            <i class='bx bx-info-circle' style="font-size: 24px; margin-right: 12px;"></i>
+                            <div>
+                                <strong>Advanced Group Creation</strong>
+                                <p class="mb-0 mt-1">
+                                    Configure all group settings and optionally add students during creation.
+                                    For a faster setup, try <a href="{% url 'groups:quick_create' %}" class="text-white" style="text-decoration: underline;">Quick Create</a>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <form method="post">
                         {% csrf_token %}
-                        {{ form|crispy }}
+                        
+                        <!-- Basic Information -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class='bx bx-info-circle'></i> Basic Information
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.name.id_for_label }}" class="form-label">
+                                        Group Name <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                    <div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ form.batch_year.id_for_label }}" class="form-label">
+                                        Batch Year <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.batch_year }}
+                                    {% if form.batch_year.errors %}
+                                    <div class="text-danger small mt-1">{{ form.batch_year.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.supervisor.id_for_label }}" class="form-label">
+                                    Supervisor <span class="text-danger">*</span>
+                                </label>
+                                {{ form.supervisor }}
+                                {% if form.supervisor.errors %}
+                                <div class="text-danger small mt-1">{{ form.supervisor.errors.0 }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">
+                                    Each supervisor can only have one active group per batch year
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Capacity Settings -->
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class='bx bx-group'></i> Capacity Settings
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.min_students.id_for_label }}" class="form-label">
+                                        Minimum Students <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.min_students }}
+                                    {% if form.min_students.errors %}
+                                    <div class="text-danger small mt-1">{{ form.min_students.errors.0 }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">Min: 1</small>
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <label for="{{ form.max_students.id_for_label }}" class="form-label">
+                                        Maximum Students <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.max_students }}
+                                    {% if form.max_students.errors %}
+                                    <div class="text-danger small mt-1">{{ form.max_students.errors.0 }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">Max: 20</small>
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Status</label>
+                                    <div class="form-check form-switch">
+                                        {{ form.is_active }}
+                                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                            Active Group
+                                        </label>
+                                    </div>
+                                    <small class="form-text text-muted">Only active groups can accept students</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Students (Only for Creation) -->
+                        {% if is_creating and form.add_students %}
+                        <div class="form-section">
+                            <div class="form-section-title">
+                                <i class='bx bx-user-plus'></i> Add Students (Optional)
+                            </div>
+                            
+                            <p class="text-muted small mb-3">
+                                <i class='bx bx-info-circle'></i>
+                                You can add students now or later. Only students not in any other group are shown.
+                            </p>
+                            
+                            <div class="checkbox-grid">
+                                {{ form.add_students }}
+                            </div>
+                            
+                            {% if form.add_students.errors %}
+                            <div class="text-danger small mt-2">{{ form.add_students.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
 
                         <div class="d-flex justify-content-between mt-4">
                             <a href="{% if group %}{% url 'groups:group_detail' group.pk %}{% else %}{% url 'groups:group_list' %}{% endif %}"
@@ -25,7 +205,8 @@
                                 <i class='bx bx-x'></i> Cancel
                             </a>
                             <button type="submit" class="btn btn-primary">
-                                <i class='bx bx-save'></i> {% if group %}Update{% else %}Create{% endif %} Group
+                                <i class='bx bx-save'></i> 
+                                {% if group %}Update Group{% else %}Create Group{% endif %}
                             </button>
                         </div>
                     </form>
@@ -52,4 +233,17 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Style checkbox items
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        const parent = cb.closest('label') || cb.parentElement;
+        if (parent && !parent.classList.contains('form-check')) {
+            parent.classList.add('student-checkbox-item');
+        }
+    });
+});
+</script>
 {% endblock %}

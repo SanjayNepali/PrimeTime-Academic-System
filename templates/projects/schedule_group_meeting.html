@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Schedule Group Meeting{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2>Schedule Group Meeting</h2>
+    <p class="text-muted">{{ group.name }} - {{ student_count }} students</p>
+    
+    <div class="alert alert-info">
+        <strong>📅 Group Meeting</strong><br>
+        This meeting will be scheduled for ALL students in your group.
+        All students will receive notifications and see this in their calendar.
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        
+        <button type="submit" class="btn btn-primary">
+            Schedule Meeting for {{ student_count }} Students
+        </button>
+        <a href="{% url 'groups:my_group' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

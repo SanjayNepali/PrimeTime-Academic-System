@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}Record Meeting Minutes{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2>Record Meeting Minutes</h2>
+    <p class="text-muted">{{ group.name }} - {{ meeting.scheduled_date|date:"M d, Y g:i A" }}</p>
+    
+    <div class="card mb-4">
+        <div class="card-header">Original Agenda</div>
+        <div class="card-body">
+            {{ meeting.agenda|linebreaks }}
+        </div>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Attendance Section -->
+        <div class="card mb-4">
+            <div class="card-header">Student Attendance</div>
+            <div class="card-body">
+                {% for field in form %}
+                    {% if 'attendance_' in field.name %}
+                    <div class="form-check">
+                        {{ field }}
+                        {{ field.label_tag }}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Meeting Details -->
+        {{ form.discussion_summary.label_tag }}
+        {{ form.discussion_summary }}
+        
+        {{ form.action_items.label_tag }}
+        {{ form.action_items }}
+        
+        {{ form.next_steps.label_tag }}
+        {{ form.next_steps }}
+        
+        {{ form.supervisor_notes.label_tag }}
+        {{ form.supervisor_notes }}
+        
+        <button type="submit" class="btn btn-primary">Save Minutes</button>
+        <a href="{% url 'groups:my_group' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

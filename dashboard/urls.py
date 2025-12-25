@@ -14,6 +14,7 @@ urlpatterns = [
     # Add these missing routes for new features
     path('switch-role/', views.switch_role, name='switch_role'),
     path('profile/', views.user_profile, name='user_profile'),
-
+    path('api/student-stress/<int:student_id>/', views.student_stress_api, name='student_stress_api'),
+    path('api/supervisor-metrics/', views.supervisor_metrics_api, name='supervisor_metrics_api'),
     path('api/system-health/', views.system_health_api, name='system_health_api'),
 ]

@@ -1,5 +1,5 @@
 # File: projects/views.py - COMPLETE FIXED VERSION
-
+from django.db.models import F, Count, Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -13,6 +13,7 @@ from .forms import (
     ProjectForm, ProjectSubmitForm, ProjectReviewForm,
     ProjectDeliverableForm, DeliverableReviewForm
 )
+from groups.models import Group, GroupActivity, GroupMembership
 # CRITICAL IMPORTS FOR REAL STRESS ANALYSIS
 from analytics.sentiment import AdvancedSentimentAnalyzer
 from analytics.models import StressLevel
@@ -798,8 +799,8 @@ def deliverable_submit(request, pk):
 @login_required
 def assign_supervisor_page(request, pk):
     """
-    Supervisor assignment page with detailed view
-    Shows all supervisors with their workload
+    Supervisor assignment page with automatic group creation
+    When a supervisor is assigned to a project, a group is automatically created
     """
     if not request.user.is_admin:
         messages.error(request, 'Only admins can assign supervisors.')
@@ -820,59 +821,151 @@ def assign_supervisor_page(request, pk):
         
         try:
             supervisor = User.objects.get(id=supervisor_id, role='supervisor')
+            student = project.student
             
-            # Assign supervisor
+            # Step 1: Assign supervisor to project
             project.supervisor = supervisor
             if project.status == 'approved':
                 project.status = 'in_progress'
             project.save()
             
-            # Log activity
+            # Step 2: Find or create a group for this supervisor and batch
+            group_name = f"{supervisor.display_name}'s Group - Batch {project.batch_year}"
+            
+            # Try to find existing active group for this supervisor and batch with space
+            group = Group.objects.filter(
+                supervisor=supervisor,
+                batch_year=project.batch_year,
+                is_active=True
+            ).annotate(
+                student_count=Count('members', filter=Q(members__is_active=True))
+            ).filter(
+                student_count__lt=F('max_students')  # Group not full
+            ).first()
+            
+            # If no suitable group exists, create one
+            if not group:
+                # Count existing groups for unique naming
+                existing_groups_count = Group.objects.filter(
+                    supervisor=supervisor,
+                    batch_year=project.batch_year
+                ).count()
+                
+                if existing_groups_count > 0:
+                    group_name = f"{supervisor.display_name}'s Group {existing_groups_count + 1} - Batch {project.batch_year}"
+                
+                group = Group.objects.create(
+                    name=group_name,
+                    supervisor=supervisor,
+                    batch_year=project.batch_year,
+                    min_students=5,
+                    max_students=7,
+                    is_active=True,
+                    created_by=request.user
+                )
+                
+                # Log group creation
+                GroupActivity.objects.create(
+                    group=group,
+                    action='created',
+                    user=request.user,
+                    details=f'Group created automatically when assigning supervisor to {project.title}'
+                )
+            
+            # Step 3: Add student to the group
+            try:
+                # Check if student is already in this group
+                existing_membership = GroupMembership.objects.filter(
+                    group=group,
+                    student=student,
+                    is_active=True
+                ).first()
+                
+                if not existing_membership:
+                    # Add student to group
+                    group.add_student(student, added_by=request.user)
+                    
+                    messages.success(
+                        request,
+                        f'✓ Supervisor {supervisor.display_name} assigned to project<br>'
+                        f'✓ Student added to group "{group.name}"'
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f'✓ Supervisor {supervisor.display_name} assigned to project<br>'
+                        f'✓ Student already in group "{group.name}"'
+                    )
+            except ValueError as e:
+                # If group is full or other error, still complete the assignment
+                messages.warning(
+                    request,
+                    f'✓ Supervisor {supervisor.display_name} assigned to project<br>'
+                    f'⚠ Could not add to group: {str(e)}'
+                )
+            
+            # Step 4: Log activity
             ProjectActivity.objects.create(
                 project=project,
                 user=request.user,
                 action='supervisor_assigned',
-                details=f'Supervisor {supervisor.display_name} assigned to project'
+                details=f'Supervisor {supervisor.display_name} assigned and student added to group {group.name}'
             )
             
-            messages.success(
-                request, 
-                f'Supervisor {supervisor.display_name} successfully assigned to {project.title}!'
-            )
             return redirect('projects:all_projects')
             
         except User.DoesNotExist:
             messages.error(request, 'Invalid supervisor selected.')
             return redirect('projects:assign_supervisor_page', pk=pk)
     
-    # Get all supervisors with their workload
+    # GET request - show supervisor selection
     supervisors = User.objects.filter(role='supervisor').annotate(
-        supervised_count=Count('supervised_projects')
+        supervised_count=Count('supervised_projects', filter=Q(supervised_projects__status__in=['in_progress', 'approved']))
     ).order_by('supervised_count', 'full_name')
     
     # Calculate availability for each supervisor
     supervisor_data = []
     for supervisor in supervisors:
         supervised_count = supervisor.supervised_count
-        workload_percentage = min(int((supervised_count / 7) * 100), 100)
-        is_available = supervised_count < 7
+        
+        # Get supervisor's groups for this batch
+        supervisor_groups = Group.objects.filter(
+            supervisor=supervisor,
+            batch_year=project.batch_year,
+            is_active=True
+        ).annotate(
+            student_count=Count('members', filter=Q(members__is_active=True))
+        )
+        
+        # Calculate total capacity
+        total_capacity = sum(g.max_students for g in supervisor_groups)
+        current_students = sum(g.student_count for g in supervisor_groups)
+        
+        # Check if supervisor can take more students
+        max_capacity_per_supervisor = 21  # 3 groups × 7 students
+        is_available = current_students < max_capacity_per_supervisor
+        
+        workload_percentage = min(int((supervised_count / 21) * 100), 100)
         
         # Get current students
-        current_students = User.objects.filter(
+        current_students_list = User.objects.filter(
             projects__supervisor=supervisor,
             projects__status__in=['in_progress', 'approved']
-        ).distinct()
+        ).distinct()[:5]
         
         supervisor_data.append({
             'id': supervisor.id,
             'display_name': supervisor.display_name,
             'email': supervisor.email,
             'department': supervisor.department,
-            'profile': supervisor.profile,
+            'profile': supervisor.profile if hasattr(supervisor, 'profile') else None,
             'supervised_count': supervised_count,
             'workload_percentage': workload_percentage,
             'is_available': is_available,
-            'current_students': current_students
+            'current_students': current_students_list,
+            'groups_count': supervisor_groups.count(),
+            'total_capacity': total_capacity,
+            'current_load': current_students,
         })
     
     context = {
@@ -882,7 +975,6 @@ def assign_supervisor_page(request, pk):
     }
     
     return render(request, 'projects/assign_supervisor.html', context)
-
 @login_required
 def project_review(request, pk):
     """Review project (admin only)"""

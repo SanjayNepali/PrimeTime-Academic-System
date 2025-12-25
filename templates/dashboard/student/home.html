@@ -472,3 +472,46 @@
     {% endif %}
 </div>
 {% endblock %}
+<!-- Add this script at the end of the student dashboard template -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate progress bars
+    function animateProgressBars() {
+        const progressBars = document.querySelectorAll('.progress-bar');
+        progressBars.forEach(bar => {
+            const width = bar.getAttribute('aria-valuenow') || 0;
+            setTimeout(() => {
+                bar.style.width = width + '%';
+            }, 100);
+        });
+    }
+    
+    // Animate stress circle
+    function animateStressCircle() {
+        const stressCircle = document.querySelector('circle[stroke-dasharray]');
+        if (stressCircle) {
+            const stressLevel = {{ stress_level|default:0 }};
+            stressCircle.style.strokeDasharray = `${stressLevel} 377`;
+        }
+    }
+    
+    // Initialize animations
+    animateProgressBars();
+    animateStressCircle();
+    
+    // Auto-refresh stress data every 5 minutes
+    setInterval(() => {
+        fetch('/dashboard/api/system-health/')
+            .then(response => response.json())
+            .then(data => {
+                // Update stress display if available
+                if (data.stress_level !== undefined) {
+                    const stressValue = document.querySelector('.stress-value');
+                    if (stressValue) {
+                        stressValue.textContent = data.stress_level + '%';
+                    }
+                }
+            });
+    }, 300000);
+});
+</script>

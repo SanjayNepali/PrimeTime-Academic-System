@@ -1,218 +1,19 @@
-<!-- File: templates/projects/assign_supervisor.html -->
+<!-- File: templates/projects/assign_supervisor.html - ENHANCED VERSION -->
 
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Assign Supervisor - {{ project.title }}{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class='bx bx-user-plus'></i> Assign Supervisor</h2>
-            <p class="text-muted mb-0">{{ project.title }}</p>
-        </div>
-        <a href="{% url 'projects:all_projects' %}" class="btn btn-secondary">
-            <i class='bx bx-arrow-back'></i> Back
-        </a>
-    </div>
-
-    <div class="row">
-        <!-- Project Info -->
-        <div class="col-md-4 mb-4">
-            <div class="card modern-card">
-                <div class="card-header">
-                    <h5><i class='bx bx-info-circle'></i> Project Information</h5>
-                </div>
-                <div class="card-body">
-                    <div class="project-info-item">
-                        <label>Project Title</label>
-                        <p>{{ project.title }}</p>
-                    </div>
-                    
-                    <div class="project-info-item">
-                        <label>Student</label>
-                        <div class="student-display">
-                            <div class="student-avatar-sm">
-                                {% if project.student.profile.profile_picture %}
-                                    <img src="{{ project.student.profile.profile_picture.url }}" alt="">
-                                {% else %}
-                                    <i class='bx bx-user'></i>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <p class="mb-0">{{ project.student.display_name }}</p>
-                                <small class="text-muted">{{ project.student.user_id }}</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="project-info-item">
-                        <label>Department</label>
-                        <p>{{ project.student.department|default:"Not specified" }}</p>
-                    </div>
-
-                    <div class="project-info-item">
-                        <label>Batch Year</label>
-                        <p>{{ project.batch_year }}</p>
-                    </div>
-
-                    <div class="project-info-item">
-                        <label>Technologies</label>
-                        <div class="tech-tags-sm">
-                            {% for lang in project.languages_list %}
-                                <span class="badge bg-secondary">{{ lang }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div class="project-info-item">
-                        <label>Status</label>
-                        <span class="badge badge-{{ project.status }}">
-                            {{ project.get_status_display }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Assignment Guidelines -->
-            <div class="card modern-card">
-                <div class="card-header">
-                    <h5><i class='bx bx-help-circle'></i> Guidelines</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="small mb-0">
-                        <li>Check supervisor availability before assigning</li>
-                        <li>Consider supervisor expertise with project technologies</li>
-                        <li>Balance workload across supervisors</li>
-                        <li>Supervisors typically manage 5-7 students</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <!-- Available Supervisors -->
-        <div class="col-md-8">
-            <div class="card modern-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5><i class='bx bx-group'></i> Available Supervisors</h5>
-                    <span class="badge bg-info">{{ supervisors|length }} supervisors</span>
-                </div>
-                <div class="card-body">
-                    {% if supervisors %}
-                        <form method="post" id="assignForm">
-                            {% csrf_token %}
-                            <input type="hidden" name="supervisor_id" id="selectedSupervisorId">
-
-                            <div class="supervisors-grid">
-                                {% for supervisor in supervisors %}
-                                <div class="supervisor-card {% if supervisor.is_available %}available{% else %}overloaded{% endif %}" 
-                                     data-supervisor-id="{{ supervisor.id }}"
-                                     onclick="selectSupervisor({{ supervisor.id }})">
-                                    
-                                    <!-- Selection Checkbox -->
-                                    <div class="supervisor-select">
-                                        <input type="radio" 
-                                               name="supervisor_radio" 
-                                               value="{{ supervisor.id }}" 
-                                               id="supervisor_{{ supervisor.id }}">
-                                    </div>
-
-                                    <!-- Supervisor Info -->
-                                    <div class="supervisor-avatar">
-                                        {% if supervisor.profile.profile_picture %}
-                                            <img src="{{ supervisor.profile.profile_picture.url }}" alt="{{ supervisor.display_name }}">
-                                        {% else %}
-                                            <i class='bx bx-user-circle'></i>
-                                        {% endif %}
-                                    </div>
-
-                                    <div class="supervisor-details">
-                                        <h6>{{ supervisor.display_name }}</h6>
-                                        <p class="text-muted mb-1">{{ supervisor.email }}</p>
-                                        {% if supervisor.department %}
-                                        <p class="text-muted mb-2"><i class='bx bx-building'></i> {{ supervisor.department }}</p>
-                                        {% endif %}
-
-                                        <!-- Workload -->
-                                        <div class="workload-section">
-                                            <div class="workload-header">
-                                                <span>Current Students</span>
-                                                <strong>{{ supervisor.supervised_count }}/7</strong>
-                                            </div>
-                                            <div class="workload-bar">
-                                                <div class="workload-fill" style="width: {{ supervisor.workload_percentage }}%"></div>
-                                            </div>
-                                            {% if supervisor.is_available %}
-                                                <small class="text-success">
-                                                    <i class='bx bx-check-circle'></i> Available
-                                                </small>
-                                            {% else %}
-                                                <small class="text-warning">
-                                                    <i class='bx bx-error-circle'></i> Near capacity
-                                                </small>
-                                            {% endif %}
-                                        </div>
-
-                                        <!-- Current Students List (if any) -->
-                                        {% if supervisor.current_students %}
-                                        <div class="current-students-section mt-3">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary w-100" 
-                                                    onclick="toggleStudents(event, {{ supervisor.id }})">
-                                                <i class='bx bx-group'></i> View Students ({{ supervisor.current_students|length }})
-                                            </button>
-                                            <div class="students-list" id="students-{{ supervisor.id }}" style="display: none;">
-                                                {% for student in supervisor.current_students %}
-                                                <div class="student-item">
-                                                    <i class='bx bx-user'></i>
-                                                    <span>{{ student.display_name }}</span>
-                                                    <small class="text-muted">{{ student.user_id }}</small>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-
-                            <!-- Submit Button -->
-                            <div class="mt-4 text-center">
-                                <button type="submit" class="btn btn-primary btn-lg" id="assignButton" disabled>
-                                    <i class='bx bx-check'></i> Assign Selected Supervisor
-                                </button>
-                            </div>
-                        </form>
-                    {% else %}
-                        <div class="text-center py-5">
-                            <i class='bx bx-user-x' style="font-size: 4rem; color: #e5e7eb;"></i>
-                            <h5 class="mt-3">No Supervisors Available</h5>
-                            <p class="text-muted">There are no supervisors in the system.</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
+{% block extra_css %}
 <style>
-.supervisors-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-}
-
 .supervisor-card {
-    background: white;
     border: 2px solid #e5e7eb;
     border-radius: 12px;
     padding: 20px;
-    cursor: pointer;
+    margin-bottom: 16px;
     transition: all 0.3s ease;
-    position: relative;
+    cursor: pointer;
 }
 
 .supervisor-card:hover {
@@ -223,218 +24,303 @@
 
 .supervisor-card.selected {
     border-color: #5568FE;
-    background: rgba(85, 104, 254, 0.05);
+    background: #F6F8FB;
 }
 
-.supervisor-card.overloaded {
-    opacity: 0.7;
-}
-
-.supervisor-select {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-}
-
-.supervisor-select input[type="radio"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
+.supervisor-card.unavailable {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .supervisor-avatar {
-    width: 64px;
-    height: 64px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
-    background: #f6f8fb;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 16px;
-    overflow: hidden;
-}
-
-.supervisor-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.supervisor-avatar i {
-    font-size: 40px;
-    color: #6b7280;
-}
-
-.supervisor-details {
-    text-align: center;
-}
-
-.supervisor-details h6 {
-    margin: 0 0 8px 0;
+    font-size: 24px;
+    color: white;
     font-weight: 600;
-    color: #1a1d26;
-}
-
-.supervisor-details p {
-    font-size: 13px;
-    margin: 0;
-}
-
-.workload-section {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
-}
-
-.workload-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    font-size: 13px;
 }
 
 .workload-bar {
-    height: 8px;
+    height: 24px;
     background: #e5e7eb;
-    border-radius: 4px;
+    border-radius: 12px;
     overflow: hidden;
-    margin-bottom: 8px;
+    position: relative;
 }
 
 .workload-fill {
     height: 100%;
-    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-    transition: width 0.3s ease;
-}
-
-.supervisor-card.overloaded .workload-fill {
-    background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
-}
-
-.current-students-section {
-    text-align: left;
-}
-
-.students-list {
-    margin-top: 12px;
-    padding: 12px;
-    background: #f6f8fb;
-    border-radius: 8px;
-}
-
-.student-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px;
-    font-size: 13px;
-}
-
-.student-item i {
-    color: #6b7280;
-}
-
-.project-info-item {
-    margin-bottom: 20px;
-}
-
-.project-info-item:last-child {
-    margin-bottom: 0;
-}
-
-.project-info-item label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #6b7280;
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
-}
-
-.project-info-item p {
-    margin: 0;
-    color: #1a1d26;
-    font-weight: 500;
-}
-
-.student-display {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.student-avatar-sm {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: #e5e7eb;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+    transition: width 0.3s ease;
 }
 
-.student-avatar-sm img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.workload-low { background: #10B981; }
+.workload-medium { background: #F59E0B; }
+.workload-high { background: #EF4444; }
+
+.project-info-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 24px;
+    border-radius: 12px;
+    margin-bottom: 24px;
 }
 
-.student-avatar-sm i {
-    font-size: 24px;
-    color: #6b7280;
+.info-note {
+    background: #EFF6FF;
+    border-left: 4px solid #3B82F6;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
 }
-
-.tech-tags-sm {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.badge-draft { background: #6c757d; }
-.badge-pending { background: #ffc107; }
-.badge-approved { background: #28a745; }
 </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class='bx bx-user-check'></i> Assign Supervisor</h2>
+                    <p class="text-muted mb-0">Select a supervisor for this project</p>
+                </div>
+                <a href="{% url 'projects:all_projects' %}" class="btn btn-secondary">
+                    <i class='bx bx-arrow-back'></i> Back
+                </a>
+            </div>
+
+            <!-- Project Information Banner -->
+            <div class="project-info-banner">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="mb-2">{{ project.title }}</h4>
+                        <p class="mb-2 opacity-75">
+                            <i class='bx bx-user'></i> Student: {{ project.student.display_name }} ({{ project.student.user_id }})
+                        </p>
+                        <p class="mb-0 opacity-75">
+                            <i class='bx bx-code-alt'></i> Technologies: {{ project.programming_languages }}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="badge bg-light text-dark mb-2" style="font-size: 14px;">
+                            Batch {{ project.batch_year }}
+                        </div>
+                        <br>
+                        <span class="badge bg-success" style="font-size: 14px;">
+                            {{ project.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Important Note -->
+            <div class="info-note">
+                <h6 class="mb-2"><i class='bx bx-info-circle'></i> Automatic Group Assignment</h6>
+                <p class="mb-0">
+                    When you assign a supervisor to this project, the student will be <strong>automatically added to the supervisor's group</strong> for Batch {{ project.batch_year }}. 
+                    If no suitable group exists, a new group will be created automatically.
+                </p>
+            </div>
+
+            <!-- Supervisor Selection Form -->
+            <form method="post" id="supervisorForm">
+                {% csrf_token %}
+                
+                <div class="card modern-card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class='bx bx-users'></i> Available Supervisors
+                            <small class="text-muted">({{ supervisors|length }} supervisors)</small>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="supervisor_id" id="supervisor_id" required>
+                        
+                        <div id="supervisorList">
+                            {% for supervisor in supervisors %}
+                            <div class="supervisor-card {% if not supervisor.is_available %}unavailable{% endif %}" 
+                                 data-supervisor-id="{{ supervisor.id }}"
+                                 onclick="{% if supervisor.is_available %}selectSupervisor({{ supervisor.id }}){% else %}return false;{% endif %}">
+                                <div class="row align-items-center">
+                                    <!-- Avatar & Basic Info -->
+                                    <div class="col-md-3">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="supervisor-avatar">
+                                                {{ supervisor.display_name|slice:":2"|upper }}
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1">{{ supervisor.display_name }}</h6>
+                                                <small class="text-muted">{{ supervisor.department|default:"No Department" }}</small>
+                                                {% if not supervisor.is_available %}
+                                                <br><span class="badge bg-danger">Full Capacity</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Workload Info -->
+                                    <div class="col-md-4">
+                                        <small class="text-muted d-block mb-1">
+                                            Current Workload: {{ supervisor.supervised_count }} students
+                                        </small>
+                                        <div class="workload-bar">
+                                            <div class="workload-fill workload-{% if supervisor.workload_percentage < 50 %}low{% elif supervisor.workload_percentage < 80 %}medium{% else %}high{% endif %}" 
+                                                 style="width: {{ supervisor.workload_percentage }}%">
+                                                {{ supervisor.workload_percentage }}%
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">
+                                            Groups: {{ supervisor.groups_count }} | 
+                                            Capacity: {{ supervisor.current_load }}/{{ supervisor.total_capacity }}
+                                        </small>
+                                    </div>
+
+                                    <!-- Current Students -->
+                                    <div class="col-md-4">
+                                        <small class="text-muted d-block mb-2">Current Students:</small>
+                                        {% if supervisor.current_students %}
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for student in supervisor.current_students %}
+                                            <span class="badge bg-secondary" style="font-size: 11px;">
+                                                {{ student.display_name|truncatechars:15 }}
+                                            </span>
+                                            {% endfor %}
+                                            {% if supervisor.supervised_count > 5 %}
+                                            <span class="badge bg-secondary" style="font-size: 11px;">
+                                                +{{ supervisor.supervised_count|add:"-5" }} more
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        {% else %}
+                                        <span class="text-muted">No students yet</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Selection Indicator -->
+                                    <div class="col-md-1 text-center">
+                                        <i class='bx bx-check-circle selection-icon' style="font-size: 32px; color: #5568FE; display: none;"></i>
+                                        {% if not supervisor.is_available %}
+                                        <i class='bx bx-x-circle' style="font-size: 32px; color: #EF4444;"></i>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center py-5">
+                                <i class='bx bx-user-x' style="font-size: 4rem; color: #d1d5db;"></i>
+                                <h5 class="mt-3 text-muted">No Supervisors Available</h5>
+                                <p class="text-muted">Please add supervisors to the system first.</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        {% if supervisors %}
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <div id="selectionMessage" class="text-muted" style="display: none;">
+                                <i class='bx bx-check-circle'></i> 
+                                <span id="selectedSupervisorName"></span> selected
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg" id="assignButton" disabled>
+                                <i class='bx bx-user-check'></i> Assign Supervisor & Create/Join Group
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+
+            <!-- Legend -->
+            <div class="card modern-card mt-4">
+                <div class="card-body">
+                    <h6 class="mb-3">Workload Legend:</h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width: 30px; height: 20px; background: #10B981; border-radius: 4px;"></div>
+                                <span><strong>Low</strong> (0-50%) - Available</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width: 30px; height: 20px; background: #F59E0B; border-radius: 4px;"></div>
+                                <span><strong>Medium</strong> (50-80%) - Moderate load</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width: 30px; height: 20px; background: #EF4444; border-radius: 4px;"></div>
+                                <span><strong>High</strong> (80%+) - Near capacity</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
+let selectedSupervisorId = null;
+
 function selectSupervisor(supervisorId) {
-    // Deselect all
+    // Remove selection from all cards
     document.querySelectorAll('.supervisor-card').forEach(card => {
         card.classList.remove('selected');
+        card.querySelector('.selection-icon').style.display = 'none';
     });
-
-    // Select clicked
+    
+    // Select the clicked card
     const selectedCard = document.querySelector(`[data-supervisor-id="${supervisorId}"]`);
-    selectedCard.classList.add('selected');
-
-    // Update radio button
-    document.getElementById(`supervisor_${supervisorId}`).checked = true;
-
-    // Update hidden input
-    document.getElementById('selectedSupervisorId').value = supervisorId;
-
-    // Enable submit button
-    document.getElementById('assignButton').disabled = false;
-}
-
-function toggleStudents(event, supervisorId) {
-    event.stopPropagation();
-    const studentsList = document.getElementById(`students-${supervisorId}`);
-    if (studentsList.style.display === 'none') {
-        studentsList.style.display = 'block';
-    } else {
-        studentsList.style.display = 'none';
+    if (selectedCard && !selectedCard.classList.contains('unavailable')) {
+        selectedCard.classList.add('selected');
+        selectedCard.querySelector('.selection-icon').style.display = 'block';
+        
+        // Update form
+        document.getElementById('supervisor_id').value = supervisorId;
+        selectedSupervisorId = supervisorId;
+        
+        // Show selection message
+        const supervisorName = selectedCard.querySelector('h6').textContent;
+        document.getElementById('selectedSupervisorName').textContent = supervisorName;
+        document.getElementById('selectionMessage').style.display = 'block';
+        
+        // Enable submit button
+        document.getElementById('assignButton').disabled = false;
     }
 }
 
 // Form validation
-document.getElementById('assignForm')?.addEventListener('submit', function(e) {
-    const supervisorId = document.getElementById('selectedSupervisorId').value;
-    if (!supervisorId) {
+document.getElementById('supervisorForm').addEventListener('submit', function(e) {
+    if (!selectedSupervisorId) {
         e.preventDefault();
-        alert('Please select a supervisor before submitting.');
+        alert('Please select a supervisor');
+        return false;
+    }
+    
+    // Confirm assignment
+    const confirmed = confirm(
+        'This will:\n\n' +
+        '1. Assign the supervisor to this project\n' +
+        '2. Automatically add the student to the supervisor\'s group\n' +
+        '3. Create a new group if needed\n\n' +
+        'Are you sure you want to proceed?'
+    );
+    
+    if (!confirmed) {
+        e.preventDefault();
+        return false;
     }
 });
 </script>

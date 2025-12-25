@@ -1,13 +1,13 @@
-# File: groups/models.py
+# File: groups/models.py - COMPLETE FIXED VERSION
 
 from django.db import models
-from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from accounts.models import User
 
 
 class Group(models.Model):
-    """Project groups with supervisor and students"""
+    """Project groups supervised by faculty"""
     
     name = models.CharField(max_length=100)
     supervisor = models.ForeignKey(
@@ -16,17 +16,22 @@ class Group(models.Model):
         related_name='supervised_groups',
         limit_choices_to={'role': 'supervisor'}
     )
-    batch_year = models.IntegerField()
     
-    # Group settings
-    max_students = models.IntegerField(default=7)
-    min_students = models.IntegerField(default=5)
+    # Group constraints
+    min_students = models.IntegerField(
+        default=5,
+        validators=[MinValueValidator(1)]
+    )
+    max_students = models.IntegerField(
+        default=7,
+        validators=[MinValueValidator(1)]
+    )
     
     # Status
     is_active = models.BooleanField(default=True)
-    is_full = models.BooleanField(default=False)
+    batch_year = models.IntegerField()
     
-    # Timestamps
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -37,93 +42,74 @@ class Group(models.Model):
     )
     
     class Meta:
-        ordering = ['-batch_year', 'name']
+        ordering = ['-created_at']
         unique_together = ['name', 'batch_year']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['supervisor', 'batch_year'],
-                condition=models.Q(is_active=True),
-                name='unique_active_supervisor_per_batch'
-            ),
+        indexes = [
+            models.Index(fields=['supervisor', 'is_active']),
+            models.Index(fields=['batch_year']),
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.batch_year}) - {self.supervisor.get_full_name()}"
-    
-    def clean(self):
-        """Additional validation"""
-        # Check if supervisor already has active group in this batch
-        if self.is_active and self.supervisor and self.batch_year:
-            existing_group = Group.objects.filter(
-                supervisor=self.supervisor,
-                batch_year=self.batch_year,
-                is_active=True
-            ).exclude(pk=self.pk).first()
-            
-            if existing_group:
-                raise ValidationError(
-                    f'Supervisor {self.supervisor.get_full_name()} already has an active group '
-                    f'({existing_group.name}) in batch year {self.batch_year}.'
-                )
-        
-        # Validate group name uniqueness in same batch year
-        if self.name and self.batch_year:
-            existing_group = Group.objects.filter(
-                name__iexact=self.name.strip(),
-                batch_year=self.batch_year,
-                is_active=True
-            ).exclude(pk=self.pk).first()
-            
-            if existing_group:
-                raise ValidationError(
-                    f'A group named "{self.name}" already exists in batch year {self.batch_year}.'
-                )
-    
-    def save(self, *args, **kwargs):
-        # Run validation before saving
-        self.full_clean()
-        super().save(*args, **kwargs)
+        return f"{self.name} ({self.batch_year}) - {self.supervisor.display_name}"
     
     @property
     def student_count(self):
-        """Get current number of students in group"""
+        """Get current number of active students"""
         return self.members.filter(is_active=True).count()
+    
+    @property
+    def is_full(self):
+        """Check if group has reached maximum capacity"""
+        return self.student_count >= self.max_students
     
     @property
     def available_slots(self):
         """Get number of available slots"""
-        return self.max_students - self.student_count
+        return max(0, self.max_students - self.student_count)
     
-    def add_student(self, student):
+    @property
+    def can_start(self):
+        """Check if group meets minimum requirements"""
+        return self.student_count >= self.min_students
+    
+    def add_student(self, student, added_by=None):
         """Add a student to the group"""
         if self.is_full:
-            raise ValidationError("Group is already full")
+            raise ValueError(f"Group {self.name} is full")
         
-        if student.role != 'student':
-            raise ValidationError("Only students can be added to groups")
-        
-        # Check if student already in a group
-        existing = GroupMembership.objects.filter(
+        # Check if student is already in another active group
+        existing_membership = GroupMembership.objects.filter(
             student=student,
             is_active=True
-        ).exists()
+        ).exclude(group=self).first()
         
-        if existing:
-            raise ValidationError("Student is already in another group")
+        if existing_membership:
+            raise ValueError(f"Student is already in group {existing_membership.group.name}")
         
-        membership = GroupMembership.objects.create(
+        # Create membership
+        membership, created = GroupMembership.objects.get_or_create(
             group=self,
-            student=student
+            student=student,
+            defaults={'added_by': added_by}
         )
         
-        # Update full status
-        if self.student_count >= self.max_students:
-            self.is_full = True
-            self.save()
+        if not created:
+            # Reactivate if was previously inactive
+            membership.is_active = True
+            membership.joined_at = timezone.now()
+            membership.save()
+        
+        # Log activity
+        GroupActivity.objects.create(
+            group=self,
+            action='student_added',
+            user=added_by,
+            details=f'{student.display_name} added to group'
+        )
         
         return membership
     
-    def remove_student(self, student):
+    def remove_student(self, student, removed_by=None):
         """Remove a student from the group"""
         try:
             membership = GroupMembership.objects.get(
@@ -135,21 +121,21 @@ class Group(models.Model):
             membership.left_at = timezone.now()
             membership.save()
             
-            # Update full status
-            if self.is_full and self.student_count < self.max_students:
-                self.is_full = False
-                self.save()
-                
+            # Log activity
+            GroupActivity.objects.create(
+                group=self,
+                action='student_removed',
+                user=removed_by,
+                details=f'{student.display_name} removed from group'
+            )
+            
+            return True
         except GroupMembership.DoesNotExist:
-            raise ValidationError("Student not in this group")
-    
-    def can_start(self):
-        """Check if group has minimum students to start"""
-        return self.student_count >= self.min_students
+            return False
 
 
 class GroupMembership(models.Model):
-    """Track student membership in groups"""
+    """Many-to-many relationship between students and groups"""
     
     group = models.ForeignKey(
         Group,
@@ -170,20 +156,32 @@ class GroupMembership(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
     left_at = models.DateTimeField(null=True, blank=True)
     
+    # Who added the student
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='students_added'
+    )
+    
     class Meta:
-        ordering = ['-joined_at']
+        ordering = ['joined_at']
         unique_together = ['group', 'student']
+        indexes = [
+            models.Index(fields=['student', 'is_active']),
+            models.Index(fields=['group', 'is_active']),
+        ]
     
     def __str__(self):
-        status = "Active" if self.is_active else "Inactive"
-        return f"{self.student.get_full_name()} in {self.group.name} ({status})"
+        return f"{self.student.display_name} in {self.group.name}"
 
 
 class GroupActivity(models.Model):
-    """Track group-related activities"""
+    """Track activities within a group"""
     
     ACTION_CHOICES = [
         ('created', 'Group Created'),
+        ('updated', 'Group Updated'),
         ('student_added', 'Student Added'),
         ('student_removed', 'Student Removed'),
         ('supervisor_changed', 'Supervisor Changed'),
@@ -196,12 +194,12 @@ class GroupActivity(models.Model):
         on_delete=models.CASCADE,
         related_name='activities'
     )
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
     user = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True
     )
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
     details = models.TextField(blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     

@@ -1,4 +1,4 @@
-# File: dashboard/views.py
+# File: dashboard/views.py - COMPLETE FIXED VERSION
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -35,11 +35,11 @@ def dashboard_home(request):
 
 @login_required
 def admin_dashboard(request):
-    """Admin dashboard - UPDATED with accurate counts"""
+    """Admin dashboard with accurate counts"""
     
     user = request.user
     
-    # Check permissions - allow superusers and admin roles
+    # Check permissions
     if not (user.is_superuser or user.is_admin):
         messages.error(request, 'Access denied. Admin privileges required.')
         return redirect('dashboard:home')
@@ -50,15 +50,13 @@ def admin_dashboard(request):
         is_superuser=False
     ).exclude(id=request.user.id)
     
-    # CORRECTED: User statistics - COUNT ALL USERS PROPERLY
+    # User statistics
     total_users = User.objects.filter(is_superuser=False).count()
-    
-    # CORRECTED: Count by role using the actual role field
     students_count = User.objects.filter(role='student').count()
     supervisors_count = User.objects.filter(role='supervisor').count()
     admins_count = User.objects.filter(role='admin').count()
     
-    # CORRECTED: Recent activity - count users created in last 7 days
+    # Recent activity
     week_ago = timezone.now() - timedelta(days=7)
     recent_users_count = User.objects.filter(
         created_at__gte=week_ago,
@@ -70,18 +68,17 @@ def admin_dashboard(request):
         is_superuser=False
     ).order_by('-created_at')[:5]
     
-    # CORRECTED: Project statistics with accurate counts
+    # Project statistics
     pending_projects_count = Project.objects.filter(status='pending').count()
     approved_projects_count = Project.objects.filter(status='approved').count()
     completed_projects_count = Project.objects.filter(status='completed').count()
     in_progress_projects_count = Project.objects.filter(status='in_progress').count()
     
-    # CORRECTED: Get pending projects for display
     pending_projects_list = Project.objects.filter(
         status='pending'
     ).select_related('student')[:5]
     
-    # Get REAL chart data for dashboard
+    # Get chart data
     weekly_activity_data = DashboardCalculator.get_weekly_activity_data()
     user_distribution_data = DashboardCalculator.get_user_distribution_data()
     system_health_metrics = DashboardCalculator.get_system_health_metrics()
@@ -89,14 +86,14 @@ def admin_dashboard(request):
     context = {
         'title': 'Admin Dashboard - PrimeTime',
         
-        # User statistics - UPDATED WITH ACCURATE COUNTS
+        # User statistics
         'total_users': total_users,
-        'pending_users': users_with_passwords.count(),  # Users needing password reset
+        'pending_users': users_with_passwords.count(),
         'students_count': students_count,
         'supervisors_count': supervisors_count,
         'admins_count': admins_count,
         
-        # CORRECTED: Project statistics with accurate variable names
+        # Project statistics
         'pending_projects': pending_projects_count,
         'approved_projects': approved_projects_count,
         'completed_projects': completed_projects_count,
@@ -105,7 +102,7 @@ def admin_dashboard(request):
         # User management
         'users_with_passwords': users_with_passwords,
         'recent_users': recent_users,
-        'recent_users_count': recent_users_count,  # Add this for display
+        'recent_users_count': recent_users_count,
         'pending_projects_list': pending_projects_list,
         
         # Chart data
@@ -120,9 +117,10 @@ def admin_dashboard(request):
     
     return render(request, 'dashboard/admin/home_enhanced.html', context)
 
+
 @login_required
 def student_dashboard(request):
-    """Student dashboard with project status and progress - UPDATED with strict stress validation"""
+    """Student dashboard with project status and progress"""
     
     if not request.user.is_student:
         messages.error(request, 'Access denied. Students only.')
@@ -150,19 +148,14 @@ def student_dashboard(request):
     except GroupMembership.DoesNotExist:
         group = None
     
-    # STRICT STRESS LEVEL CALCULATION - Only show if meaningful data exists
+    # Stress level calculation
     stress_level = 0
     has_stress_data = False
     
-    # Get latest stress level
     latest_stress = StressLevel.objects.filter(student=student).order_by('-calculated_at').first()
     if latest_stress and latest_stress.level > 10:
         stress_level = latest_stress.level
         has_stress_data = True
-    else:
-        # No meaningful stress data available
-        stress_level = 0
-        has_stress_data = False
     
     # Calculate progress
     progress = project.progress_percentage if project else 0
@@ -176,11 +169,12 @@ def student_dashboard(request):
         ]
     
     # Recent activities
-    recent_activities = ProjectActivity.objects.filter(
-        project=project
-    ).order_by('-timestamp')[:5]
+    recent_activities = []
+    if project:
+        recent_activities = ProjectActivity.objects.filter(
+            project=project
+        ).order_by('-timestamp')[:5]
     
-    # Student-specific stats - UPDATED with new fields
     context = {
         'title': 'Student Dashboard - PrimeTime',
         'project': project,
@@ -188,6 +182,7 @@ def student_dashboard(request):
         'progress': progress,
         'stress_level': stress_level,
         'has_stress_data': has_stress_data,
+        'latest_stress': latest_stress,
         'upcoming_deadlines': upcoming_deadlines,
         'recent_activities': recent_activities,
         
@@ -200,13 +195,12 @@ def student_dashboard(request):
             is_approved=True
         ).count() if project else 0,
         
-        # Student info from new fields - UPDATED
+        # Student info
         'student_id': student.user_id,
         'department': student.department,
         'enrollment_year': student.enrollment_year,
         'batch_year': student.batch_year,
         
-        # Feedback count (placeholder)
         'feedback_count': 0,
     }
     
@@ -215,7 +209,7 @@ def student_dashboard(request):
 
 @login_required
 def supervisor_dashboard(request):
-    """Supervisor dashboard with group management - UPDATED"""
+    """Supervisor dashboard with group management - COMPLETELY FIXED"""
     
     if not request.user.is_supervisor:
         messages.error(request, 'Access denied. Supervisors only.')
@@ -223,17 +217,20 @@ def supervisor_dashboard(request):
     
     supervisor = request.user
     
-    # Get supervisor's groups
+    # Get supervisor's groups - FIXED QUERY
     supervised_groups = Group.objects.filter(
         supervisor=supervisor,
         is_active=True
-    ).prefetch_related('members')
+    ).annotate(
+        student_count=Count('members', filter=Q(members__is_active=True))
+    ).prefetch_related('members__student')
     
-    # Get all supervised students
+    # Get all supervised students - FIXED QUERY
     supervised_students = User.objects.filter(
         group_memberships__group__supervisor=supervisor,
-        group_memberships__is_active=True
-    ).distinct()
+        group_memberships__is_active=True,
+        role='student'
+    ).distinct().prefetch_related('projects')
     
     # Get projects needing review
     projects_to_review = Project.objects.filter(
@@ -249,27 +246,57 @@ def supervisor_dashboard(request):
     
     # Calculate statistics
     total_students = supervised_students.count()
-    avg_progress = Project.objects.filter(
-        supervisor=supervisor,
-        status__in=['in_progress', 'completed']
-    ).aggregate(Avg('progress_percentage'))['progress_percentage__avg'] or 0
     
-    # Students with high stress (placeholder)
+    # Calculate average progress from actual projects
+    avg_progress = 0
+    if total_students > 0:
+        projects_with_progress = Project.objects.filter(
+            supervisor=supervisor,
+            status__in=['in_progress', 'completed']
+        )
+        if projects_with_progress.exists():
+            avg_progress = projects_with_progress.aggregate(
+                Avg('progress_percentage')
+            )['progress_percentage__avg'] or 0
+    
+    # Get high stress students - FIXED QUERY
     high_stress_students = []
+    for student in supervised_students[:10]:
+        try:
+            latest_stress = StressLevel.objects.filter(
+                student=student
+            ).order_by('-calculated_at').first()
+            
+            if latest_stress and latest_stress.level >= 60:
+                student.stress_level = latest_stress.level
+                high_stress_students.append(student)
+        except Exception:
+            continue
     
     # Recent submissions
     recent_submissions = ProjectDeliverable.objects.filter(
         project__supervisor=supervisor
     ).order_by('-submitted_at')[:5]
     
-    # Supervisor profile info - UPDATED
+    # Supervisor profile info
     try:
         supervisor_profile = UserProfile.objects.get(user=supervisor)
         max_groups = supervisor_profile.max_groups
         specialization = supervisor_profile.specialization
     except UserProfile.DoesNotExist:
+        supervisor_profile = None
         max_groups = 3
         specialization = ""
+    
+    # Add stress levels to supervised students for display
+    for student in supervised_students[:20]:
+        try:
+            latest_stress = StressLevel.objects.filter(
+                student=student
+            ).order_by('-calculated_at').first()
+            student.stress_level = latest_stress.level if latest_stress else 0
+        except Exception:
+            student.stress_level = 0
     
     context = {
         'title': 'Supervisor Dashboard - PrimeTime',
@@ -278,7 +305,7 @@ def supervisor_dashboard(request):
         'projects_to_review': projects_to_review,
         'pending_deliverables': pending_deliverables,
         
-        # Statistics
+        # Statistics - FIXED
         'total_groups': supervised_groups.count(),
         'total_students': total_students,
         'avg_progress': round(avg_progress, 1),
@@ -287,7 +314,7 @@ def supervisor_dashboard(request):
         'high_stress_students': high_stress_students,
         'recent_submissions': recent_submissions,
         
-        # Supervisor info from new fields - UPDATED
+        # Supervisor info
         'supervisor_profile': supervisor_profile,
         'max_groups': max_groups,
         'specialization': specialization,
@@ -333,7 +360,7 @@ def switch_role(request):
 
 @login_required
 def user_profile(request):
-    """User profile page showing both User and UserProfile data - UPDATED"""
+    """User profile page showing both User and UserProfile data"""
     
     user = request.user
     
@@ -369,7 +396,6 @@ def user_profile(request):
     return render(request, 'accounts/profile.html', context)
 
 
-# NEW: API endpoint for system health data
 @login_required
 def system_health_api(request):
     """API endpoint for system health metrics (AJAX)"""
@@ -381,3 +407,76 @@ def system_health_api(request):
         return JsonResponse(system_health_metrics)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def student_stress_api(request, student_id):
+    """Return latest stress level for a student (AJAX API)"""
+
+    # Permission check
+    if not (
+        request.user.is_admin or
+        request.user.is_superuser or
+        request.user.is_supervisor or
+        request.user.user_id == student_id
+    ):
+        return JsonResponse({'error': 'Access denied'}, status=403)
+
+    try:
+        student = User.objects.get(user_id=student_id, role='student')
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'Student not found'}, status=404)
+
+    latest_stress = StressLevel.objects.filter(
+        student=student
+    ).order_by('-calculated_at').first()
+
+    if not latest_stress:
+        return JsonResponse({
+            'student_id': student_id,
+            'stress_level': 0,
+            'has_data': False
+        })
+
+    return JsonResponse({
+        'student_id': student_id,
+        'stress_level': latest_stress.level,
+        'has_data': True,
+        'calculated_at': latest_stress.calculated_at
+    })
+@login_required
+def supervisor_metrics_api(request):
+    """Return dashboard metrics for supervisor (AJAX API)"""
+
+    if not request.user.is_supervisor:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+
+    supervisor = request.user
+
+    total_students = User.objects.filter(
+        group_memberships__group__supervisor=supervisor,
+        group_memberships__is_active=True,
+        role='student'
+    ).distinct().count()
+
+    total_projects = Project.objects.filter(
+        supervisor=supervisor
+    ).count()
+
+    pending_deliverables = ProjectDeliverable.objects.filter(
+        project__supervisor=supervisor,
+        is_approved=False
+    ).count()
+
+    avg_progress = Project.objects.filter(
+        supervisor=supervisor,
+        status__in=['in_progress', 'completed']
+    ).aggregate(
+        Avg('progress_percentage')
+    )['progress_percentage__avg'] or 0
+
+    return JsonResponse({
+        'total_students': total_students,
+        'total_projects': total_projects,
+        'pending_deliverables': pending_deliverables,
+        'avg_progress': round(avg_progress, 1),
+    })

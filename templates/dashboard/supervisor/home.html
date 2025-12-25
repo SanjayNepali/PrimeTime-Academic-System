@@ -1,4 +1,4 @@
-<!-- File: templates/dashboard/supervisor/home_enhanced.html -->
+<!-- File: templates/dashboard/supervisor/home.html - COMPLETE FIXED VERSION -->
 
 {% extends 'dashboard/base_dashboard.html' %}
 {% load static %}
@@ -19,7 +19,7 @@
                 </p>
             </div>
             <div class="col-md-4 text-end">
-                <button class="btn btn-outline-primary me-2" onclick="refreshDashboard()">
+                <button class="btn btn-outline-primary me-2" onclick="location.reload()">
                     <i class='bx bx-refresh'></i> Refresh
                 </button>
                 <a href="{% url 'analytics:supervisor_analytics' %}" class="btn btn-primary">
@@ -73,7 +73,7 @@
                         <div class="stat-label">Avg Progress</div>
                         <div class="stat-value">{{ avg_progress|floatformat:0 }}%</div>
                         <div class="small text-muted">Across all projects</div>
-                        {% if avg_progress >= 75 %}
+                        {% if avg_progress >= 50 %}
                         <span class="stat-change positive">
                             <i class='bx bx-trending-up'></i> On track
                         </span>
@@ -124,65 +124,22 @@
                             <i class='bx bx-folder'></i>
                             <span>View Projects</span>
                         </a>
-                        <a href="{% url 'events:supervisor_review_submissions' %}" class="quick-action-btn">
-                            <i class='bx bx-file'></i>
-                            <span>Review Submissions</span>
-                        </a>
                         <a href="{% url 'analytics:supervisor_analytics' %}" class="quick-action-btn">
                             <i class='bx bx-stats'></i>
                             <span>Analytics</span>
                         </a>
-                        <a href="{% url 'chat:create_room' %}" class="quick-action-btn">
+                        <a href="{% url 'chat:chat_home' %}" class="quick-action-btn">
                             <i class='bx bx-chat'></i>
-                            <span>Create Chat</span>
+                            <span>Chat</span>
                         </a>
                         <a href="{% url 'forum:forum_home' %}" class="quick-action-btn">
                             <i class='bx bx-message-rounded'></i>
                             <span>Forum</span>
                         </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Groups Overview with Progress Chart -->
-    <div class="row mb-4">
-        <div class="col-lg-8">
-            <div class="modern-card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class='bx bx-bar-chart-alt-2'></i> Group Progress Overview</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="groupProgressChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-4">
-            <div class="modern-card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class='bx bx-pie-chart-alt-2'></i> Student Status</h5>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container sm">
-                        <canvas id="studentStatusChart"></canvas>
-                    </div>
-                    <div class="mt-3">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span><i class='bx bxs-circle' style="color: var(--success);"></i> On Track</span>
-                            <strong id="on-track-count">0</strong>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span><i class='bx bxs-circle' style="color: var(--warning);"></i> Needs Support</span>
-                            <strong id="needs-support-count">0</strong>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span><i class='bx bxs-circle' style="color: var(--danger);"></i> At Risk</span>
-                            <strong id="at-risk-count">0</strong>
-                        </div>
+                        <a href="{% url 'resources:resource_list' %}" class="quick-action-btn">
+                            <i class='bx bx-book'></i>
+                            <span>Resources</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -207,21 +164,23 @@
                                         <div class="d-flex justify-content-between align-items-start mb-3">
                                             <h6 class="mb-0">{{ group.name }}</h6>
                                             <span class="badge bg-{% if group.is_full %}success{% else %}warning{% endif %}">
-                                                {% if group.is_full %}Full{% else %}Open{% endif %}
+                                                {% if group.is_full %}Full{% else %}{{ group.available_slots }} slots{% endif %}
                                             </span>
                                         </div>
                                         
                                         <div class="mb-3">
                                             <small class="text-muted d-block mb-1">Group Size</small>
-                                            <div class="progress-modern">
+                                            <div class="progress" style="height: 20px;">
+                                                {% widthratio group.student_count group.max_students 100 as capacity_pct %}
                                                 <div class="progress-bar" role="progressbar" 
-                                                     style="width: 0%;"
-                                                     aria-valuenow="{{ group.student_count|default:0 }}" 
+                                                     style="width: {{ capacity_pct }}%"
+                                                     aria-valuenow="{{ capacity_pct }}" 
                                                      aria-valuemin="0" 
-                                                     aria-valuemax="{{ group.max_students }}">
+                                                     aria-valuemax="100">
+                                                    {{ capacity_pct }}%
                                                 </div>
                                             </div>
-                                            <small class="text-muted">{{ group.student_count|default:0 }}/{{ group.max_students }} students</small>
+                                            <small class="text-muted">{{ group.student_count }}/{{ group.max_students }} students</small>
                                         </div>
 
                                         <div class="mb-3">
@@ -279,7 +238,7 @@
                                             {{ deliverable.project.title|truncatechars:35 }}
                                         </small>
                                     </div>
-                                    <a href="{% url 'events:supervisor_review_submissions' %}" class="btn btn-sm btn-primary">
+                                    <a href="{% url 'projects:supervisor_project_detail' deliverable.project.pk %}" class="btn btn-sm btn-primary">
                                         Review
                                     </a>
                                 </div>
@@ -288,7 +247,7 @@
                         </div>
                         {% if pending_deliverables.count > 5 %}
                         <div class="text-center mt-3">
-                            <a href="{% url 'events:supervisor_review_submissions' %}" class="btn btn-sm btn-outline-primary">
+                            <a href="{% url 'projects:supervisor_projects' %}" class="btn btn-sm btn-outline-primary">
                                 View All {{ pending_deliverables.count }}
                             </a>
                         </div>
@@ -319,15 +278,15 @@
                         </div>
                         <div class="list-group list-group-flush">
                             {% for student in high_stress_students|slice:":5" %}
-                            <div class="list-group-item px-0" data-stress-student="{{ student.id }}">
+                            <div class="list-group-item px-0">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6 class="mb-1">{{ student.display_name }}</h6>
                                         <small class="text-muted">
                                             <i class='bx bx-heart'></i> 
-                                            <span class="stress-value">{{ student.stress_level|default:"0" }}%</span>
-                                            <span class="stress-category badge bg-{% if student.stress_level < 30 %}success{% elif student.stress_level < 60 %}warning{% else %}danger{% endif %}">
-                                                {% if student.stress_level < 30 %}Low{% elif student.stress_level < 60 %}Moderate{% else %}High{% endif %}
+                                            {{ student.stress_level|floatformat:0 }}%
+                                            <span class="badge bg-{% if student.stress_level < 60 %}warning{% else %}danger{% endif %}">
+                                                {% if student.stress_level < 60 %}Moderate{% else %}High{% endif %}
                                             </span>
                                         </small>
                                     </div>
@@ -356,16 +315,11 @@
             <div class="modern-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class='bx bx-bar-chart-alt-2'></i> Student Progress Overview</h5>
-                    <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn btn-outline-primary" onclick="sortStudents('name')">Name</button>
-                        <button type="button" class="btn btn-outline-primary active" onclick="sortStudents('progress')">Progress</button>
-                        <button type="button" class="btn btn-outline-primary" onclick="sortStudents('status')">Status</button>
-                    </div>
                 </div>
                 <div class="card-body">
                     {% if supervised_students %}
                         <div class="table-responsive">
-                            <table class="table table-hover" id="studentTable">
+                            <table class="table table-hover">
                                 <thead>
                                     <tr>
                                         <th>Student</th>
@@ -379,7 +333,7 @@
                                 </thead>
                                 <tbody>
                                     {% for student in supervised_students|slice:":10" %}
-                                    <tr data-stress-student="{{ student.id }}">
+                                    <tr>
                                         <td>
                                             <div class="d-flex align-items-center">
                                                 <div class="avatar-sm me-2">
@@ -402,12 +356,9 @@
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center">
-                                                <div class="progress-modern" style="width: 100px;">
+                                                <div class="progress" style="width: 100px; height: 8px;">
                                                     <div class="progress-bar" role="progressbar" 
-                                                         style="width: 0%;"
-                                                         aria-valuenow="{% if student.projects.exists %}{{ student.projects.first.progress_percentage }}{% else %}0{% endif %}" 
-                                                         aria-valuemin="0" 
-                                                         aria-valuemax="100">
+                                                         style="width: {% if student.projects.exists %}{{ student.projects.first.progress_percentage }}{% else %}0{% endif %}%">
                                                     </div>
                                                 </div>
                                                 <span class="ms-2 small">{% if student.projects.exists %}{{ student.projects.first.progress_percentage }}%{% else %}0%{% endif %}</span>
@@ -415,7 +366,7 @@
                                         </td>
                                         <td>
                                             {% if student.projects.exists %}
-                                                <span class="badge bg-{% if student.projects.first.status == 'approved' %}success{% elif student.projects.first.status == 'pending' %}warning{% elif student.projects.first.status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                                                <span class="badge bg-{% if student.projects.first.status == 'in_progress' %}info{% elif student.projects.first.status == 'completed' %}success{% else %}secondary{% endif %}">
                                                     {{ student.projects.first.get_status_display }}
                                                 </span>
                                             {% else %}
@@ -423,9 +374,8 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <span class="stress-value">{{ student.stress_level|default:"0" }}%</span>
-                                            <span class="stress-category badge bg-{% if student.stress_level < 30 %}success{% elif student.stress_level < 60 %}warning{% else %}danger{% endif %}">
-                                                {% if student.stress_level < 30 %}Low{% elif student.stress_level < 60 %}Moderate{% else %}High{% endif %}
+                                            <span class="badge bg-{% if student.stress_level < 40 %}success{% elif student.stress_level < 70 %}warning{% else %}danger{% endif %}">
+                                                {{ student.stress_level|floatformat:0 }}%
                                             </span>
                                         </td>
                                         <td>
@@ -439,10 +389,13 @@
                                         </td>
                                         <td>
                                             <div class="btn-group btn-group-sm">
-                                                <a href="{% url 'analytics:supervisor_view_student' student.pk %}" class="btn btn-outline-primary" title="View Details">
+                                                {% if student.projects.exists %}
+                                                <a href="{% url 'projects:supervisor_project_detail' student.projects.first.pk %}" 
+                                                   class="btn btn-outline-primary" title="View Details">
                                                     <i class='bx bx-show'></i>
                                                 </a>
-                                                <a href="#" class="btn btn-outline-secondary" title="Send Message">
+                                                {% endif %}
+                                                <a href="{% url 'chat:user_chat' student.pk %}" class="btn btn-outline-secondary" title="Send Message">
                                                     <i class='bx bx-message'></i>
                                                 </a>
                                             </div>
@@ -472,86 +425,26 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Group Progress Chart
-    const groupCtx = document.getElementById('groupProgressChart').getContext('2d');
-    new Chart(groupCtx, {
-        type: 'bar',
-        data: {
-            labels: [{% for group in supervised_groups %}'{{ group.name }}',{% endfor %}],
-            datasets: [{
-                label: 'Average Progress',
-                data: [{% for group in supervised_groups %}{{ group.average_progress|default:0 }},{% endfor %}],
-                backgroundColor: 'rgba(85, 104, 254, 0.6)',
-                borderColor: 'rgb(85, 104, 254)',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        callback: function(value) {
-                            return value + '%';
-                        }
-                    }
-                }
-            },
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
-
-    // Student Status Chart
-    const statusCtx = document.getElementById('studentStatusChart').getContext('2d');
-    
-    // Calculate student statuses (simplified - would come from backend in production)
-    const totalStudents = {{ total_students }};
-    const onTrack = Math.floor(totalStudents * 0.6);
-    const needsSupport = Math.floor(totalStudents * 0.3);
-    const atRisk = totalStudents - onTrack - needsSupport;
-
-    document.getElementById('on-track-count').textContent = onTrack;
-    document.getElementById('needs-support-count').textContent = needsSupport;
-    document.getElementById('at-risk-count').textContent = atRisk;
-
-    new Chart(statusCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['On Track', 'Needs Support', 'At Risk'],
-            datasets: [{
-                data: [onTrack, needsSupport, atRisk],
-                backgroundColor: [
-                    'rgb(16, 185, 129)',
-                    'rgb(245, 158, 11)',
-                    'rgb(239, 68, 68)'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
-});
-
-function sortStudents(criteria) {
-    // Implement sorting logic
-    console.log('Sorting by:', criteria);
+<style>
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
 }
 
-function refreshDashboard() {
-    location.reload();
+.empty-state i {
+    font-size: 48px;
+    color: #d1d5db;
+    margin-bottom: 12px;
 }
-</script>
+
+.empty-state h5 {
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.empty-state p {
+    color: #6b7280;
+    margin: 0;
+}
+</style>
 {% endblock %}

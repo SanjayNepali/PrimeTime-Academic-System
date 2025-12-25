@@ -11,7 +11,7 @@ class GroupAdmin(admin.ModelAdmin):
         'name', 'supervisor_name', 'batch_year', 
         'student_count_display', 'status_display', 'created_at'
     ]
-    list_filter = ['batch_year', 'is_active', 'is_full']
+    list_filter = ['batch_year', 'is_active',]
     search_fields = ['name', 'supervisor__username', 'supervisor__first_name', 'supervisor__last_name']
     readonly_fields = ['created_at', 'updated_at']
     
